@@ -31,5 +31,5 @@ winreg = "0.56"
 opt-level = 3
 lto = true
 codegen-units = 1
-panic = "abort"
+panic = "unwind" # decoder panics are caught per request (see lib.rs, pool.rs)
 strip = true
