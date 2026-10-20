@@ -70,7 +70,7 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
         let mut limits = Limits::default();
         limits.max_alloc = Some(MAX_ALLOC);
         reader.limits(limits);
-        reader.decode().map_err(describe)?
+        reader.decode().map_err(|e| describe(e))?
     };
     // PNG/WebP/GIF orientation is ignored by browsers too, so only photo formats are rotated.
     let orientation = if is_photo(&ext) { exif_info::read(path).map_or(1, |e| exif_info::orientation(&e)) } else { 1 };
