@@ -6,6 +6,12 @@ export function stepIndex(index: number, step: number, len: number): number | nu
   return next < 0 || next >= len ? null : next;
 }
 
+/** Like `stepIndex` but a long step stops at the first/last image; null when already there. */
+export function jumpIndex(index: number, step: number, len: number): number | null {
+  const next = Math.min(len - 1, Math.max(0, index + step));
+  return next === index ? null : next;
+}
+
 /**
  * Indices worth keeping decoded: the current one first, then neighbours ordered by
  * how soon they will be needed, biased towards the direction of travel.

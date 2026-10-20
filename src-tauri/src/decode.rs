@@ -178,6 +178,31 @@ mod tests {
     }
 
     #[test]
+    fn tga_has_no_magic_number_so_it_is_decoded_by_extension() {
+        let dir = temp("tga");
+        image::RgbImage::from_pixel(9, 5, image::Rgb([9, 8, 7])).save(dir.join("t.tga")).unwrap();
+        assert_eq!(load(&dir.join("t.tga")).unwrap().dimensions(), (9, 5));
+        assert_eq!(dimensions(&dir.join("t.tga")), Some((9, 5)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn hand_written_tga_header_decodes() {
+        let dir = temp("tga2");
+        let mut tga = vec![0u8; 18];
+        tga[2] = 2; // uncompressed true-colour
+        tga[12..14].copy_from_slice(&4u16.to_le_bytes());
+        tga[14..16].copy_from_slice(&3u16.to_le_bytes());
+        tga[16] = 24;
+        tga[17] = 0x20; // top-left origin
+        tga.extend(std::iter::repeat_n(0x80, 4 * 3 * 3));
+        std::fs::write(dir.join("h.tga"), &tga).unwrap();
+        let r = load(&dir.join("h.tga"));
+        assert_eq!(r.map(|i| i.dimensions()), Ok((4, 3)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn corrupt_files_error_instead_of_panicking() {
         let dir = temp("bad");
         std::fs::write(dir.join("bad.png"), b"not a png").unwrap();

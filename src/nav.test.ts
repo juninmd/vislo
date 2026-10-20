@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { preloadWindow, stepIndex, WheelAccumulator } from "./nav";
+import { jumpIndex, preloadWindow, stepIndex, WheelAccumulator } from "./nav";
 
 describe("stepIndex", () => {
   it("moves within bounds", () => expect(stepIndex(3, 1, 10)).toBe(4));
@@ -33,5 +33,20 @@ describe("WheelAccumulator", () => {
     const w = new WheelAccumulator(100);
     expect(w.push(-250)).toBe(-2);
     expect(w.push(50)).toBe(0);
+  });
+});
+
+describe("jumpIndex", () => {
+  it("moves a full step when there is room", () => {
+    expect(jumpIndex(20, 10, 100)).toBe(30);
+    expect(jumpIndex(20, -10, 100)).toBe(10);
+  });
+  it("stops at the ends instead of failing", () => {
+    expect(jumpIndex(95, 10, 100)).toBe(99);
+    expect(jumpIndex(3, -10, 100)).toBe(0);
+  });
+  it("is null when already at the end", () => {
+    expect(jumpIndex(99, 10, 100)).toBeNull();
+    expect(jumpIndex(0, -10, 100)).toBeNull();
   });
 });
