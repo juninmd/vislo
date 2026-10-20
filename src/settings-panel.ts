@@ -7,6 +7,8 @@ const CHECKS: [string, keyof Settings][] = [
   ["#s-preview", "embedded_preview"],
   ["#s-3d", "filmstrip_3d"],
   ["#s-hover", "hover_preview"],
+  ["#s-keep", "keep_ready"],
+  ["#s-login", "start_with_windows"],
 ];
 
 const GROUPS_KEY = "vislo.groups";

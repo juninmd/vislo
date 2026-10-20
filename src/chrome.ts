@@ -1,26 +1,12 @@
-import { currentMonitor, getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import * as api from "./api";
 import type { Box } from "./zoom";
 
 const win = getCurrentWindow();
-const MIN: Box = { w: 480, h: 360 };
 
-/** Sizes the (still hidden) window around the first image so it opens without any resize flash. */
-export async function showFitted(natural: Box | null, fullscreen = false): Promise<void> {
-  if (fullscreen) {
-    await win.setFullscreen(true);
-  } else if (natural) {
-    const mon = await currentMonitor();
-    const sf = mon?.scaleFactor ?? 1;
-    const maxW = (mon ? mon.size.width / sf : 1600) * 0.9;
-    const maxH = (mon ? mon.size.height / sf : 900) * 0.9;
-    const f = Math.min(1, maxW / natural.w, maxH / natural.h);
-    const w = Math.max(MIN.w, Math.round(natural.w * f));
-    const h = Math.max(MIN.h, Math.round(natural.h * f));
-    await win.setSize(new LogicalSize(w, h));
-    await win.center();
-  }
-  await win.show();
-}
+/** Sizes the (still hidden) window around the first image and shows it, in a single IPC call. */
+export const showFitted = (natural: Box | null, fullscreen = false): Promise<void> =>
+  api.showFitted(natural?.w ?? null, natural?.h ?? null, fullscreen);
 
 export async function isFullscreen(): Promise<boolean> {
   return win.isFullscreen();
