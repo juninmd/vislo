@@ -79,20 +79,31 @@ export class Viewer implements Controller {
   wheelMode = (): WheelMode => this.settings.wheel;
   slide = (): Slide | null => this.current;
   pointerDown = (): void => this.slideshow.stop();
-  get hasAlbum(): boolean {
-    return this.album !== null;
-  }
 
   async load(album: Album): Promise<void> {
     this.slideshow.stop();
     this.cache.clear();
+    this.adopt(album);
+    await this.show(album.index, 1, this.firstShow ? { kind: "none" } : { kind: "slide" });
+  }
+
+  /** Re-lists the folder under the picture on screen (files added or removed elsewhere). */
+  refresh(album: Album): void {
+    this.adopt(album);
+    this.updateHud(album, album.index);
+    for (const i of preloadWindow(album.index, album.files.length, this.dir).slice(1)) this.cache.prefetch(i);
+  }
+
+  files = (): readonly string[] => this.album?.files ?? [];
+  position = (): number => this.index;
+
+  private adopt(album: Album): void {
     this.album = album;
     this.cache = new ImageCache((i) => album.files[i]);
     this.index = this.target = album.index;
     this.app.classList.remove("empty");
     this.app.classList.toggle("single", album.files.length < 2);
     this.strip.build(album.files, album.index);
-    await this.show(album.index, 1, this.firstShow ? { kind: "none" } : { kind: "slide" });
   }
 
   showEmpty = (): void => this.app.classList.add("empty");
@@ -283,7 +294,5 @@ export class Viewer implements Controller {
     })();
   }
 
-  touch(): void {
-    this.hud.touch(this.settings.autohide_controls);
-  }
+  touch = (): void => this.hud.touch(this.settings.autohide_controls);
 }

@@ -23,6 +23,10 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
   exposure, date taken and GPS.
 * **Many formats** – JPEG, PNG, GIF, WebP, BMP, AVIF, ICO, plus TIFF, PSD and the embedded
   JPEG of DNG / CR2 / NEF / ARW / ORF / RW2 RAW files. EXIF orientation is applied.
+* **Always in sync** – files added or deleted in Explorer appear when the window regains focus;
+  deleting the picture on screen opens its neighbour.
+* **Robust decoding** – oversized or corrupt images are refused with a message instead of
+  crashing the app.
 * **Default viewer** – registers itself for the image types (see below).
 * **Settings panel** (gear icon) – wheel behaviour, fullscreen on start, auto-hiding controls,
   background (dark / black / transparent), sharp downscaling, instant preview, 3D filmstrip,
@@ -72,6 +76,7 @@ Requires Node 20+, Rust stable and the
 ```sh
 npm install
 npm test                                        # frontend unit tests
+pwsh scripts/ci-local.ps1                       # everything the CI pipeline runs
 cargo test --manifest-path src-tauri/Cargo.toml # backend tests
 npm run tauri dev                               # hot-reload frontend, empty state (drop a file)
 npm run tauri build                             # NSIS installer with image file associations

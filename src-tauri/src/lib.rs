@@ -116,7 +116,13 @@ pub fn run() {
             };
             let worker = Arc::clone(&svc);
             svc.pool.spawn(move |shed| {
-                responder.respond(if shed { scheme::shed() } else { scheme::serve(&worker, route) });
+                let reply = if shed {
+                    scheme::shed()
+                } else {
+                    // A decoder panic becomes a 500; a dropped responder would leave the request pending.
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scheme::serve(&worker, route))).unwrap_or_else(|_| scheme::failed())
+                };
+                responder.respond(reply);
             });
         })
         .setup(setup)
