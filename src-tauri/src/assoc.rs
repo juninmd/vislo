@@ -4,7 +4,7 @@
 //! path is to register the app (ProgID + Capabilities + RegisteredApplications) and send the
 //! user to Settings > Default apps for a single confirmation.
 
-use crate::album::EXTENSIONS;
+use crate::album::extensions;
 
 pub const APP_NAME: &str = "Vislo";
 pub const PROG_ID: &str = "Vislo.Image";
@@ -33,7 +33,7 @@ pub fn plan(exe: &str, classes: &str, app_root: &str) -> Vec<Entry> {
         entry(format!(r"{app_root}\Capabilities"), "ApplicationName", APP_NAME),
         entry(format!(r"{app_root}\Capabilities"), "ApplicationDescription", DESCRIPTION),
     ];
-    for ext in EXTENSIONS {
+    for ext in extensions() {
         out.push(entry(format!(r"{classes}\.{ext}\OpenWithProgids"), PROG_ID, ""));
         out.push(entry(format!(r"{app_root}\Capabilities\FileAssociations"), &format!(".{ext}"), PROG_ID));
     }
@@ -69,7 +69,7 @@ mod imp {
     /// Removes only what `register` created; the user's chosen defaults for other apps stay.
     pub fn remove(classes: &str, app_root: &str) -> Result<(), String> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        for ext in EXTENSIONS {
+        for ext in extensions() {
             if let Ok(k) = hkcu.open_subkey_with_flags(format!(r"{classes}\.{ext}\OpenWithProgids"), winreg::enums::KEY_SET_VALUE) {
                 let _ = k.delete_value(PROG_ID);
             }
@@ -120,7 +120,7 @@ mod tests {
         let p = plan(r"C:\Apps\Vislo\vislo.exe", r"Software\Classes", r"Software\Vislo");
         let cmd = p.iter().find(|e| e.key.ends_with(r"shell\open\command")).unwrap();
         assert_eq!(cmd.value, r#""C:\Apps\Vislo\vislo.exe" "%1""#);
-        for ext in EXTENSIONS {
+        for ext in extensions() {
             assert!(p.iter().any(|e| e.key == format!(r"Software\Classes\.{ext}\OpenWithProgids") && e.name == PROG_ID), "{ext}");
             assert!(p.iter().any(|e| e.key.ends_with("FileAssociations") && e.name == format!(".{ext}")), "{ext}");
         }
