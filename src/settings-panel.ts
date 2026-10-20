@@ -9,6 +9,31 @@ const CHECKS: [string, keyof Settings][] = [
   ["#s-hover", "hover_preview"],
 ];
 
+const GROUPS_KEY = "vislo.groups";
+
+/** Format groups ticked for default-app registration; remembered per viewer, all ticked by default. */
+function bindGroups(panel: HTMLElement): () => string[] {
+  const boxes = [...panel.querySelectorAll<HTMLInputElement>("input[data-group]")];
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(GROUPS_KEY) ?? "null");
+    if (Array.isArray(saved)) for (const b of boxes) b.checked = saved.includes(b.dataset.group);
+  } catch {
+    /* storage unavailable: keep the defaults */
+  }
+  const chosen = () => boxes.filter((b) => b.checked).map((b) => b.dataset.group!);
+  for (const b of boxes) {
+    b.addEventListener("change", (e) => {
+      e.stopPropagation(); // these are not settings.json fields
+      try {
+        localStorage.setItem(GROUPS_KEY, JSON.stringify(chosen()));
+      } catch {
+        /* remembering is a convenience only */
+      }
+    });
+  }
+  return chosen;
+}
+
 /** Binds the settings panel: every change is validated and saved by the backend, then applied. */
 export function bindSettingsPanel(
   panel: HTMLElement,
@@ -51,9 +76,12 @@ export function bindSettingsPanel(
     }
   });
 
+  const chosenGroups = bindGroups(panel);
   panel.querySelector("#btn-assoc-panel")?.addEventListener("click", async () => {
+    const groups = chosenGroups();
+    if (groups.length === 0) return notify("Tick at least one format first");
     try {
-      await registerAssociations();
+      await registerAssociations(groups);
       notify("Registered. Pick Vislo for your image types in Settings > Default apps.");
     } catch (err) {
       notify(String(err));

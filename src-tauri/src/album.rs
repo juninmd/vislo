@@ -9,7 +9,7 @@ pub const NATIVE_EXTENSIONS: &[&str] = &[
 
 /// Formats decoded in Rust and served as JPEG/PNG through the `vislo` protocol.
 /// RAW files show their embedded full-size JPEG preview, not a developed image.
-pub const CONVERTED_EXTENSIONS: &[&str] = &["tif", "tiff", "psd", "dng", "cr2", "nef", "arw", "orf", "rw2"];
+pub const CONVERTED_EXTENSIONS: &[&str] = &["tif", "tiff", "tga", "psd", "dng", "cr2", "nef", "arw", "orf", "rw2"];
 
 pub fn extensions() -> impl Iterator<Item = &'static str> {
     NATIVE_EXTENSIONS.iter().chain(CONVERTED_EXTENSIONS).copied()
