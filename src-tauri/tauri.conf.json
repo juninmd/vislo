@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenPic",
+  "productName": "Vislo",
   "version": "0.1.0",
-  "identifier": "dev.juninmd.openpic",
+  "identifier": "dev.juninmd.vislo",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -11,23 +11,9 @@
   },
   "app": {
     "withGlobalTauri": false,
-    "windows": [
-      {
-        "label": "main",
-        "title": "OpenPic",
-        "width": 960,
-        "height": 640,
-        "minWidth": 360,
-        "minHeight": 280,
-        "center": true,
-        "visible": false,
-        "backgroundColor": "#0e0e10",
-        "theme": "Dark",
-        "dragDropEnabled": true
-      }
-    ],
+    "windows": [],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost",
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost vislo: http://vislo.localhost data: blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost",
       "assetProtocol": { "enable": true, "scope": [] }
     }
   },
@@ -41,7 +27,10 @@
       { "ext": ["gif"], "name": "GIF image", "description": "GIF image", "role": "Viewer" },
       { "ext": ["webp"], "name": "WebP image", "description": "WebP image", "role": "Viewer" },
       { "ext": ["bmp"], "name": "Bitmap image", "description": "Bitmap image", "role": "Viewer" },
-      { "ext": ["avif"], "name": "AVIF image", "description": "AVIF image", "role": "Viewer" }
+      { "ext": ["avif"], "name": "AVIF image", "description": "AVIF image", "role": "Viewer" },
+      { "ext": ["tif", "tiff"], "name": "TIFF image", "description": "TIFF image", "role": "Viewer" },
+      { "ext": ["psd"], "name": "Photoshop image", "description": "Photoshop image", "role": "Viewer" },
+      { "ext": ["dng", "cr2", "nef", "arw", "orf", "rw2"], "name": "RAW photo", "description": "RAW photo (embedded preview)", "role": "Viewer" }
     ]
   }
 }

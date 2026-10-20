@@ -1,338 +1,289 @@
-import { bump, slide } from "./anim";
-import { ImageCache } from "./cache";
+import { bump } from "./anim";
+import type { Album, Settings, WheelMode } from "./api";
+import { ImageCache, type Loaded } from "./cache";
 import * as chrome from "./chrome";
 import { Filmstrip } from "./filmstrip";
-import { type Dir, preloadWindow, stepIndex, WheelAccumulator } from "./nav";
-import { actualScale, type Box, clampView, FIT, fitSize, maxScale, type View, zoomAt, zoomPercent } from "./zoom";
+import { isJpeg, isNative, isStill } from "./formats";
+import { HoverPreview } from "./hover";
+import { InfoPanel } from "./info";
+import { Hud } from "./hud";
+import { bindButtons, bindInput, type Controller } from "./input";
+import { type Dir, preloadWindow, stepIndex } from "./nav";
+import { Sharpener } from "./sharp";
+import { Slide } from "./slide";
+import { Slideshow } from "./slideshow";
+import { nextSlide } from "./slideshow-logic";
+import { loadPreview, slideshowFullscreen, type Transition, Transitioner } from "./transitions";
+import type { Box } from "./zoom";
 
-export interface Album {
-  dir: string;
-  files: string[];
-  index: number;
-}
+export type { Album };
 
-const IDLE_MS = 2200;
-const ZOOM_MS = 110;
-const ZOOM_TIP_MS = 2000; // the zoom readout fades after 2 s
-/** Zoom per wheel pixel: one 100px mouse notch is about +22%. */
-const WHEEL_ZOOM = 0.002;
+const PREVIEW_DELAY_MS = 70; // decode slower than this and the embedded preview is shown first
 const basename = (p: string) => p.slice(Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/")) + 1);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-export class Viewer {
+export class Viewer implements Controller {
+  readonly stage: HTMLElement;
   private album: Album | null = null;
   private cache = new ImageCache(() => "");
   private index = 0; // shown
   private target = 0; // requested; runs ahead of `index` while a decode is pending
   private seq = 0;
   private dir: Dir = 1;
-  private slideEl: HTMLElement | null = null;
-  private img: HTMLImageElement | null = null;
-  private view: View = FIT;
-  private anims: Animation[] = [];
+  private current: Slide | null = null;
+  private transitions = new Transitioner();
   private firstShow = true;
-  private idleTimer = 0;
-  private msgTimer = 0;
-  private zoomTimer = 0;
-  private wheel = new WheelAccumulator();
+  private hud: Hud;
+  private sharpener = new Sharpener();
   private strip: Filmstrip;
+  private hover: HoverPreview;
+  private info: InfoPanel;
+  private slideshow: Slideshow;
 
   constructor(
     private readonly app: HTMLElement,
-    private readonly stage: HTMLElement,
+    private settings: Settings,
   ) {
-    this.strip = new Filmstrip(this.q("#strip"), (i) => this.jump(i));
-    new ResizeObserver(() => this.layout()).observe(stage);
-    this.bindInput();
-    this.wake();
+    this.stage = this.q("#stage");
+    this.hud = new Hud(app);
+    this.strip = new Filmstrip(this.q("#strip"), {
+      select: (i) => this.jumpTo(i),
+      step: (d) => this.go(d),
+      hover: (i, rect) => this.onHover(i, rect),
+    });
+    this.hover = new HoverPreview(this.q("#hover"));
+    this.info = new InfoPanel(this.q("#info"));
+    const fullscreen = slideshowFullscreen();
+    this.slideshow = new Slideshow({
+      displayMs: () => this.settings.slideshow_display_ms,
+      fadeMs: () => this.settings.slideshow_fade_ms,
+      advance: (ms) => this.advance(ms),
+      changed: (running) => {
+        this.app.classList.toggle("slideshow", running);
+        fullscreen(running);
+      },
+    });
+    new ResizeObserver(() => {
+      this.current?.layout(this.stageBox());
+      this.scheduleSharp();
+    }).observe(this.stage);
+    bindButtons(app, this);
+    bindInput(this);
+    this.applySettings(settings);
   }
 
   private q<T extends HTMLElement>(sel: string): T {
     return this.app.querySelector<T>(sel)!;
   }
 
-  // ---- album ---------------------------------------------------------------
+  wheelMode = (): WheelMode => this.settings.wheel;
+  slide = (): Slide | null => this.current;
+  pointerDown = (): void => this.slideshow.stop();
+  get hasAlbum(): boolean {
+    return this.album !== null;
+  }
 
   async load(album: Album): Promise<void> {
+    this.slideshow.stop();
     this.cache.clear();
     this.album = album;
     this.cache = new ImageCache((i) => album.files[i]);
     this.index = this.target = album.index;
     this.app.classList.remove("empty");
     this.app.classList.toggle("single", album.files.length < 2);
-    if (this.app.classList.contains("strip-on")) this.strip.build(album.files);
-    await this.show(album.index, 1, !this.firstShow);
+    this.strip.build(album.files, album.index);
+    await this.show(album.index, 1, this.firstShow ? { kind: "none" } : { kind: "slide" });
   }
 
-  get hasAlbum(): boolean {
-    return this.album !== null;
-  }
+  showEmpty = (): void => this.app.classList.add("empty");
+  notify = (text: string): void => this.hud.toast(text);
 
-  showEmpty(): void {
-    this.app.classList.add("empty");
+  applySettings(s: Settings): void {
+    this.settings = s;
+    for (const bg of ["dark", "black", "transparent"]) this.app.classList.toggle(`bg-${bg}`, s.background === bg);
+    this.strip.set3d(s.filmstrip_3d);
+    if (s.sharp_downscale) this.scheduleSharp();
+    else this.current?.clearSharp();
+    this.touch();
   }
-
-  notify(text: string): void {
-    const el = this.q("#msg");
-    el.textContent = text;
-    el.classList.add("show");
-    clearTimeout(this.msgTimer);
-    this.msgTimer = window.setTimeout(() => el.classList.remove("show"), 3500);
-  }
-
-  // ---- navigation ----------------------------------------------------------
 
   go(step: number): void {
     if (!this.album) return;
     const next = stepIndex(this.target, step, this.album.files.length);
     if (next === null) {
-      if (this.slideEl) bump(this.slideEl, step > 0 ? -1 : 1);
+      if (this.current) bump(this.current.el, step > 0 ? -1 : 1);
       return;
     }
+    this.slideshow.restart();
     this.target = next;
-    void this.show(next, step > 0 ? 1 : -1, true);
+    void this.show(next, step > 0 ? 1 : -1, { kind: "slide" });
   }
 
-  private jump(index: number): void {
+  jump(where: "first" | "last"): void {
+    if (this.album) this.jumpTo(where === "first" ? 0 : this.album.files.length - 1);
+  }
+
+  private jumpTo(index: number): void {
     if (!this.album || index === this.target) return;
+    this.slideshow.restart();
     const dir: Dir = index > this.target ? 1 : -1;
     this.target = index;
-    void this.show(index, dir, true);
+    void this.show(index, dir, { kind: "slide" });
   }
 
-  private async show(index: number, dir: Dir, animate: boolean): Promise<void> {
+  private advance(fadeMs: number): boolean {
+    const next = this.album && nextSlide(this.target, this.album.files.length);
+    if (next === null || next === undefined) return false;
+    this.target = next;
+    void this.show(next, 1, { kind: "fade", ms: fadeMs });
+    return true;
+  }
+
+  private async show(index: number, dir: Dir, t: Transition): Promise<void> {
     const album = this.album;
     if (!album) return;
     const seq = ++this.seq;
     this.dir = dir;
+    const path = album.files[index];
     const loaded = this.cache.get(index);
-    const ok = await loaded.ready;
+    const quick = await Promise.race([loaded.ready, sleep(PREVIEW_DELAY_MS).then(() => false)]);
     if (seq !== this.seq) return; // a newer request superseded this one while decoding
-    this.settle();
 
-    const el = document.createElement("div");
-    el.className = "slide";
-    if (ok) {
-      this.img = loaded.img;
-      el.append(loaded.img);
-    } else {
-      this.img = null;
-      el.className += " broken";
-      el.textContent = `Cannot display ${basename(album.files[index])}`;
+    const placeholder =
+      !quick && this.settings.embedded_preview && (isJpeg(path) || !isNative(path))
+        ? await Promise.race([loadPreview(path), loaded.ready.then(() => null)])
+        : null;
+    if (seq !== this.seq) return;
+
+    const slide = new Slide();
+    if (placeholder) {
+      slide.setPreview(placeholder);
+      this.present(slide, index, t);
+      await this.reveal(slide);
+      const ok = await loaded.ready;
+      if (seq !== this.seq) return;
+      this.fill(slide, loaded, ok, path);
+      return;
     }
-    const prev = this.slideEl;
-    this.stage.append(el);
-    this.slideEl = el;
+    this.fill(slide, loaded, quick || (await loaded.ready), path);
+    if (seq !== this.seq) return;
+    this.present(slide, index, t);
+    await this.reveal(slide);
+  }
+
+  private fill(slide: Slide, loaded: Loaded, ok: boolean, path: string): void {
+    if (ok) slide.setImage(loaded.img);
+    else slide.setError(`${basename(path)} is not a valid image file`);
+    slide.layout(this.stageBox());
+    if (slide === this.current) this.scheduleSharp();
+  }
+
+  private present(slide: Slide, index: number, t: Transition): void {
+    const album = this.album!;
+    this.transitions.swap(this.stage, slide, this.current, t, this.dir);
+    this.current = slide;
     this.index = index;
-    this.view = FIT;
-    this.q("#zoomtip").classList.remove("show");
-    this.layout();
+    this.hud.hideZoom();
+    slide.layout(this.stageBox());
     this.updateHud(album, index);
-    this.strip.setActive(index, animate);
-
-    if (animate && prev) {
-      this.anims = slide(el, prev, dir, this.stage.clientWidth);
-      const [incoming] = this.anims;
-      void Promise.all(this.anims.map((a) => a.finished)).then(
-        () => {
-          prev.remove();
-          incoming.cancel();
-        },
-        () => prev.remove(),
-      );
-    } else {
-      prev?.remove();
-    }
-
-    this.prefetch(album, index);
-    if (this.firstShow) {
-      this.firstShow = false;
-      await chrome.showFitted(this.img ? this.naturalBox(this.img) : null);
-    }
-  }
-
-  /** Fast-forwards a running transition so the next one starts from a clean state. */
-  private settle(): void {
-    for (const a of this.anims) a.finish();
-    this.anims = [];
-  }
-
-  private prefetch(album: Album, index: number): void {
+    this.strip.setActive(index, t.kind !== "none");
+    this.info.refresh(album.files[index]);
     const keep = preloadWindow(index, album.files.length, this.dir);
     this.cache.retain(keep);
     for (const i of keep) this.cache.prefetch(i);
+    this.scheduleSharp();
+  }
+
+  /** Shows the hidden window once, sized to the first picture (known from its header if need be). */
+  private async reveal(slide: Slide): Promise<void> {
+    if (!this.firstShow) return;
+    this.firstShow = false;
+    const dpr = window.devicePixelRatio || 1;
+    const size = this.album?.size;
+    const natural = slide.natural() ?? (size ? { w: size[0] / dpr, h: size[1] / dpr } : null);
+    await chrome.showFitted(natural, this.settings.fullscreen_on_start);
   }
 
   private updateHud(album: Album, index: number): void {
     const name = basename(album.files[index]);
-    this.q("#name").textContent = name;
-    this.q("#count").textContent = `${index + 1} / ${album.files.length}`;
-    void chrome.setTitle(`${name} — OpenPic`);
-  }
-
-  // ---- layout & zoom -------------------------------------------------------
-
-  private naturalBox(img: HTMLImageElement): Box {
-    const dpr = window.devicePixelRatio || 1;
-    return { w: img.naturalWidth / dpr, h: img.naturalHeight / dpr };
+    this.hud.setPicture(name, index, album.files.length);
+    void chrome.setTitle(`${name} — Vislo`);
   }
 
   private stageBox(): Box {
     return { w: this.stage.clientWidth, h: this.stage.clientHeight };
   }
 
-  private fit(): Box | null {
-    return this.img ? fitSize(this.naturalBox(this.img), this.stageBox()) : null;
+  zoomBy(factor: number, cx = 0, cy = 0): void {
+    this.current?.zoomBy(factor, cx, cy);
+    this.showZoom();
   }
 
-  /** Re-fits the image to the stage and re-applies the zoom transform. */
-  private layout(): void {
-    const fit = this.fit();
-    const img = this.img;
-    if (!fit || !img) return;
-    img.style.width = `${fit.w}px`;
-    img.style.height = `${fit.h}px`;
-    this.view = clampView(this.view, fit, this.stageBox());
-    this.apply();
+  zoomFit(): void {
+    if (this.current) this.zoomBy(1 / this.current.view.scale);
   }
 
-  /** `smooth` eases wheel/key zoom; panning and re-layout must follow the pointer 1:1. */
-  private apply(smooth = false): void {
-    const { scale, x, y } = this.view;
-    if (this.img) {
-      this.img.style.transition = smooth ? `transform ${ZOOM_MS}ms var(--ease)` : "none";
-      this.img.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-    }
-    this.slideEl?.classList.toggle("zoomed", scale > 1);
+  toggleActual(cx: number, cy: number): void {
+    this.current?.toggleActual(cx, cy);
+    this.showZoom();
   }
 
-  private zoomBy(factor: number, cx = 0, cy = 0): void {
-    const fit = this.fit();
-    if (!fit) return;
-    const max = maxScale(this.naturalBox(this.img!), fit);
-    this.view = zoomAt(this.view, factor, cx, cy, fit, this.stageBox(), max);
-    this.apply(true);
+  rotate(dir: 1 | -1): void {
+    this.current?.rotate(dir);
     this.showZoom();
   }
 
   private showZoom(): void {
-    const fit = this.fit();
-    if (!fit || !this.img) return;
-    const tip = this.q("#zoomtip");
-    tip.textContent = `${zoomPercent(this.view, this.naturalBox(this.img), fit)}%`;
-    tip.classList.add("show");
-    clearTimeout(this.zoomTimer);
-    this.zoomTimer = window.setTimeout(() => tip.classList.remove("show"), ZOOM_TIP_MS);
+    const pct = this.current?.percent();
+    if (pct !== null && pct !== undefined) this.hud.showZoom(pct);
   }
 
-  /** Cursor position relative to the stage centre, the origin zoom math works in. */
-  private fromCentre(e: { clientX: number; clientY: number }): [number, number] {
-    const r = this.stage.getBoundingClientRect();
-    return [e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2];
+  private scheduleSharp(): void {
+    const slide = this.current;
+    const path = this.album?.files[this.index];
+    if (!slide || !path || !this.settings.sharp_downscale || !isStill(path)) return this.sharpener.cancel();
+    this.sharpener.schedule(slide, path, (s) => s === this.current);
   }
 
-  private toggleActual(cx: number, cy: number): void {
-    const fit = this.fit();
-    if (!fit || !this.img) return;
-    const target = actualScale(this.naturalBox(this.img), fit);
-    const factor = this.view.scale > 1 ? 1 / this.view.scale : target / this.view.scale;
-    this.zoomBy(factor, cx, cy);
+  private onHover(index: number | null, rect?: DOMRect): void {
+    const path = index === null ? undefined : this.album?.files[index];
+    if (!this.settings.hover_preview || !path || !rect) this.hover.hide();
+    else this.hover.show(path, rect);
   }
 
-  // ---- input ---------------------------------------------------------------
-
-  private wake(): void {
-    this.app.classList.remove("idle");
-    clearTimeout(this.idleTimer);
-    this.idleTimer = window.setTimeout(() => this.app.classList.add("idle"), IDLE_MS);
+  toggleStrip(): void {
+    this.app.classList.toggle("strip-on");
+    this.hover.hide();
   }
 
-  private toggleStrip(): void {
-    const on = this.app.classList.toggle("strip-on");
-    if (on && this.album) {
-      this.strip.build(this.album.files);
-      this.strip.setActive(this.index, false);
-    }
+  toggleInfo(): void {
+    this.info.toggle(this.album?.files[this.index] ?? null);
   }
 
-  private bindInput(): void {
-    for (const ev of ["mousemove", "pointerdown", "keydown"]) addEventListener(ev, () => this.wake());
-    this.q("#prev").addEventListener("click", () => this.go(-1));
-    this.q("#next").addEventListener("click", () => this.go(1));
-    this.q("#btn-strip").addEventListener("click", () => this.toggleStrip());
-    this.q("#btn-full").addEventListener("click", () => void chrome.toggleFullscreen());
-
-    this.stage.addEventListener(
-      "wheel",
-      (e) => {
-        e.preventDefault();
-        const scale = e.deltaMode === 1 ? 40 : 1; // lines -> px
-        const dx = e.deltaX * scale;
-        const dy = e.deltaY * scale;
-        // Shift+wheel and horizontal swipes flip through the folder; everything else zooms.
-        if (e.shiftKey || Math.abs(dx) > Math.abs(dy)) {
-          const steps = this.wheel.push(dx || dy);
-          for (let i = 0; i < Math.min(Math.abs(steps), 3); i++) this.go(Math.sign(steps));
-          return;
-        }
-        this.wheel.reset();
-        this.zoomBy(Math.exp(-dy * WHEEL_ZOOM), ...this.fromCentre(e));
-      },
-      { passive: false },
-    );
-
-    this.stage.addEventListener("dblclick", (e) => this.toggleActual(...this.fromCentre(e)));
-    this.bindPan();
-    addEventListener("keydown", (e) => this.onKey(e));
-    this.app.addEventListener("contextmenu", (e) => e.preventDefault());
+  toggleSlideshow(): void {
+    this.slideshow.toggle();
   }
 
-  private onKey(e: KeyboardEvent): void {
-    if (e.altKey || e.metaKey) return;
-    const k = e.key;
-    const last = (this.album?.files.length ?? 1) - 1;
-    if (k === "ArrowRight" || k === "PageDown" || (k === " " && !e.shiftKey)) this.go(1);
-    else if (k === "ArrowLeft" || k === "PageUp" || k === "Backspace" || (k === " " && e.shiftKey)) this.go(-1);
-    else if (k === "Home") this.jump(0);
-    else if (k === "End") this.jump(last);
-    else if (k === "+" || k === "=") this.zoomBy(1.25);
-    else if (k === "-" || k === "_") this.zoomBy(0.8);
-    else if (k === "0") this.zoomBy(1 / this.view.scale);
-    else if (k === "1") this.toggleActual(0, 0);
-    else if (k === "t" || k === "T") this.toggleStrip();
-    else if (k === "f" || k === "F" || k === "F11") void chrome.toggleFullscreen();
-    else if (k === "Escape") void this.escape();
-    else return;
-    e.preventDefault();
+  toggleSettings(): void {
+    this.q("#panel").classList.toggle("show");
   }
 
-  private async escape(): Promise<void> {
-    if (await chrome.isFullscreen()) await chrome.toggleFullscreen();
-    else await chrome.closeWindow();
+  toggleFullscreen(): void {
+    void chrome.toggleFullscreen();
   }
 
-  private bindPan(): void {
-    let drag: { x: number; y: number; vx: number; vy: number } | null = null;
-    this.stage.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0 || this.view.scale <= 1) return;
-      drag = { x: e.clientX, y: e.clientY, vx: this.view.x, vy: this.view.y };
-      this.stage.setPointerCapture(e.pointerId);
-      this.slideEl?.classList.add("panning");
-    });
-    this.stage.addEventListener("pointermove", (e) => {
-      const fit = this.fit();
-      if (!drag || !fit) return;
-      this.view = clampView(
-        { scale: this.view.scale, x: drag.vx + e.clientX - drag.x, y: drag.vy + e.clientY - drag.y },
-        fit,
-        this.stageBox(),
-      );
-      this.apply();
-    });
-    const end = () => {
-      drag = null;
-      this.slideEl?.classList.remove("panning");
-    };
-    this.stage.addEventListener("pointerup", end);
-    this.stage.addEventListener("pointercancel", end);
+  escape(): void {
+    void (async () => {
+      const panel = this.q("#panel");
+      if (panel.classList.contains("show")) panel.classList.remove("show");
+      else if (this.info.visible) this.info.close();
+      else if (this.slideshow.running) this.slideshow.stop();
+      else if (await chrome.isFullscreen()) await chrome.toggleFullscreen();
+      else await chrome.closeWindow();
+    })();
+  }
+
+  touch(): void {
+    this.hud.touch(this.settings.autohide_controls);
   }
 }
