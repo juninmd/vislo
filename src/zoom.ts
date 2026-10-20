@@ -40,6 +40,22 @@ export function zoomAt(view: View, factor: number, cx: number, cy: number, fit: 
   return clampView({ scale, x: cx - (cx - view.x) * k, y: cy - (cy - view.y) * k }, fit, stage);
 }
 
+/** Zoom change per `+` / `-` press or button click. */
+export const ZOOM_STEP = 1.15;
+
+const near = (a: number, b: number): boolean => Math.abs(a - b) <= 1e-6 * Math.max(a, b);
+
+/**
+ * Next scale for one zoom step. A fresh press moves freely; a held (repeating) key snaps to the
+ * `detents` (fit, 100%) it would cross and stops there, so the key must be released to go on.
+ */
+export function stepScale(scale: number, dir: 1 | -1, repeat: boolean, detents: readonly number[]): number {
+  const next = scale * ZOOM_STEP ** dir;
+  if (!repeat) return next;
+  if (detents.some((d) => near(scale, d))) return scale;
+  return detents.find((d) => (scale < d && d < next) || (next < d && d < scale) || near(next, d)) ?? next;
+}
+
 /** Scale (relative to fit) at which one image pixel is one device pixel; never below fit. */
 export function actualScale(naturalCss: Box, fit: Box): number {
   return Math.max(1, naturalCss.w / fit.w);

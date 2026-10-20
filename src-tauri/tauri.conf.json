@@ -29,6 +29,7 @@
       { "ext": ["bmp"], "name": "Bitmap image", "description": "Bitmap image", "role": "Viewer" },
       { "ext": ["avif"], "name": "AVIF image", "description": "AVIF image", "role": "Viewer" },
       { "ext": ["tif", "tiff"], "name": "TIFF image", "description": "TIFF image", "role": "Viewer" },
+      { "ext": ["tga"], "name": "Targa image", "description": "Targa image", "role": "Viewer" },
       { "ext": ["psd"], "name": "Photoshop image", "description": "Photoshop image", "role": "Viewer" },
       { "ext": ["dng", "cr2", "nef", "arw", "orf", "rw2"], "name": "RAW photo", "description": "RAW photo (embedded preview)", "role": "Viewer" }
     ]

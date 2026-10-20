@@ -21,7 +21,7 @@ async function open(viewer: Viewer, path: string): Promise<void> {
 
 async function boot(): Promise<void> {
   const settings = await getSettings();
-  const viewer = new Viewer(app, settings);
+  const viewer = new Viewer(app, settings, (p) => open(viewer, p));
   bindSettingsPanel(document.getElementById("panel")!, settings, (s) => viewer.applySettings(s), (t) => viewer.notify(t));
 
   document.getElementById("btn-assoc")!.addEventListener("click", async () => {

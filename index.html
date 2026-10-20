@@ -11,6 +11,7 @@
       <div id="empty">
         <p>Open an image with <b>Vislo</b></p>
         <small>or drop a file here</small>
+        <button id="btn-open" class="assoc" type="button">Open image… <kbd>O</kbd></button>
         <button id="btn-assoc" class="assoc" type="button">Set as default image viewer</button>
       </div>
       <div id="msg" role="status"></div>
@@ -18,6 +19,7 @@
       <div id="caption"></div>
       <header class="hud">
         <span id="name"></span>
+        <span id="dims"></span>
         <span id="count"></span>
         <span class="spacer"></span>
         <button id="btn-rot-l" title="Rotate left (Shift+R)" aria-label="Rotate left">
@@ -59,11 +61,26 @@
         <label>Background <em>(next launch)</em>
           <select id="s-bg"><option value="dark">Dark</option><option value="black">Black</option><option value="transparent">Transparent</option></select>
         </label>
+        <fieldset id="s-groups">
+          <legend>Default viewer for</legend>
+          <label class="check"><input type="checkbox" data-group="jpeg" checked /> JPEG</label>
+          <label class="check"><input type="checkbox" data-group="png" checked /> PNG</label>
+          <label class="check"><input type="checkbox" data-group="gif" checked /> GIF</label>
+          <label class="check"><input type="checkbox" data-group="bmp" checked /> BMP</label>
+          <label class="check"><input type="checkbox" data-group="tiff" checked /> TIFF</label>
+          <label class="check"><input type="checkbox" data-group="tga" checked /> TGA</label>
+          <label class="check"><input type="checkbox" data-group="webp" checked /> WebP</label>
+          <label class="check"><input type="checkbox" data-group="avif" checked /> AVIF</label>
+          <label class="check"><input type="checkbox" data-group="ico" checked /> ICO</label>
+          <label class="check"><input type="checkbox" data-group="psd" checked /> PSD</label>
+          <label class="check"><input type="checkbox" data-group="raw" checked /> RAW</label>
+        </fieldset>
         <button id="btn-assoc-panel" class="assoc" type="button">Set as default image viewer</button>
       </aside>
       <button id="prev" class="nav" title="Previous (←)" aria-label="Previous image">‹</button>
       <button id="next" class="nav" title="Next (→)" aria-label="Next image">›</button>
       <div id="hover" aria-hidden="true"></div>
+      <div id="ctxmenu" role="menu" aria-label="Image actions" hidden></div>
       <div id="strip" aria-label="Filmstrip"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
