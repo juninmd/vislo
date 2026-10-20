@@ -166,7 +166,7 @@ export class Viewer {
     const name = basename(album.files[index]);
     this.q("#name").textContent = name;
     this.q("#count").textContent = `${index + 1} / ${album.files.length}`;
-    void chrome.setTitle(`${name} — OpenPic`);
+    void chrome.setTitle(`${name} — Vislo`);
   }
 
   // ---- layout & zoom -------------------------------------------------------

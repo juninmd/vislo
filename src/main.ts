@@ -18,6 +18,15 @@ async function openPath(path: string): Promise<void> {
   }
 }
 
+document.getElementById("btn-assoc")!.addEventListener("click", async () => {
+  try {
+    await invoke("register_associations");
+    viewer.notify("Registered. Pick Vislo for your image types in Settings > Default apps.");
+  } catch (err) {
+    viewer.notify(String(err));
+  }
+});
+
 async function boot(): Promise<void> {
   await listen<string>("open-path", (e) => void openPath(e.payload));
   await getCurrentWebview().onDragDropEvent((e) => {

@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 /// Formats WebView2 can decode natively; anything else would open as a broken image.
-const EXTENSIONS: &[&str] = &[
+pub const EXTENSIONS: &[&str] = &[
     "jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "avif", "ico",
 ];
 
@@ -58,7 +58,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("openpic-test-{tag}-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("vislo-test-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
@@ -74,9 +74,9 @@ mod tests {
 
     #[test]
     fn path_from_args_skips_exe_and_flags() {
-        let args = ["openpic.exe", "--flag", r"C:\pics\a.jpg"].map(String::from);
+        let args = ["vislo.exe", "--flag", r"C:\pics\a.jpg"].map(String::from);
         assert_eq!(path_from_args(args), Some(r"C:\pics\a.jpg".to_string()));
-        assert_eq!(path_from_args(["openpic.exe".to_string()]), None);
+        assert_eq!(path_from_args(["vislo.exe".to_string()]), None);
     }
 
     #[test]
