@@ -9,8 +9,9 @@ export interface Box {
   h: number;
 }
 
-/** Zoom ceiling as a multiple of the image's own pixels (10 = 1000%). */
-export const MAX_ZOOM = 10;
+/** Zoom range as a multiple of the image's own pixels (0.01 = 1%, 100 = 10,000%). */
+export const MIN_ZOOM = 0.01;
+export const MAX_ZOOM = 100;
 export const FIT: View = { scale: 1, x: 0, y: 0 };
 
 /** Largest size the image takes without upscaling: natural CSS size, shrunk to fit the stage. */
@@ -32,10 +33,10 @@ export function clampView(view: View, fit: Box, stage: Box): View {
 
 /**
  * Scales by `factor` keeping the point under (cx, cy) — given from the stage centre — fixed.
- * `max` is the highest allowed scale relative to the fitted size (see `maxScale`).
+ * `max` / `min` bound the scale relative to the fitted size (see `maxScale`, `minScale`).
  */
-export function zoomAt(view: View, factor: number, cx: number, cy: number, fit: Box, stage: Box, max: number): View {
-  const scale = Math.min(max, Math.max(1, view.scale * factor));
+export function zoomAt(view: View, factor: number, cx: number, cy: number, fit: Box, stage: Box, max: number, min = 1): View {
+  const scale = Math.min(max, Math.max(min, view.scale * factor));
   const k = scale / view.scale;
   return clampView({ scale, x: cx - (cx - view.x) * k, y: cy - (cy - view.y) * k }, fit, stage);
 }
@@ -69,6 +70,11 @@ export function zoomPercent(view: View, naturalCss: Box, fit: Box): number {
 /** Highest scale (relative to fit) that shows the image at `MAX_ZOOM` x its pixel size. */
 export function maxScale(naturalCss: Box, fit: Box): number {
   return Math.max(1, (naturalCss.w * MAX_ZOOM) / fit.w);
+}
+
+/** Lowest scale (relative to fit) that shows the image at `MIN_ZOOM` x its pixel size; never above fit. */
+export function minScale(naturalCss: Box, fit: Box): number {
+  return Math.min(1, (naturalCss.w * MIN_ZOOM) / fit.w);
 }
 
 /** True when `rot` (degrees) leaves the image lying on its side. */

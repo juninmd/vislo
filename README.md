@@ -12,8 +12,10 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
   already sized to it. Large JPEGs and RAW files show their embedded preview first.
 * **Folder navigation** – every image next to the one you opened, in Explorer order
   (`img2` before `img10`), with slide animations and look-ahead preloading.
-* **Zoom to 1000%** – wheel / pinch / `+` `-` zoom at the cursor; a `NN%` tooltip shows the level
-  and fades after 2 s. Drag to pan, double-click toggles fit ↔ 100%.
+* **Zoom from 1% to 10,000%** – wheel / pinch / `+` `-` zoom at the cursor with an eased, even
+  animation (1% → 100% takes one smooth move, not a late rush); a `NN%` tooltip shows the level
+  and fades after 2 s. From 400% up, pixels are drawn as crisp squares. Drag to pan,
+  double-click toggles fit ↔ 100%. Honours the OS "reduce motion" setting.
 * **Sharp downscaling** – photos shown much smaller than their pixels are re-sampled with
   Lanczos in Rust instead of the browser's cheaper filter.
 * **3D filmstrip** (`T`) – thumbnails rendered in Rust and cached on disk, a continuously eased
@@ -22,8 +24,14 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 * **Size in view** – the pixel size is shown beside the file name and in the window title.
 * **Rotate the view** (`R` / `Shift+R`), **info panel** (`I`) with size, dimensions, camera,
   exposure, date taken and GPS.
-* **Many formats** – JPEG, PNG, GIF, WebP, BMP, AVIF, ICO, plus TIFF, TGA, PSD and the embedded
-  JPEG of DNG / CR2 / NEF / ARW / ORF / RW2 RAW files. EXIF orientation is applied.
+* **Many formats** – JPEG (incl. JIF/JFI/PJPEG), PNG/APNG, GIF, WebP, BMP/DIB, AVIF, ICO, plus TIFF,
+  TGA, PSD, Netpbm (PBM/PGM/PPM/PNM/PAM), Radiance HDR and OpenEXR (tone-mapped to sRGB), DDS (DXT),
+  QOI, farbfeld, and the embedded JPEG of 26 camera RAW types (DNG, CR2, CR3, CRW, NEF, NRW, ARW,
+  SRF, SR2, ORF, RW2, RAF, PEF, SRW, X3F, 3FR, FFF, IIQ, MEF, MOS, MRW, DCR, KDC, ERF, RWL, RAW).
+  EXIF orientation is applied.
+* **Keep ready** (settings, off by default) – closing the window parks Vislo in the tray instead of
+  quitting, so the next image opens in tens of milliseconds; *Start ready when I sign in* adds a
+  per-user Run entry (`vislo.exe --background`). Tray menu: *Quit Vislo*.
 * **Always in sync** – files added or deleted in Explorer appear when the window regains focus;
   deleting the picture on screen opens its neighbour.
 * **Robust decoding** – oversized or corrupt images are refused with a message instead of
@@ -47,7 +55,7 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 
 | Input | Action |
 |---|---|
-| Wheel, pinch | zoom at the cursor, from fit up to **1000%** of the image's pixels |
+| Wheel, pinch | zoom at the cursor, from **1%** to **10,000%** of the image's pixels |
 | `+` `-`, `↑` `↓` | zoom in steps of 15%; a held key snaps to fit and 100% and stops there |
 | `Shift` + wheel, horizontal swipe | previous / next image (the wheel can be switched to navigate in settings; `Ctrl` + wheel always zooms) |
 | `←` `→`, `PageUp` `PageDown`, `Space`, `Backspace`, on-screen arrows | previous / next image |
@@ -88,6 +96,7 @@ pwsh scripts/ci-local.ps1                       # everything the CI pipeline run
 cargo test --manifest-path src-tauri/Cargo.toml # backend tests
 npm run tauri dev                               # hot-reload frontend, empty state (drop a file)
 npm run tauri build                             # NSIS installer with image file associations
+cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # fast optimised build (no LTO) for perf work
 .\src-tauri\target\release\vislo.exe "C:\path\to\image.jpg"
 ```
 

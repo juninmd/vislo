@@ -32,6 +32,8 @@ export interface Settings {
   hover_preview: boolean;
   slideshow_display_ms: number;
   slideshow_fade_ms: number;
+  keep_ready: boolean;
+  start_with_windows: boolean;
 }
 
 export const openPath = (path: string) => invoke<Album>("open_path", { path });
@@ -41,6 +43,8 @@ export const setSettings = (settings: Settings) => invoke<Settings>("set_setting
 export const initialPath = () => invoke<string | null>("initial_path");
 /** Format groups offered for default-app registration; an empty selection means all of them. */
 export const registerAssociations = (groups: string[] = []) => invoke<void>("register_associations", { groups });
+export const showFitted = (width: number | null, height: number | null, fullscreen: boolean) =>
+  invoke<void>("show_fitted", { width, height, fullscreen });
 export const copyImage = (path: string) => invoke<void>("copy_image", { path });
 export const pickImage = () => invoke<string | null>("pick_image");
 export const revealInFolder = (path: string) => invoke<void>("reveal_in_folder", { path });
@@ -54,8 +58,8 @@ export const query = (params: Record<string, string | number>): string =>
 const route = (name: string, params: Record<string, string | number>) =>
   `${convertFileSrc(name, "vislo")}?${query(params)}`;
 
-/** What the webview should load for the full picture: straight from disk, or converted in Rust. */
-export const srcFor = (path: string): string => (isNative(path) ? convertFileSrc(path) : route("c", { p: path }));
+/** What the webview should load for the full picture: the file itself, or converted in Rust. */
+export const srcFor = (path: string): string => route(isNative(path) ? "o" : "c", { p: path });
 export const thumbSrc = (path: string, size: number) => route("t", { p: path, s: size });
 export const previewSrc = (path: string) => route("v", { p: path });
 export const fitSrc = (path: string, w: number, h: number) => route("f", { p: path, w, h });
