@@ -1,8 +1,20 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
 use crate::{exif_info, raw};
-use image::{DynamicImage, ImageReader};
+use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
+
+/// Ceiling for decoded pixels (RGBA, so about 600 MB): bigger files are refused, not attempted.
+const MAX_PIXELS: u64 = 150_000_000;
+const MAX_ALLOC: u64 = 1 << 30;
+const TOO_LARGE: &str = "Image is too large";
+
+fn describe(e: ImageError) -> String {
+    match e {
+        ImageError::Limits(_) => TOO_LARGE.to_string(),
+        other => other.to_string(),
+    }
+}
 
 fn ext(path: &Path) -> String {
     path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase()
@@ -25,6 +37,14 @@ fn upright(img: DynamicImage, orientation: u8) -> DynamicImage {
 
 fn decode_psd(path: &Path) -> Result<DynamicImage, String> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    // Header: signature, version, 6 reserved, channels, then height and width (big endian).
+    if let Some(dims) = bytes.get(14..22) {
+        let h = u64::from(u32::from_be_bytes([dims[0], dims[1], dims[2], dims[3]]));
+        let w = u64::from(u32::from_be_bytes([dims[4], dims[5], dims[6], dims[7]]));
+        if w * h > MAX_PIXELS {
+            return Err(TOO_LARGE.to_string());
+        }
+    }
     let psd = psd::Psd::from_bytes(&bytes).map_err(|e| e.to_string())?;
     let (w, h) = (psd.width(), psd.height());
     image::RgbaImage::from_raw(w, h, psd.rgba())
@@ -46,11 +66,11 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
     } else if is_raw(&ext) {
         decode_raw_preview(path)?
     } else {
-        ImageReader::open(path)
-            .and_then(ImageReader::with_guessed_format)
-            .map_err(|e| e.to_string())?
-            .decode()
-            .map_err(|e| e.to_string())?
+        let mut reader = ImageReader::open(path).and_then(ImageReader::with_guessed_format).map_err(|e| e.to_string())?;
+        let mut limits = Limits::default();
+        limits.max_alloc = Some(MAX_ALLOC);
+        reader.limits(limits);
+        reader.decode().map_err(describe)?
     };
     // PNG/WebP/GIF orientation is ignored by browsers too, so only photo formats are rotated.
     let orientation = if is_photo(&ext) { exif_info::read(path).map_or(1, |e| exif_info::orientation(&e)) } else { 1 };
@@ -164,6 +184,39 @@ mod tests {
         std::fs::write(dir.join("bad.psd"), b"8BPS-nope").unwrap();
         assert!(load(&dir.join("bad.png")).is_err());
         assert!(load(&dir.join("bad.psd")).is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    fn crc32(bytes: &[u8]) -> u32 {
+        let mut crc = !0u32;
+        for b in bytes {
+            crc ^= u32::from(*b);
+            for _ in 0..8 {
+                crc = if crc & 1 == 1 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
+            }
+        }
+        !crc
+    }
+
+    #[test]
+    fn absurd_dimensions_are_refused_as_too_large() {
+        let dir = temp("huge");
+        // A real 1x1 PNG whose IHDR claims 60000x60000: decoding it would need ~14 GB.
+        let mut png = Vec::new();
+        image::RgbImage::new(1, 1).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        png[16..20].copy_from_slice(&60000u32.to_be_bytes());
+        png[20..24].copy_from_slice(&60000u32.to_be_bytes());
+        let crc = crc32(&png[12..29]);
+        png[29..33].copy_from_slice(&crc.to_be_bytes());
+        std::fs::write(dir.join("huge.png"), &png).unwrap();
+        assert_eq!(load(&dir.join("huge.png")).unwrap_err(), TOO_LARGE);
+
+        let mut psd = b"8BPS".to_vec();
+        psd.extend([0, 1, 0, 0, 0, 0, 0, 0, 0, 3]);
+        psd.extend(50000u32.to_be_bytes());
+        psd.extend(50000u32.to_be_bytes());
+        std::fs::write(dir.join("huge.psd"), psd).unwrap();
+        assert_eq!(load(&dir.join("huge.psd")).unwrap_err(), TOO_LARGE);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

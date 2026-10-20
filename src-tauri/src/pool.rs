@@ -29,7 +29,8 @@ impl Pool {
                         q = s.ready.wait(q).unwrap_or_else(|e| e.into_inner());
                     }
                 };
-                job(false);
+                // A panicking job must not take its worker down with it.
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(false)));
             });
         }
         Pool(shared)
@@ -53,6 +54,15 @@ mod tests {
     use super::*;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[test]
+    fn a_panicking_job_does_not_kill_the_worker() {
+        let pool = Pool::new(1, 16);
+        pool.spawn(|_| panic!("decoder bug"));
+        let (tx, rx) = mpsc::channel();
+        pool.spawn(move |_| tx.send(()).unwrap());
+        assert!(rx.recv_timeout(Duration::from_secs(5)).is_ok(), "the only worker died");
+    }
 
     #[test]
     fn runs_every_job() {
