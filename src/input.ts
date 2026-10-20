@@ -1,4 +1,5 @@
 import type { WheelMode } from "./api";
+import type { Command } from "./commands";
 import { WheelAccumulator } from "./nav";
 import type { Slide } from "./slide";
 
@@ -14,6 +15,9 @@ export interface Controller {
   go(step: number): void;
   jump(where: "first" | "last"): void;
   zoomBy(factor: number, cx?: number, cy?: number): void;
+  zoomStep(dir: 1 | -1, repeat: boolean): void;
+  command(command: Command): void;
+  showMenu(x: number, y: number): void;
   zoomFit(): void;
   toggleActual(cx: number, cy: number): void;
   rotate(dir: 1 | -1): void;
@@ -43,6 +47,7 @@ export function bindButtons(root: HTMLElement, ctl: Controller): void {
   on("#btn-gear", () => ctl.toggleSettings());
   on("#btn-rot-l", () => ctl.rotate(-1));
   on("#btn-rot-r", () => ctl.rotate(1));
+  on("#btn-open", () => ctl.command("open"));
 }
 
 export function bindInput(ctl: Controller): void {
@@ -96,14 +101,25 @@ export function bindInput(ctl: Controller): void {
   addEventListener("keydown", (e) => {
     if (e.altKey || e.metaKey || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
     const k = e.key;
-    if (k === "ArrowRight" || k === "PageDown" || (k === " " && !e.shiftKey)) ctl.go(1);
-    else if (k === "ArrowLeft" || k === "PageUp" || k === "Backspace" || (k === " " && e.shiftKey)) ctl.go(-1);
+    if (e.ctrlKey) {
+      const lower = k.toLowerCase();
+      if (lower === "c") ctl.command("copy");
+      else if (lower === "o") ctl.command("open");
+      else if (k === "ArrowRight") ctl.go(10);
+      else if (k === "ArrowLeft") ctl.go(-10);
+      else return;
+      e.preventDefault();
+      return;
+    }
+    if (k === "ArrowRight" || k === "PageDown" || k === "k" || k === "K" || (k === " " && !e.shiftKey)) ctl.go(1);
+    else if (k === "ArrowLeft" || k === "PageUp" || k === "j" || k === "J" || k === "Backspace" || (k === " " && e.shiftKey)) ctl.go(-1);
     else if (k === "Home") ctl.jump("first");
     else if (k === "End") ctl.jump("last");
-    else if (k === "+" || k === "=") ctl.zoomBy(1.25);
-    else if (k === "-" || k === "_") ctl.zoomBy(0.8);
+    else if (k === "+" || k === "=" || k === "ArrowUp") ctl.zoomStep(1, e.repeat);
+    else if (k === "-" || k === "_" || k === "ArrowDown") ctl.zoomStep(-1, e.repeat);
     else if (k === "0") ctl.zoomFit();
     else if (k === "1") ctl.toggleActual(0, 0);
+    else if (k === "o" || k === "O") ctl.command("open");
     else if (k === "r") ctl.rotate(1);
     else if (k === "R") ctl.rotate(-1);
     else if (k === "t" || k === "T") ctl.toggleStrip();
@@ -114,5 +130,9 @@ export function bindInput(ctl: Controller): void {
     else return;
     e.preventDefault();
   });
-  stage.ownerDocument.addEventListener("contextmenu", (e) => e.preventDefault());
+  stage.ownerDocument.addEventListener("contextmenu", (e) => {
+    if (e.target instanceof HTMLInputElement) return; // keep the native copy/paste menu in fields
+    e.preventDefault();
+    ctl.showMenu(e.clientX, e.clientY);
+  });
 }

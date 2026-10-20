@@ -19,15 +19,16 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 * **3D filmstrip** (`T`) – thumbnails rendered in Rust and cached on disk, a continuously eased
   position, and an enlarged preview when you hover a thumbnail.
 * **Slideshow** (`S` / `F5`) – fullscreen, 4 s per picture and a 1 s cross-fade by default, loops.
+* **Size in view** – the pixel size is shown beside the file name and in the window title.
 * **Rotate the view** (`R` / `Shift+R`), **info panel** (`I`) with size, dimensions, camera,
   exposure, date taken and GPS.
-* **Many formats** – JPEG, PNG, GIF, WebP, BMP, AVIF, ICO, plus TIFF, PSD and the embedded
+* **Many formats** – JPEG, PNG, GIF, WebP, BMP, AVIF, ICO, plus TIFF, TGA, PSD and the embedded
   JPEG of DNG / CR2 / NEF / ARW / ORF / RW2 RAW files. EXIF orientation is applied.
 * **Always in sync** – files added or deleted in Explorer appear when the window regains focus;
   deleting the picture on screen opens its neighbour.
 * **Robust decoding** – oversized or corrupt images are refused with a message instead of
   crashing the app.
-* **Default viewer** – registers itself for the image types (see below).
+* **Default viewer** – registers itself for the image types you tick (see below).
 * **Settings panel** (gear icon) – wheel behaviour, fullscreen on start, auto-hiding controls,
   background (dark / black / transparent), sharp downscaling, instant preview, 3D filmstrip,
   hover preview and slideshow timing. Saved in the app config folder.
@@ -36,7 +37,8 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 
 * **Make it the default viewer** (installed app or portable `.exe`, no admin needed): click
   *Set as default image viewer* on the empty screen or in the settings panel, or run
-  `vislo.exe --register-associations`. It registers Vislo for the image types and opens
+  `vislo.exe --register-associations` (optionally `--register-associations jpeg,png,raw` to pick format
+  groups; the settings panel has a checkbox per group). It registers Vislo for the image types and opens
   *Settings → Default apps*, where Windows asks you to confirm (Windows does not let apps take
   over defaults silently). `vislo.exe --unregister-associations` removes it.
 * Or use *Open with → Vislo* on any image.
@@ -45,13 +47,19 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 
 | Input | Action |
 |---|---|
-| Wheel, pinch, `+` `-` | zoom at the cursor, from fit up to **1000%** of the image's pixels |
+| Wheel, pinch | zoom at the cursor, from fit up to **1000%** of the image's pixels |
+| `+` `-`, `↑` `↓` | zoom in steps of 15%; a held key snaps to fit and 100% and stops there |
 | `Shift` + wheel, horizontal swipe | previous / next image (the wheel can be switched to navigate in settings; `Ctrl` + wheel always zooms) |
 | `←` `→`, `PageUp` `PageDown`, `Space`, `Backspace`, on-screen arrows | previous / next image |
+| `Ctrl` + `←` `→` | jump 10 images |
+| `J` / `K` | previous / next image |
 | `Home` / `End` | first / last image |
 | Double-click, `1` | toggle fit ↔ actual pixels (100%) |
 | `0` | fit to window |
 | Drag (when zoomed) | pan |
+| `Ctrl+C` | copy the picture to the clipboard |
+| `O`, `Ctrl+O` | open an image (file dialog) |
+| Right-click | menu: copy, open, show in folder, open with, info, slideshow, … |
 | `R` / `Shift+R` | rotate the view clockwise / counter-clockwise |
 | `T` | filmstrip |
 | `I` | info panel |

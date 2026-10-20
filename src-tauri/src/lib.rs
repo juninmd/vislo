@@ -1,5 +1,6 @@
 mod album;
 mod assoc;
+mod clipboard;
 mod decode;
 mod exif_info;
 #[cfg(test)]
@@ -10,6 +11,7 @@ mod raw;
 mod resize;
 mod scheme;
 mod settings;
+mod shell;
 mod thumbs;
 mod window;
 
@@ -56,18 +58,48 @@ fn set_settings(store: State<settings::Store>, settings: settings::Settings) -> 
     store.set(settings)
 }
 
-/// Registers Vislo as an image handler, then opens Settings so the user can confirm it.
+/// Registers Vislo as handler of the chosen format groups (none = all), then opens Settings so
+/// the user can confirm it.
 #[tauri::command]
-fn register_associations() -> Result<(), String> {
-    assoc::register()?;
+fn register_associations(groups: Vec<String>) -> Result<(), String> {
+    assoc::register(&groups)?;
     assoc::open_settings()
+}
+
+/// The "Image files" open dialog; `None` when cancelled.
+#[tauri::command]
+async fn pick_image(app: AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let exts: Vec<&str> = album::extensions().collect();
+    let file = app.dialog().file().add_filter("Image files", &exts).blocking_pick_file()?;
+    file.into_path().ok().map(|p| p.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+async fn copy_image(svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+    clipboard::copy_image(&svc.allowed.resolve(&path)?)
+}
+
+#[tauri::command]
+async fn reveal_in_folder(svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+    shell::reveal(&svc.allowed.resolve(&path)?)
+}
+
+#[tauri::command]
+async fn open_with(svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+    shell::open_with(&svc.allowed.resolve(&path)?)
 }
 
 /// `--register-associations` / `--unregister-associations`: headless, for scripts and portable use.
 fn run_cli_action() -> Option<i32> {
-    let flag = std::env::args().nth(1)?;
+    let mut args = std::env::args().skip(1);
+    let flag = args.next()?;
     let result = match flag.as_str() {
-        "--register-associations" => assoc::register().and_then(|()| assoc::open_settings()),
+        "--register-associations" => {
+            // Optional comma-separated format groups, e.g. `jpeg,png,raw`.
+            let groups: Vec<String> = args.next().map(|g| g.split(',').map(str::to_string).collect()).unwrap_or_default();
+            assoc::register(&groups).and_then(|()| assoc::open_settings())
+        }
         "--unregister-associations" => assoc::unregister(),
         _ => return None,
     };
@@ -107,6 +139,7 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
+        .plugin(tauri_plugin_dialog::init())
         .manage(Launch(album::path_from_args(std::env::args())))
         .register_asynchronous_uri_scheme_protocol("vislo", |ctx, request, responder| {
             let svc = Arc::clone(ctx.app_handle().state::<Arc<Services>>().inner());
@@ -132,7 +165,11 @@ pub fn run() {
             file_info,
             get_settings,
             set_settings,
-            register_associations
+            register_associations,
+            pick_image,
+            copy_image,
+            reveal_in_folder,
+            open_with
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vislo");

@@ -32,6 +32,11 @@ export class Slide {
     return this.nat;
   }
 
+  /** Pixel size of the picture itself (before rotation), once loaded. */
+  pixels(): Box | null {
+    return this.img ? { w: this.img.naturalWidth, h: this.img.naturalHeight } : null;
+  }
+
   get zoomed(): boolean {
     return this.view.scale > 1;
   }
@@ -142,6 +147,13 @@ export class Slide {
     this.view = FIT;
     this.layout(this.stage);
     this.apply(true);
+  }
+
+  /** Scales where a held zoom key stops: fit and one image pixel per device pixel. */
+  detents(): number[] | null {
+    const eff = this.eff();
+    const fit = this.fit();
+    return eff && fit ? [1, actualScale(eff, fit)] : null;
   }
 
   /** Zoom as a share of the image's own pixels, for the tooltip. */

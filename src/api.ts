@@ -39,7 +39,12 @@ export const fileInfo = (path: string) => invoke<Info>("file_info", { path });
 export const getSettings = () => invoke<Settings>("get_settings");
 export const setSettings = (settings: Settings) => invoke<Settings>("set_settings", { settings });
 export const initialPath = () => invoke<string | null>("initial_path");
-export const registerAssociations = () => invoke<void>("register_associations");
+/** Format groups offered for default-app registration; an empty selection means all of them. */
+export const registerAssociations = (groups: string[] = []) => invoke<void>("register_associations", { groups });
+export const copyImage = (path: string) => invoke<void>("copy_image", { path });
+export const pickImage = () => invoke<string | null>("pick_image");
+export const revealInFolder = (path: string) => invoke<void>("reveal_in_folder", { path });
+export const openWith = (path: string) => invoke<void>("open_with", { path });
 
 export const query = (params: Record<string, string | number>): string =>
   Object.entries(params)

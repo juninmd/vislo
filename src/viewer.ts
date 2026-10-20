@@ -1,19 +1,23 @@
 import { bump } from "./anim";
 import type { Album, Settings, WheelMode } from "./api";
 import { ImageCache, type Loaded } from "./cache";
+import { type Command, Commands } from "./commands";
+import { ContextMenu } from "./context-menu";
 import * as chrome from "./chrome";
 import { Filmstrip } from "./filmstrip";
 import { isJpeg, isNative, isStill } from "./formats";
 import { HoverPreview } from "./hover";
 import { InfoPanel } from "./info";
-import { Hud } from "./hud";
+import { Hud, titleFor } from "./hud";
 import { bindButtons, bindInput, type Controller } from "./input";
-import { type Dir, preloadWindow, stepIndex } from "./nav";
+import { menuItems } from "./menu-items";
+import { type Dir, jumpIndex, preloadWindow, stepIndex } from "./nav";
 import { Sharpener } from "./sharp";
 import { Slide } from "./slide";
 import { Slideshow } from "./slideshow";
 import { nextSlide } from "./slideshow-logic";
 import { loadPreview, slideshowFullscreen, type Transition, Transitioner } from "./transitions";
+import { ZoomControls } from "./zoom-controls";
 import type { Box } from "./zoom";
 
 export type { Album };
@@ -39,13 +43,20 @@ export class Viewer implements Controller {
   private hover: HoverPreview;
   private info: InfoPanel;
   private slideshow: Slideshow;
+  private zoom: ZoomControls;
+  private commands: Commands;
+  private menu: ContextMenu;
 
   constructor(
     private readonly app: HTMLElement,
     private settings: Settings,
+    open: (path: string) => Promise<void>,
   ) {
     this.stage = this.q("#stage");
     this.hud = new Hud(app);
+    this.zoom = new ZoomControls(() => this.current, this.hud);
+    this.commands = new Commands({ path: () => this.album?.files[this.index] ?? null, notify: (t) => this.notify(t) }, open);
+    this.menu = new ContextMenu(this.q("#ctxmenu"));
     this.strip = new Filmstrip(this.q("#strip"), {
       select: (i) => this.jumpTo(i),
       step: (d) => this.go(d),
@@ -120,7 +131,7 @@ export class Viewer implements Controller {
 
   go(step: number): void {
     if (!this.album) return;
-    const next = stepIndex(this.target, step, this.album.files.length);
+    const next = (Math.abs(step) > 1 ? jumpIndex : stepIndex)(this.target, step, this.album.files.length);
     if (next === null) {
       if (this.current) bump(this.current.el, step > 0 ? -1 : 1);
       return;
@@ -186,7 +197,10 @@ export class Viewer implements Controller {
     if (ok) slide.setImage(loaded.img);
     else slide.setError(`${basename(path)} is not a valid image file`);
     slide.layout(this.stageBox());
-    if (slide === this.current) this.scheduleSharp();
+    if (slide === this.current) {
+      this.updateHud(this.album!, this.index); // the size is only known now
+      this.scheduleSharp();
+    }
   }
 
   private present(slide: Slide, index: number, t: Transition): void {
@@ -217,37 +231,22 @@ export class Viewer implements Controller {
 
   private updateHud(album: Album, index: number): void {
     const name = basename(album.files[index]);
-    this.hud.setPicture(name, index, album.files.length);
-    void chrome.setTitle(`${name} — Vislo`);
+    const px = this.current?.pixels() ?? null;
+    this.hud.setPicture(name, index, album.files.length, px);
+    void chrome.setTitle(titleFor(name, px));
   }
 
   private stageBox(): Box {
     return { w: this.stage.clientWidth, h: this.stage.clientHeight };
   }
 
-  zoomBy(factor: number, cx = 0, cy = 0): void {
-    this.current?.zoomBy(factor, cx, cy);
-    this.showZoom();
-  }
-
-  zoomFit(): void {
-    if (this.current) this.zoomBy(1 / this.current.view.scale);
-  }
-
-  toggleActual(cx: number, cy: number): void {
-    this.current?.toggleActual(cx, cy);
-    this.showZoom();
-  }
-
-  rotate(dir: 1 | -1): void {
-    this.current?.rotate(dir);
-    this.showZoom();
-  }
-
-  private showZoom(): void {
-    const pct = this.current?.percent();
-    if (pct !== null && pct !== undefined) this.hud.showZoom(pct);
-  }
+  zoomBy = (factor: number, cx = 0, cy = 0): void => this.zoom.zoomBy(factor, cx, cy);
+  zoomStep = (dir: 1 | -1, repeat: boolean): void => this.zoom.step(dir, repeat);
+  zoomFit = (): void => this.zoom.fit();
+  toggleActual = (cx: number, cy: number): void => this.zoom.toggleActual(cx, cy);
+  rotate = (dir: 1 | -1): void => this.zoom.rotate(dir);
+  command = (command: Command): void => void this.commands.run(command);
+  showMenu = (x: number, y: number): void => this.menu.show(x, y, menuItems(this, this.album !== null));
 
   private scheduleSharp(): void {
     const slide = this.current;

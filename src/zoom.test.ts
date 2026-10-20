@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actualScale, clampView, effectiveBox, elementSize, fitSize, maxScale, normaliseTurn, zoomAt, zoomPercent } from "./zoom";
+import { actualScale, clampView, effectiveBox, elementSize, fitSize, maxScale, normaliseTurn, stepScale, ZOOM_STEP, zoomAt, zoomPercent } from "./zoom";
 
 const stage = { w: 1000, h: 600 };
 
@@ -101,5 +101,27 @@ describe("rotation helpers", () => {
     const stage = { w: 600, h: 1000 };
     const eff = effectiveBox({ w: 1200, h: 800 }, 90); // 800 x 1200 on its side
     expect(fitSize(eff, stage)).toEqual({ w: 600, h: 900 });
+  });
+});
+
+describe("stepScale", () => {
+  const detents = [1, 2];
+  it("multiplies by the 1.15 step in either direction", () => {
+    expect(stepScale(1, 1, false, detents)).toBeCloseTo(ZOOM_STEP);
+    expect(stepScale(2, -1, false, detents)).toBeCloseTo(2 / ZOOM_STEP);
+  });
+  it("a fresh press passes straight over a detent", () => {
+    expect(stepScale(1.9, 1, false, detents)).toBeCloseTo(1.9 * ZOOM_STEP);
+  });
+  it("a held key lands exactly on the detent it would cross", () => {
+    expect(stepScale(1.9, 1, true, detents)).toBe(2);
+    expect(stepScale(2.1, -1, true, detents)).toBe(2);
+  });
+  it("a held key stops while it sits on a detent", () => {
+    expect(stepScale(2, 1, true, detents)).toBe(2);
+    expect(stepScale(1, 1, true, detents)).toBe(1);
+  });
+  it("away from detents a held key steps normally", () => {
+    expect(stepScale(1.2, 1, true, detents)).toBeCloseTo(1.2 * ZOOM_STEP);
   });
 });

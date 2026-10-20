@@ -48,6 +48,7 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 .hud { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 6px; padding: 10px 14px 28px;
   background: linear-gradient(#000a, #0000); transition: opacity 0.25s var(--ease); z-index: 30; }
 #name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 6px; }
+#dims { color: var(--dim); font-size: 12px; white-space: nowrap; margin-right: 6px; }
 #count { color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .spacer { flex: 1; }
 .hud button { width: 32px; height: 32px; padding: 6px; border: 0; border-radius: 8px; background: transparent; color: var(--fg); cursor: pointer; flex: none; }
@@ -98,3 +99,15 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0s !important; }
 }
+
+#panel fieldset { margin: 0; padding: 8px 10px; border: 1px solid #ffffff1c; border-radius: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px; }
+#panel legend { padding: 0 4px; color: var(--dim); font-size: 11px; }
+kbd { margin-left: 6px; padding: 1px 6px; border: 1px solid #ffffff2e; border-radius: 4px; font: inherit; font-size: 11px; color: var(--dim); }
+
+#ctxmenu { position: fixed; z-index: 60; min-width: 220px; padding: 4px; background: #0c0c0ef2; border: 1px solid #ffffff1c; border-radius: 10px; box-shadow: 0 8px 28px #000a; }
+#ctxmenu[hidden] { display: none; }
+#ctxmenu button { display: flex; justify-content: space-between; gap: 24px; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+#ctxmenu button:hover:not(:disabled), #ctxmenu button:focus-visible { background: #ffffff1f; outline: none; }
+#ctxmenu button:disabled { color: var(--dim); cursor: default; }
+#ctxmenu .hint { color: var(--dim); font-size: 12px; }
+#ctxmenu hr { margin: 4px 6px; border: 0; border-top: 1px solid #ffffff1c; }

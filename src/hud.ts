@@ -1,6 +1,11 @@
-const IDLE_MS = 2200;
+import type { Box } from "./zoom";
+
+const IDLE_MS = 2000; // the action bar hides 2 s after the last input
 const ZOOM_TIP_MS = 2000; // the zoom readout fades after 2 s
 const MSG_MS = 3500;
+
+/** Window title: `name (W × H) — Vislo`, without the size while it is still unknown. */
+export const titleFor = (name: string, px: Box | null): string => `${name}${px ? ` (${px.w} × ${px.h})` : ""} — Vislo`;
 
 /** Overlay chrome: title bar text, zoom readout, toasts and the idle auto-hide. */
 export class Hud {
@@ -12,8 +17,9 @@ export class Hud {
     return this.app.querySelector<HTMLElement>(sel)!;
   }
 
-  setPicture(name: string, index: number, total: number): void {
+  setPicture(name: string, index: number, total: number, px: Box | null): void {
     this.q("#name").textContent = name;
+    this.q("#dims").textContent = px ? `${px.w} × ${px.h}` : "";
     this.q("#count").textContent = `${index + 1} / ${total}`;
     this.q("#caption").textContent = name;
   }
