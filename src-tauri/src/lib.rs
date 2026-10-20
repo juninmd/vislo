@@ -2,6 +2,8 @@ mod album;
 mod assoc;
 mod decode;
 mod exif_info;
+#[cfg(test)]
+mod fixtures;
 mod paths;
 mod pool;
 mod raw;

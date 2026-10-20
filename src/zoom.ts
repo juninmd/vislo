@@ -54,3 +54,20 @@ export function zoomPercent(view: View, naturalCss: Box, fit: Box): number {
 export function maxScale(naturalCss: Box, fit: Box): number {
   return Math.max(1, (naturalCss.w * MAX_ZOOM) / fit.w);
 }
+
+/** True when `rot` (degrees) leaves the image lying on its side. */
+export function isQuarterTurn(rot: number): boolean {
+  return Math.abs(Math.round(rot / 90)) % 2 === 1;
+}
+
+/** Upright size as the viewer sees it after rotating by `rot`. */
+export function effectiveBox(natural: Box, rot: number): Box {
+  return isQuarterTurn(rot) ? { w: natural.h, h: natural.w } : natural;
+}
+
+/** CSS size of the (unrotated) element whose rotated bounding box is `fit`. */
+export function elementSize(fit: Box, rot: number): Box {
+  return isQuarterTurn(rot) ? { w: fit.h, h: fit.w } : fit;
+}
+
+export const normaliseTurn = (rot: number): number => ((rot % 360) + 360) % 360;

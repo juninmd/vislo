@@ -1,4 +1,4 @@
-//! User settings, persisted as JSON. Mirrors Picasa's viewer options (wheel behaviour,
+//! User settings, persisted as JSON. Viewer options (wheel behaviour,
 //! fullscreen on start, auto-hiding action bar, background) plus Vislo's own toggles.
 
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ impl Default for Settings {
             embedded_preview: true,
             filmstrip_3d: true,
             hover_preview: true,
-            slideshow_display_ms: 4000, // Picasa's slideshow constants
+            slideshow_display_ms: 4000, // 4 s per picture, 1 s fade
             slideshow_fade_ms: 1000,
         }
     }
@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn defaults_match_picasa_slideshow_timing_and_wheel_zoom() {
+    fn defaults_have_slideshow_timing_and_wheel_zoom() {
         let d = Settings::default();
         assert_eq!((d.slideshow_display_ms, d.slideshow_fade_ms), (4000, 1000));
         assert_eq!(d.wheel, WheelMode::Zoom);

@@ -50,7 +50,7 @@ fn text(exif: &Exif, tag: Tag) -> Option<String> {
     (!s.is_empty()).then_some(s)
 }
 
-/// Field set mirrors Picasa's `properties.xml`: file facts first, then camera data.
+/// File facts first, then camera data.
 #[derive(Debug, Serialize, Default)]
 pub struct Info {
     pub name: String,

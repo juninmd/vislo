@@ -11,4 +11,7 @@ export function extOf(path: string): string {
 }
 
 export const isNative = (path: string): boolean => native.has(extOf(path));
+// Animated formats keep their own frames; a re-rendered still would freeze them.
+const ANIMATED = new Set(["gif", "webp", "avif", "ico"]);
+export const isStill = (path: string): boolean => !ANIMATED.has(extOf(path));
 export const isJpeg = (path: string): boolean => JPEG.has(extOf(path));
