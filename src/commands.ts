@@ -9,6 +9,8 @@ interface Host {
 
 /** File-level actions that go through the backend: clipboard, open dialog, Explorer. */
 export class Commands {
+  private picking = false; // one open dialog at a time, whatever the input path
+
   constructor(
     private readonly host: Host,
     private readonly open: (path: string) => Promise<void>,
@@ -18,7 +20,9 @@ export class Commands {
     const path = this.host.path();
     try {
       if (command === "open") {
-        const picked = await pickImage();
+        if (this.picking) return;
+        this.picking = true;
+        const picked = await pickImage().finally(() => (this.picking = false));
         if (picked) await this.open(picked);
       } else if (!path) {
         return;
