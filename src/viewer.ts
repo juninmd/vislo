@@ -83,9 +83,7 @@ export class Viewer implements Controller {
     this.applySettings(settings);
   }
 
-  private q<T extends HTMLElement>(sel: string): T {
-    return this.app.querySelector<T>(sel)!;
-  }
+  private q = <T extends HTMLElement>(sel: string): T => this.app.querySelector<T>(sel)!;
 
   wheelMode = (): WheelMode => this.settings.wheel;
   slide = (): Slide | null => this.current;
@@ -102,7 +100,17 @@ export class Viewer implements Controller {
   refresh(album: Album): void {
     this.adopt(album);
     this.updateHud(album, album.index);
-    for (const i of preloadWindow(album.index, album.files.length, this.dir).slice(1)) this.cache.prefetch(i);
+    this.warm(album.index);
+  }
+
+  /** Called when the window is hidden to the tray: drop the pictures, reveal afresh on the next open. */
+  park(): void {
+    this.seq++; // a decode still in flight must not repaint or reopen the window
+    this.slideshow.stop();
+    this.cache.clear();
+    this.stage.replaceChildren();
+    this.current = this.album = null;
+    this.firstShow = true;
   }
 
   files = (): readonly string[] => this.album?.files ?? [];
@@ -168,7 +176,7 @@ export class Viewer implements Controller {
     this.dir = dir;
     const path = album.files[index];
     const loaded = this.cache.get(index);
-    const quick = await Promise.race([loaded.ready, sleep(PREVIEW_DELAY_MS).then(() => false)]);
+    const quick = await Promise.race([loaded.ready, sleep(this.firstShow ? 0 : PREVIEW_DELAY_MS).then(() => false)]);
     if (seq !== this.seq) return; // a newer request superseded this one while decoding
 
     const placeholder =
@@ -213,9 +221,8 @@ export class Viewer implements Controller {
     this.updateHud(album, index);
     this.strip.setActive(index, t.kind !== "none");
     this.info.refresh(album.files[index]);
-    const keep = preloadWindow(index, album.files.length, this.dir);
-    this.cache.retain(keep);
-    for (const i of keep) this.cache.prefetch(i);
+    this.cache.retain(preloadWindow(index, album.files.length, this.dir));
+    if (!this.firstShow) this.warm(index); // the very first window is shown before neighbours compete for decoders
     this.scheduleSharp();
   }
 
@@ -227,6 +234,11 @@ export class Viewer implements Controller {
     const size = this.album?.size;
     const natural = slide.natural() ?? (size ? { w: size[0] / dpr, h: size[1] / dpr } : null);
     await chrome.showFitted(natural, this.settings.fullscreen_on_start);
+    this.warm(this.index);
+  }
+
+  private warm(index: number): void {
+    for (const i of preloadWindow(index, this.album?.files.length ?? 0, this.dir)) this.cache.prefetch(i);
   }
 
   private updateHud(album: Album, index: number): void {
@@ -266,21 +278,10 @@ export class Viewer implements Controller {
     this.hover.hide();
   }
 
-  toggleInfo(): void {
-    this.info.toggle(this.album?.files[this.index] ?? null);
-  }
-
-  toggleSlideshow(): void {
-    this.slideshow.toggle();
-  }
-
-  toggleSettings(): void {
-    this.q("#panel").classList.toggle("show");
-  }
-
-  toggleFullscreen(): void {
-    void chrome.toggleFullscreen();
-  }
+  toggleInfo = (): void => this.info.toggle(this.album?.files[this.index] ?? null);
+  toggleSlideshow = (): void => this.slideshow.toggle();
+  toggleSettings = (): void => void this.q("#panel").classList.toggle("show");
+  toggleFullscreen = (): void => void chrome.toggleFullscreen();
 
   escape(): void {
     if (this.menu.open) return this.menu.hide();

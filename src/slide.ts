@@ -1,9 +1,11 @@
 import {
   actualScale, type Box, clampView, effectiveBox, elementSize, FIT, fitSize, isQuarterTurn,
-  maxScale, normaliseTurn, type View, zoomAt, zoomPercent,
+  maxScale, minScale, normaliseTurn, type View, zoomAt, zoomPercent,
 } from "./zoom";
+import { type Pose, PoseMotion, poseCss } from "./zoom-anim";
 
-const ZOOM_MS = 110;
+/** From this share of the image's pixels up, pixels are shown as crisp squares instead of a blur. */
+const PIXEL_PERCENT = 400;
 /** Re-rendering is only worth it when the browser would shrink the picture at least this much. */
 const SHARP_RATIO = 1.6;
 
@@ -17,6 +19,8 @@ export class Slide {
   private nat: Box | null = null; // upright size in CSS px
   private rot = 0;
   private stage: Box = { w: 1, h: 1 };
+  private shown: Pose = { ...FIT, rot: 0 };
+  private readonly motion = new PoseMotion();
 
   constructor() {
     this.el.className = "slide";
@@ -107,23 +111,25 @@ export class Slide {
 
   /** `smooth` eases wheel/key zoom and rotation; panning must follow the pointer 1:1. */
   apply(smooth: boolean): void {
-    const { scale, x, y } = this.view;
-    const transform = `translate(${x}px, ${y}px) scale(${scale}) rotate(${this.rot}deg)`;
+    const to: Pose = { ...this.view, rot: this.rot };
+    const { scale } = this.view;
+    const els = [this.img, this.sharp].filter((el): el is HTMLImageElement => el !== null);
+    const from = smooth ? (this.motion.current(els[0] ?? null, this.shown) ?? this.shown) : null;
+    this.motion.stop();
+    for (const img of els) img.style.transform = poseCss(to);
+    if (from) this.motion.run(els, from, to);
+    this.shown = to;
     const sharpOk = this.sharp !== null && scale === 1 && normaliseTurn(this.rot) === 0;
-    for (const img of [this.img, this.sharp]) {
-      if (!img) continue;
-      img.style.transition = smooth ? `transform ${ZOOM_MS}ms var(--ease)` : "none";
-      img.style.transform = transform;
-    }
     if (this.sharp) this.sharp.style.visibility = sharpOk ? "visible" : "hidden";
     this.el.classList.toggle("zoomed", scale > 1);
+    this.el.classList.toggle("pixelated", (this.percent() ?? 0) >= PIXEL_PERCENT);
   }
 
   zoomBy(factor: number, cx = 0, cy = 0): void {
     const eff = this.eff();
     const fit = this.fit();
     if (!eff || !fit) return;
-    this.view = zoomAt(this.view, factor, cx, cy, fit, this.stage, maxScale(eff, fit));
+    this.view = zoomAt(this.view, factor, cx, cy, fit, this.stage, maxScale(eff, fit), minScale(eff, fit));
     this.apply(true);
   }
 
@@ -131,7 +137,8 @@ export class Slide {
     const eff = this.eff();
     const fit = this.fit();
     if (!eff || !fit) return;
-    this.zoomBy(this.view.scale > 1 ? 1 / this.view.scale : actualScale(eff, fit) / this.view.scale, cx, cy);
+    const atFit = Math.abs(this.view.scale - 1) < 1e-6;
+    this.zoomBy(atFit ? actualScale(eff, fit) : 1 / this.view.scale, cx, cy);
   }
 
   panTo(x: number, y: number): void {

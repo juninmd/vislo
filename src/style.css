@@ -21,6 +21,7 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 .slide img { display: block; grid-area: 1 / 1; transform-origin: 50% 50%; will-change: transform; image-rendering: auto; }
 .slide.is-preview img { width: 100%; height: 100%; object-fit: contain; filter: blur(2px); }
 .slide.zoomed img { cursor: grab; }
+.slide.pixelated img { image-rendering: pixelated; }
 .slide.panning img { cursor: grabbing; }
 .broken { color: var(--dim); text-align: center; }
 

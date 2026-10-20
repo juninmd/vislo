@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actualScale, clampView, effectiveBox, elementSize, fitSize, maxScale, normaliseTurn, stepScale, ZOOM_STEP, zoomAt, zoomPercent } from "./zoom";
+import { actualScale, clampView, effectiveBox, elementSize, fitSize, maxScale, minScale, normaliseTurn, stepScale, ZOOM_STEP, zoomAt, zoomPercent } from "./zoom";
 
 const stage = { w: 1000, h: 600 };
 
@@ -21,8 +21,14 @@ describe("zoomAt", () => {
     const after = (100 - v.x) / v.scale;
     expect(after).toBeCloseTo(before);
   });
-  it("cannot zoom out below the fitted size", () => {
+  it("cannot zoom out below the fitted size unless a lower minimum is given", () => {
     expect(zoomAt({ scale: 1, x: 0, y: 0 }, 0.5, 0, 0, fit, stage, 24).scale).toBe(1);
+    expect(zoomAt({ scale: 1, x: 0, y: 0 }, 0.5, 0, 0, fit, stage, 24, 0.05).scale).toBe(0.5);
+    expect(zoomAt({ scale: 0.06, x: 0, y: 0 }, 0.1, 0, 0, fit, stage, 24, 0.05).scale).toBe(0.05);
+  });
+  it("stays centred while smaller than the stage", () => {
+    const v = zoomAt({ scale: 1, x: 40, y: 40 }, 0.1, 300, 200, fit, stage, 24, 0.05);
+    expect([v.x, v.y]).toEqual([0, 0]);
   });
   it("caps at the given maximum scale", () => {
     expect(zoomAt({ scale: 20, x: 0, y: 0 }, 10, 0, 0, fit, stage, 24).scale).toBe(24);
@@ -55,9 +61,9 @@ describe("zoomPercent", () => {
   it("reports the fitted size as a share of the image pixels", () => {
     expect(zoomPercent({ scale: 1, x: 0, y: 0 }, natural, fit)).toBe(20);
   });
-  it("reads 100% at actual size and 1000% at the ceiling", () => {
+  it("reads 100% at actual size and 10,000% at the ceiling", () => {
     expect(zoomPercent({ scale: actualScale(natural, fit), x: 0, y: 0 }, natural, fit)).toBe(100);
-    expect(zoomPercent({ scale: maxScale(natural, fit), x: 0, y: 0 }, natural, fit)).toBe(1000);
+    expect(zoomPercent({ scale: maxScale(natural, fit), x: 0, y: 0 }, natural, fit)).toBe(10000);
   });
   it("is relative to device pixels on a HiDPI display (natural given in CSS px)", () => {
     // 4000px image at dpr 2 -> 2000 CSS px; fitted to 800 CSS px = 40 device-px share of 4000
@@ -65,16 +71,29 @@ describe("zoomPercent", () => {
   });
 });
 
-describe("maxScale (1000% of image pixels)", () => {
-  it("is ten times actual size for a large image", () => {
-    expect(maxScale({ w: 4000, h: 3000 }, { w: 800, h: 600 })).toBe(50);
+describe("maxScale (10,000% of image pixels)", () => {
+  it("is 100x actual size for a large image", () => {
+    expect(maxScale({ w: 4000, h: 3000 }, { w: 800, h: 600 })).toBe(500);
   });
-  it("is 10 for an image that already fits at 100%", () => {
-    expect(maxScale({ w: 200, h: 100 }, { w: 200, h: 100 })).toBe(10);
+  it("is 100 for an image that already fits at 100%", () => {
+    expect(maxScale({ w: 200, h: 100 }, { w: 200, h: 100 })).toBe(100);
   });
-  it("lets a HiDPI display reach 1000% of image pixels (CSS size = px / dpr)", () => {
-    // 4000px image on a 2x display: natural CSS width 2000, fit 800 -> 10 * 2000 / 800
-    expect(maxScale({ w: 2000, h: 1500 }, { w: 800, h: 600 })).toBe(25);
+  it("lets a HiDPI display reach 10,000% of image pixels (CSS size = px / dpr)", () => {
+    // 4000px image on a 2x display: natural CSS width 2000, fit 800 -> 100 * 2000 / 800
+    expect(maxScale({ w: 2000, h: 1500 }, { w: 800, h: 600 })).toBe(250);
+  });
+});
+
+describe("minScale (1% of image pixels)", () => {
+  it("is 1% of the pixels expressed relative to the fitted size", () => {
+    expect(minScale({ w: 4000, h: 3000 }, { w: 800, h: 600 })).toBeCloseTo(0.05);
+    expect(minScale({ w: 200, h: 100 }, { w: 200, h: 100 })).toBeCloseTo(0.01);
+  });
+  it("reads 1% in the tooltip and never exceeds fit", () => {
+    const natural = { w: 4000, h: 3000 };
+    const fit = { w: 800, h: 600 };
+    expect(zoomPercent({ scale: minScale(natural, fit), x: 0, y: 0 }, natural, fit)).toBe(1);
+    expect(minScale({ w: 100000, h: 100 }, { w: 500, h: 1 })).toBe(1);
   });
 });
 

@@ -33,6 +33,10 @@ pub struct Settings {
     pub hover_preview: bool,
     pub slideshow_display_ms: u32,
     pub slideshow_fade_ms: u32,
+    /// Closing the window parks it in the tray, so the next open skips the WebView start-up.
+    pub keep_ready: bool,
+    /// Launch parked when the user signs in (only meaningful with `keep_ready`).
+    pub start_with_windows: bool,
 }
 
 impl Default for Settings {
@@ -48,6 +52,8 @@ impl Default for Settings {
             hover_preview: true,
             slideshow_display_ms: 4000, // 4 s per picture, 1 s fade
             slideshow_fade_ms: 1000,
+            keep_ready: false,
+            start_with_windows: false,
         }
     }
 }
@@ -56,7 +62,11 @@ impl Settings {
     /// Clamps free-form numbers so a hand-edited file cannot create a zero-length slideshow.
     pub fn normalised(mut self) -> Self {
         self.slideshow_display_ms = self.slideshow_display_ms.clamp(500, 60_000);
-        self.slideshow_fade_ms = self.slideshow_fade_ms.min(5_000).min(self.slideshow_display_ms);
+        self.slideshow_fade_ms = self
+            .slideshow_fade_ms
+            .min(5_000)
+            .min(self.slideshow_display_ms);
+        self.start_with_windows &= self.keep_ready;
         self
     }
 }
@@ -95,7 +105,10 @@ impl Store {
     }
 
     pub fn get(&self) -> Settings {
-        self.current.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.current
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     pub fn set(&self, next: Settings) -> Result<Settings, String> {
@@ -125,6 +138,24 @@ mod tests {
     }
 
     #[test]
+    fn login_start_needs_keep_ready() {
+        let s = Settings {
+            start_with_windows: true,
+            keep_ready: false,
+            ..Settings::default()
+        }
+        .normalised();
+        assert!(!s.start_with_windows);
+        let s = Settings {
+            start_with_windows: true,
+            keep_ready: true,
+            ..Settings::default()
+        }
+        .normalised();
+        assert!(s.start_with_windows);
+    }
+
+    #[test]
     fn round_trips_through_disk() {
         let dir = temp("rt");
         let store = Store::open(dir.join("settings.json"));
@@ -151,7 +182,12 @@ mod tests {
 
     #[test]
     fn slideshow_timing_is_clamped() {
-        let s = Settings { slideshow_display_ms: 1, slideshow_fade_ms: 99_999, ..Settings::default() }.normalised();
+        let s = Settings {
+            slideshow_display_ms: 1,
+            slideshow_fade_ms: 99_999,
+            ..Settings::default()
+        }
+        .normalised();
         assert_eq!((s.slideshow_display_ms, s.slideshow_fade_ms), (500, 500));
     }
 }
