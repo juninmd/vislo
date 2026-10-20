@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getSettings, initialPath, openPath, registerAssociations } from "./api";
 import { showFitted } from "./chrome";
+import { bindFolderSync } from "./folder-sync";
 import { bindSettingsPanel } from "./settings-panel";
 import "./style.css";
 import { Viewer } from "./viewer";
@@ -13,7 +14,7 @@ async function open(viewer: Viewer, path: string): Promise<void> {
     await viewer.load(await openPath(path));
   } catch (err) {
     viewer.notify(String(err));
-    if (!viewer.hasAlbum) viewer.showEmpty();
+    if (viewer.files().length === 0) viewer.showEmpty();
     await showFitted(null); // never leave the window hidden on a failed open
   }
 }
@@ -32,6 +33,7 @@ async function boot(): Promise<void> {
     }
   });
 
+  bindFolderSync(viewer, (p) => open(viewer, p));
   await listen<string>("open-path", (e) => void open(viewer, e.payload));
   await getCurrentWebview().onDragDropEvent((e) => {
     const p = e.payload;

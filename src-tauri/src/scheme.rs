@@ -107,6 +107,10 @@ pub fn bad_request() -> Response<Cow<'static, [u8]>> {
     error(StatusCode::BAD_REQUEST, "unknown vislo route")
 }
 
+pub fn failed() -> Response<Cow<'static, [u8]>> {
+    error(StatusCode::INTERNAL_SERVER_ERROR, "image processing failed")
+}
+
 pub fn shed() -> Response<Cow<'static, [u8]>> {
     error(StatusCode::SERVICE_UNAVAILABLE, "request superseded")
 }
