@@ -4,21 +4,27 @@
 //! path is to register the app (ProgID + Capabilities + RegisteredApplications) and send the
 //! user to Settings > Default apps for a single confirmation.
 
-use crate::album::extensions;
+use crate::album::{extensions, RAW_EXTENSIONS};
 
 /// What the user can pick in the settings panel; together they cover `extensions()` exactly.
 pub const GROUPS: &[(&str, &[&str])] = &[
-    ("jpeg", &["jpg", "jpeg", "jpe", "jfif"]),
-    ("png", &["png"]),
+    (
+        "jpeg",
+        &["jpg", "jpeg", "jpe", "jfif", "jif", "jfi", "pjpeg", "pjp"],
+    ),
+    ("png", &["png", "apng"]),
     ("gif", &["gif"]),
-    ("bmp", &["bmp"]),
+    ("bmp", &["bmp", "dib"]),
     ("tiff", &["tif", "tiff"]),
     ("tga", &["tga"]),
     ("webp", &["webp"]),
     ("avif", &["avif"]),
     ("ico", &["ico"]),
     ("psd", &["psd"]),
-    ("raw", &["dng", "cr2", "nef", "arw", "orf", "rw2"]),
+    ("pnm", &["pbm", "pgm", "ppm", "pnm", "pam"]),
+    ("hdr", &["hdr", "exr"]),
+    ("other", &["dds", "qoi", "ff"]),
+    ("raw", RAW_EXTENSIONS),
 ];
 
 /// Extensions of the named groups; no names means every group.
@@ -28,7 +34,10 @@ pub fn extensions_for(groups: &[String]) -> Result<Vec<&'static str>, String> {
     }
     let mut out = Vec::new();
     for name in groups {
-        let (_, exts) = GROUPS.iter().find(|(g, _)| g == name).ok_or_else(|| format!("unknown format group \"{name}\""))?;
+        let (_, exts) = GROUPS
+            .iter()
+            .find(|(g, _)| g == name)
+            .ok_or_else(|| format!("unknown format group \"{name}\""))?;
         out.extend(exts.iter().copied());
     }
     Ok(out)
@@ -47,7 +56,11 @@ pub struct Entry {
 }
 
 fn entry(key: String, name: &str, value: &str) -> Entry {
-    Entry { key, name: name.into(), value: value.into() }
+    Entry {
+        key,
+        name: name.into(),
+        value: value.into(),
+    }
 }
 
 /// Everything `register` writes, relative to HKCU. `classes` and `app_root` are parameters so
@@ -57,13 +70,33 @@ pub fn plan(exe: &str, classes: &str, app_root: &str, exts: &[&str]) -> Vec<Entr
     let mut out = vec![
         entry(prog.clone(), "", "Image file"),
         entry(format!(r"{prog}\DefaultIcon"), "", &format!("\"{exe}\",0")),
-        entry(format!(r"{prog}\shell\open\command"), "", &format!("\"{exe}\" \"%1\"")),
-        entry(format!(r"{app_root}\Capabilities"), "ApplicationName", APP_NAME),
-        entry(format!(r"{app_root}\Capabilities"), "ApplicationDescription", DESCRIPTION),
+        entry(
+            format!(r"{prog}\shell\open\command"),
+            "",
+            &format!("\"{exe}\" \"%1\""),
+        ),
+        entry(
+            format!(r"{app_root}\Capabilities"),
+            "ApplicationName",
+            APP_NAME,
+        ),
+        entry(
+            format!(r"{app_root}\Capabilities"),
+            "ApplicationDescription",
+            DESCRIPTION,
+        ),
     ];
     for ext in exts {
-        out.push(entry(format!(r"{classes}\.{ext}\OpenWithProgids"), PROG_ID, ""));
-        out.push(entry(format!(r"{app_root}\Capabilities\FileAssociations"), &format!(".{ext}"), PROG_ID));
+        out.push(entry(
+            format!(r"{classes}\.{ext}\OpenWithProgids"),
+            PROG_ID,
+            "",
+        ));
+        out.push(entry(
+            format!(r"{app_root}\Capabilities\FileAssociations"),
+            &format!(".{ext}"),
+            PROG_ID,
+        ));
     }
     out
 }
@@ -80,8 +113,11 @@ mod imp {
     pub fn apply(entries: &[Entry]) -> Result<(), String> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         for e in entries {
-            let (key, _) = hkcu.create_subkey(&e.key).map_err(|err| format!("{}: {err}", e.key))?;
-            key.set_value(&e.name, &e.value).map_err(|err| format!("{}: {err}", e.key))?;
+            let (key, _) = hkcu
+                .create_subkey(&e.key)
+                .map_err(|err| format!("{}: {err}", e.key))?;
+            key.set_value(&e.name, &e.value)
+                .map_err(|err| format!("{}: {err}", e.key))?;
         }
         Ok(())
     }
@@ -90,7 +126,10 @@ mod imp {
     fn clear_selection(classes: &str, app_root: &str) {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         for ext in extensions() {
-            if let Ok(k) = hkcu.open_subkey_with_flags(format!(r"{classes}\.{ext}\OpenWithProgids"), winreg::enums::KEY_SET_VALUE) {
+            if let Ok(k) = hkcu.open_subkey_with_flags(
+                format!(r"{classes}\.{ext}\OpenWithProgids"),
+                winreg::enums::KEY_SET_VALUE,
+            ) {
                 let _ = k.delete_value(PROG_ID);
             }
         }
@@ -98,7 +137,12 @@ mod imp {
     }
 
     /// Writes the registration for `groups` under the given roots (scratch ones in tests).
-    pub fn register_in(exe: &str, groups: &[String], classes: &str, app_root: &str) -> Result<(), String> {
+    pub fn register_in(
+        exe: &str,
+        groups: &[String],
+        classes: &str,
+        app_root: &str,
+    ) -> Result<(), String> {
         let exts = extensions_for(groups)?;
         clear_selection(classes, app_root);
         apply(&plan(exe, classes, app_root, &exts))
@@ -108,15 +152,21 @@ mod imp {
         let exe = std::env::current_exe().map_err(|e| e.to_string())?;
         register_in(&exe.to_string_lossy(), groups, CLASSES, APP_ROOT)?;
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let (apps, _) = hkcu.create_subkey(REGISTERED_APPS).map_err(|e| e.to_string())?;
-        apps.set_value(APP_NAME, &format!(r"{APP_ROOT}\Capabilities")).map_err(|e| e.to_string())
+        let (apps, _) = hkcu
+            .create_subkey(REGISTERED_APPS)
+            .map_err(|e| e.to_string())?;
+        apps.set_value(APP_NAME, &format!(r"{APP_ROOT}\Capabilities"))
+            .map_err(|e| e.to_string())
     }
 
     /// Removes only what `register` created; the user's chosen defaults for other apps stay.
     pub fn remove(classes: &str, app_root: &str) -> Result<(), String> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
         for ext in extensions() {
-            if let Ok(k) = hkcu.open_subkey_with_flags(format!(r"{classes}\.{ext}\OpenWithProgids"), winreg::enums::KEY_SET_VALUE) {
+            if let Ok(k) = hkcu.open_subkey_with_flags(
+                format!(r"{classes}\.{ext}\OpenWithProgids"),
+                winreg::enums::KEY_SET_VALUE,
+            ) {
                 let _ = k.delete_value(PROG_ID);
             }
         }
@@ -132,7 +182,9 @@ mod imp {
 
     pub fn unregister() -> Result<(), String> {
         remove(CLASSES, APP_ROOT)?;
-        if let Ok(k) = RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(REGISTERED_APPS, winreg::enums::KEY_SET_VALUE) {
+        if let Ok(k) = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey_with_flags(REGISTERED_APPS, winreg::enums::KEY_SET_VALUE)
+        {
             let _ = k.delete_value(APP_NAME);
         }
         Ok(())
@@ -150,9 +202,15 @@ mod imp {
 
 #[cfg(not(windows))]
 mod imp {
-    pub fn register(_groups: &[String]) -> Result<(), String> { Err("default-app registration is Windows-only".into()) }
-    pub fn unregister() -> Result<(), String> { Err("default-app registration is Windows-only".into()) }
-    pub fn open_settings() -> Result<(), String> { Ok(()) }
+    pub fn register(_groups: &[String]) -> Result<(), String> {
+        Err("default-app registration is Windows-only".into())
+    }
+    pub fn unregister() -> Result<(), String> {
+        Err("default-app registration is Windows-only".into())
+    }
+    pub fn open_settings() -> Result<(), String> {
+        Ok(())
+    }
 }
 
 pub use imp::{open_settings, register, unregister};
@@ -163,12 +221,30 @@ mod tests {
 
     #[test]
     fn plan_registers_open_command_and_every_extension() {
-        let p = plan(r"C:\Apps\Vislo\vislo.exe", r"Software\Classes", r"Software\Vislo", &extensions().collect::<Vec<_>>());
-        let cmd = p.iter().find(|e| e.key.ends_with(r"shell\open\command")).unwrap();
+        let p = plan(
+            r"C:\Apps\Vislo\vislo.exe",
+            r"Software\Classes",
+            r"Software\Vislo",
+            &extensions().collect::<Vec<_>>(),
+        );
+        let cmd = p
+            .iter()
+            .find(|e| e.key.ends_with(r"shell\open\command"))
+            .unwrap();
         assert_eq!(cmd.value, r#""C:\Apps\Vislo\vislo.exe" "%1""#);
         for ext in extensions() {
-            assert!(p.iter().any(|e| e.key == format!(r"Software\Classes\.{ext}\OpenWithProgids") && e.name == PROG_ID), "{ext}");
-            assert!(p.iter().any(|e| e.key.ends_with("FileAssociations") && e.name == format!(".{ext}")), "{ext}");
+            assert!(
+                p.iter().any(
+                    |e| e.key == format!(r"Software\Classes\.{ext}\OpenWithProgids")
+                        && e.name == PROG_ID
+                ),
+                "{ext}"
+            );
+            assert!(
+                p.iter()
+                    .any(|e| e.key.ends_with("FileAssociations") && e.name == format!(".{ext}")),
+                "{ext}"
+            );
         }
     }
 
@@ -176,7 +252,10 @@ mod tests {
     fn plan_never_touches_the_default_value_of_an_extension_key() {
         // Taking over `.jpg` itself would clobber the user's current default app.
         let p = plan("x.exe", r"Software\Classes", r"Software\Vislo", &["jpg"]);
-        assert!(p.iter().all(|e| !(e.key.starts_with(r"Software\Classes\.") && !e.key.ends_with("OpenWithProgids"))));
+        assert!(p
+            .iter()
+            .all(|e| !(e.key.starts_with(r"Software\Classes\.")
+                && !e.key.ends_with("OpenWithProgids"))));
     }
 
     #[cfg(windows)]
@@ -187,7 +266,11 @@ mod tests {
         let (classes, app) = (format!(r"{root}\Classes"), format!(r"{root}\App"));
         imp::apply(&plan(r"C:\x\vislo.exe", &classes, &app, &["jpg"])).unwrap();
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let cmd: String = hkcu.open_subkey(format!(r"{classes}\{PROG_ID}\shell\open\command")).unwrap().get_value("").unwrap();
+        let cmd: String = hkcu
+            .open_subkey(format!(r"{classes}\{PROG_ID}\shell\open\command"))
+            .unwrap()
+            .get_value("")
+            .unwrap();
         assert_eq!(cmd, r#""C:\x\vislo.exe" "%1""#);
         imp::remove(&classes, &app).unwrap();
         assert!(hkcu.open_subkey(format!(r"{classes}\{PROG_ID}")).is_err());
@@ -203,13 +286,22 @@ mod tests {
         let root = format!(r"Software\VisloTestGroups-{}", std::process::id());
         let (classes, app) = (format!(r"{root}\Classes"), format!(r"{root}\App"));
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let has = |ext: &str| hkcu.open_subkey(format!(r"{classes}\.{ext}\OpenWithProgids")).and_then(|k| k.get_value::<String, _>(PROG_ID)).is_ok();
+        let has = |ext: &str| {
+            hkcu.open_subkey(format!(r"{classes}\.{ext}\OpenWithProgids"))
+                .and_then(|k| k.get_value::<String, _>(PROG_ID))
+                .is_ok()
+        };
         imp::register_in("x.exe", &[], &classes, &app).unwrap();
         assert!(has("jpg") && has("png"));
         imp::register_in("x.exe", &["png".into()], &classes, &app).unwrap();
         assert!(has("png") && !has("jpg"));
-        let listed: Vec<String> = hkcu.open_subkey(format!(r"{app}\Capabilities\FileAssociations")).unwrap().enum_values().map(|v| v.unwrap().0).collect();
-        assert_eq!(listed, [".png"]);
+        let listed: Vec<String> = hkcu
+            .open_subkey(format!(r"{app}\Capabilities\FileAssociations"))
+            .unwrap()
+            .enum_values()
+            .map(|v| v.unwrap().0)
+            .collect();
+        assert_eq!(listed, [".png", ".apng"]);
         let _ = hkcu.delete_subkey_all(&root);
     }
 
@@ -224,7 +316,10 @@ mod tests {
 
     #[test]
     fn selection_maps_groups_to_extensions() {
-        assert_eq!(extensions_for(&["tiff".into(), "png".into()]).unwrap(), ["tif", "tiff", "png"]);
+        assert_eq!(
+            extensions_for(&["tiff".into(), "png".into()]).unwrap(),
+            ["tif", "tiff", "png", "apng"]
+        );
         assert_eq!(extensions_for(&[]).unwrap().len(), extensions().count());
         assert!(extensions_for(&["nope".into()]).is_err());
     }

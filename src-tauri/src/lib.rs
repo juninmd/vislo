@@ -1,5 +1,7 @@
 mod album;
 mod assoc;
+mod autostart;
+mod boot;
 mod clipboard;
 mod decode;
 mod exif_info;
@@ -13,6 +15,7 @@ mod scheme;
 mod settings;
 mod shell;
 mod thumbs;
+mod tray;
 mod window;
 
 use paths::Allowed;
@@ -24,20 +27,30 @@ use tauri::{AppHandle, Emitter, Manager, State};
 const THUMB_CACHE_BUDGET: u64 = 256 * 1024 * 1024;
 const JOB_BACKLOG: usize = 256;
 
-/// Path the process was launched with (file association / "Open with").
-struct Launch(Option<String>);
+/// How the process was launched: the file it was given (file association / "Open with") and
+/// whether it should start parked in the tray (`--background`, from the login entry).
+struct Launch {
+    path: Option<String>,
+    background: bool,
+}
 
 #[tauri::command]
 fn initial_path(launch: State<Launch>) -> Option<String> {
-    launch.0.clone()
+    launch.path.clone()
 }
 
 /// Lists the folder of `path`, grants the asset protocol read access to that folder only, and
 /// remembers it as opened so the `vislo` protocol and `file_info` accept paths inside it.
 #[tauri::command]
-async fn open_path(app: AppHandle, svc: State<'_, Arc<Services>>, path: String) -> Result<album::Album, String> {
+async fn open_path(
+    app: AppHandle,
+    svc: State<'_, Arc<Services>>,
+    path: String,
+) -> Result<album::Album, String> {
     let album = album::open(Path::new(&path))?;
-    app.asset_protocol_scope().allow_directory(&album.dir, false).map_err(|e| e.to_string())?;
+    app.asset_protocol_scope()
+        .allow_directory(&album.dir, false)
+        .map_err(|e| e.to_string())?;
     svc.allowed.allow_dir(Path::new(&album.dir));
     Ok(album)
 }
@@ -54,8 +67,13 @@ fn get_settings(store: State<settings::Store>) -> settings::Settings {
 }
 
 #[tauri::command]
-fn set_settings(store: State<settings::Store>, settings: settings::Settings) -> Result<settings::Settings, String> {
-    store.set(settings)
+fn set_settings(
+    store: State<settings::Store>,
+    settings: settings::Settings,
+) -> Result<settings::Settings, String> {
+    let saved = store.set(settings)?;
+    autostart::apply(saved.start_with_windows)?;
+    Ok(saved)
 }
 
 /// Registers Vislo as handler of the chosen format groups (none = all), then opens Settings so
@@ -72,8 +90,15 @@ async fn pick_image(app: AppHandle, window: tauri::WebviewWindow) -> Option<Stri
     use tauri_plugin_dialog::DialogExt;
     let exts: Vec<&str> = album::extensions().collect();
     // Parented, so the viewer is blocked while the dialog is up and a second one cannot stack.
-    let file = app.dialog().file().set_parent(&window).add_filter("Image files", &exts).blocking_pick_file()?;
-    file.into_path().ok().map(|p| p.to_string_lossy().into_owned())
+    let file = app
+        .dialog()
+        .file()
+        .set_parent(&window)
+        .add_filter("Image files", &exts)
+        .blocking_pick_file()?;
+    file.into_path()
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -98,7 +123,10 @@ fn run_cli_action() -> Option<i32> {
     let result = match flag.as_str() {
         "--register-associations" => {
             // Optional comma-separated format groups, e.g. `jpeg,png,raw`.
-            let groups: Vec<String> = args.next().map(|g| g.split(',').map(str::to_string).collect()).unwrap_or_default();
+            let groups: Vec<String> = args
+                .next()
+                .map(|g| g.split(',').map(str::to_string).collect())
+                .unwrap_or_default();
             assoc::register(&groups).and_then(|()| assoc::open_settings())
         }
         "--unregister-associations" => assoc::unregister(),
@@ -109,19 +137,48 @@ fn run_cli_action() -> Option<i32> {
 
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let cache_dir = app.path().app_cache_dir()?.join("thumbs");
-    let workers = std::thread::available_parallelism().map_or(2, |n| n.get()).clamp(2, 6);
-    app.manage(Arc::new(Services { allowed: Allowed::default(), pool: Pool::new(workers, JOB_BACKLOG), cache_dir: cache_dir.clone() }));
+    let workers = std::thread::available_parallelism()
+        .map_or(2, |n| n.get())
+        .clamp(2, 6);
+    app.manage(Arc::new(Services {
+        allowed: Allowed::default(),
+        pool: Pool::new(workers, JOB_BACKLOG),
+        cache_dir: cache_dir.clone(),
+    }));
 
     let store = settings::Store::open(app.path().app_config_dir()?.join("settings.json"));
     let current = store.get();
     app.manage(store);
+
+    let launch = app.state::<Launch>();
+    if launch.background && !current.keep_ready {
+        let _ = autostart::apply(false); // drop the stale login entry that started us
+        app.handle().exit(0);
+        return Ok(());
+    }
+    let (init_script, launch_dir) =
+        boot::script(&current, launch.path.as_deref(), launch.background);
+    if let Some(dir) = launch_dir {
+        // Authorised now so the page can start loading the picture before any IPC round trip.
+        app.asset_protocol_scope().allow_directory(&dir, false)?;
+        app.state::<Arc<Services>>().allowed.allow_dir(&dir);
+    }
+    // Neither may stop the viewer from starting (policy-blocked Run key, tray not ready at sign-in).
+    if let Err(e) = autostart::apply(current.start_with_windows) {
+        eprintln!("vislo: login entry not updated: {e}");
+    }
+    if current.keep_ready {
+        if let Err(e) = tray::ensure(app.handle()) {
+            eprintln!("vislo: tray icon unavailable: {e}");
+        }
+    }
 
     std::thread::spawn(move || {
         if let Err(e) = thumbs::evict(&cache_dir, THUMB_CACHE_BUDGET) {
             eprintln!("vislo: thumbnail cache eviction failed: {e}");
         }
     });
-    window::build(app, &current)?;
+    window::build(app, &current, &init_script)?;
     Ok(())
 }
 
@@ -132,19 +189,33 @@ pub fn run() {
     tauri::Builder::default()
         // Must be first: a second launch forwards its file to the running window.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            if let Some(path) = album::path_from_args(argv) {
-                let _ = app.emit("open-path", path);
-            }
-            if let Some(w) = app.get_webview_window("main") {
+            let Some(w) = app.get_webview_window("main") else {
+                return;
+            };
+            if w.is_visible().unwrap_or(false) {
+                if let Some(path) = album::path_from_args(argv) {
+                    let _ = app.emit("open-path", path);
+                }
                 let _ = w.unminimize();
                 let _ = w.set_focus();
+            } else if let Some(path) = album::path_from_args(argv) {
+                // Parked: the page reveals the window once the new picture is decoded.
+                let _ = app.emit("open-path", path);
+            } else {
+                let _ = app.emit("reveal", ()); // plain launch of a parked instance
             }
         }))
         .plugin(tauri_plugin_dialog::init())
-        .manage(Launch(album::path_from_args(std::env::args())))
+        .manage(Launch {
+            path: album::path_from_args(std::env::args()),
+            background: std::env::args().any(|a| a == "--background"),
+        })
         .register_asynchronous_uri_scheme_protocol("vislo", |ctx, request, responder| {
             let svc = Arc::clone(ctx.app_handle().state::<Arc<Services>>().inner());
-            let Some(route) = scheme::parse(request.uri().path(), request.uri().query().unwrap_or_default()) else {
+            let Some(route) = scheme::parse(
+                request.uri().path(),
+                request.uri().query().unwrap_or_default(),
+            ) else {
                 responder.respond(scheme::bad_request());
                 return;
             };
@@ -154,10 +225,25 @@ pub fn run() {
                     scheme::shed()
                 } else {
                     // A decoder panic becomes a 500; a dropped responder would leave the request pending.
-                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scheme::serve(&worker, route))).unwrap_or_else(|_| scheme::failed())
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        scheme::serve(&worker, route)
+                    }))
+                    .unwrap_or_else(|_| scheme::failed())
                 };
                 responder.respond(reply);
             });
+        })
+        .on_window_event(|window, event| {
+            let tauri::WindowEvent::CloseRequested { api, .. } = event else {
+                return;
+            };
+            let app = window.app_handle();
+            if app.state::<settings::Store>().get().keep_ready && tray::ensure(app).is_ok() {
+                api.prevent_close();
+                let _ = window.set_fullscreen(false);
+                let _ = window.hide();
+                let _ = window.emit("parked", ());
+            }
         })
         .setup(setup)
         .invoke_handler(tauri::generate_handler![
@@ -170,7 +256,8 @@ pub fn run() {
             pick_image,
             copy_image,
             reveal_in_folder,
-            open_with
+            open_with,
+            window::show_fitted
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vislo");

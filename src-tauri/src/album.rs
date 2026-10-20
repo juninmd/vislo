@@ -1,18 +1,31 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
-/// Formats WebView2 can decode natively; served straight from disk through the asset protocol.
+/// Formats WebView2 can decode natively; served from disk by the `/o` route.
 /// Keep in sync with `src/formats.ts` (checked by `native_list_matches_frontend`).
 pub const NATIVE_EXTENSIONS: &[&str] = &[
-    "jpg", "jpeg", "jpe", "jfif", "png", "gif", "webp", "bmp", "avif", "ico",
+    "jpg", "jpeg", "jpe", "jfif", "jif", "jfi", "pjpeg", "pjp", "png", "apng", "gif", "webp",
+    "bmp", "dib", "avif", "ico",
 ];
 
 /// Formats decoded in Rust and served as JPEG/PNG through the `vislo` protocol.
-/// RAW files show their embedded full-size JPEG preview, not a developed image.
-pub const CONVERTED_EXTENSIONS: &[&str] = &["tif", "tiff", "tga", "psd", "dng", "cr2", "nef", "arw", "orf", "rw2"];
+pub const CONVERTED_EXTENSIONS: &[&str] = &[
+    "tif", "tiff", "tga", "psd", "pbm", "pgm", "ppm", "pnm", "pam", "hdr", "exr", "dds", "qoi",
+    "ff",
+];
+
+/// Camera RAW files: Vislo shows the embedded full-size JPEG preview, never a developed image.
+pub const RAW_EXTENSIONS: &[&str] = &[
+    "dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef",
+    "srw", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "dcr", "kdc", "erf", "rwl", "raw",
+];
 
 pub fn extensions() -> impl Iterator<Item = &'static str> {
-    NATIVE_EXTENSIONS.iter().chain(CONVERTED_EXTENSIONS).copied()
+    NATIVE_EXTENSIONS
+        .iter()
+        .chain(CONVERTED_EXTENSIONS)
+        .chain(RAW_EXTENSIONS)
+        .copied()
 }
 
 fn has_ext(path: &Path, list: &[&str]) -> bool {
@@ -35,12 +48,14 @@ pub struct Album {
 }
 
 pub fn is_image(path: &Path) -> bool {
-    is_native(path) || has_ext(path, CONVERTED_EXTENSIONS)
+    is_native(path) || has_ext(path, CONVERTED_EXTENSIONS) || has_ext(path, RAW_EXTENSIONS)
 }
 
 /// File name only: error text must not leak full paths into the UI.
 pub fn display_name(path: &Path) -> String {
-    path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 /// First non-flag argument after the executable name (what Explorer passes on "Open with").
@@ -57,9 +72,15 @@ pub fn open(path: &Path) -> Result<Album, String> {
     let file = dunce::canonicalize(path)
         .map_err(|_| format!("\"{}\" could not be found", display_name(path)))?;
     if !file.is_file() || !is_image(&file) {
-        return Err(format!("\"{}\" is not a supported image file", display_name(&file)));
+        return Err(format!(
+            "\"{}\" is not a supported image file",
+            display_name(&file)
+        ));
     }
-    let dir = file.parent().ok_or("file has no parent directory")?.to_path_buf();
+    let dir = file
+        .parent()
+        .ok_or("file has no parent directory")?
+        .to_path_buf();
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .map_err(|e| format!("cannot list {}: {e}", dir.display()))?
         .filter_map(Result::ok)
@@ -74,7 +95,10 @@ pub fn open(path: &Path) -> Result<Album, String> {
     Ok(Album {
         size: crate::decode::dimensions(&file),
         dir: dir.to_string_lossy().into_owned(),
-        files: files.iter().map(|p| p.to_string_lossy().into_owned()).collect(),
+        files: files
+            .iter()
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect(),
         index,
     })
 }
@@ -93,9 +117,43 @@ mod tests {
     #[test]
     fn native_list_matches_frontend() {
         let ts = include_str!("../../src/formats.ts");
-        let line = ts.lines().find(|l| l.contains("NATIVE_EXTENSIONS = [")).expect("list in formats.ts");
+        let line = ts
+            .lines()
+            .find(|l| l.contains("NATIVE_EXTENSIONS = ["))
+            .expect("list in formats.ts");
         let listed: Vec<&str> = line.split('"').skip(1).step_by(2).collect();
         assert_eq!(listed, NATIVE_EXTENSIONS);
+    }
+
+    #[test]
+    fn no_extension_is_listed_twice() {
+        let mut all: Vec<_> = extensions().collect();
+        let n = all.len();
+        all.sort_unstable();
+        all.dedup();
+        assert_eq!(all.len(), n);
+    }
+
+    #[test]
+    fn bundle_file_associations_cover_every_supported_extension() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let mut declared: Vec<&str> = conf["bundle"]["fileAssociations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|a| {
+                a["ext"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|e| e.as_str().unwrap())
+            })
+            .collect();
+        let mut want: Vec<_> = extensions().collect();
+        declared.sort_unstable();
+        want.sort_unstable();
+        assert_eq!(declared, want);
     }
 
     #[test]
@@ -114,6 +172,11 @@ mod tests {
         assert!(is_image(Path::new("a/B.JPG")));
         assert!(is_image(Path::new("x.webp")));
         assert!(is_image(Path::new("x.CR2")) && !is_native(Path::new("x.CR2")));
+        assert!(
+            is_image(Path::new("x.RAF"))
+                && is_image(Path::new("x.exr"))
+                && is_image(Path::new("x.apng"))
+        );
         assert!(!is_image(Path::new("notes.txt")));
         assert!(!is_image(Path::new("noext")));
     }
@@ -133,7 +196,11 @@ mod tests {
         }
         std::fs::create_dir(d.join("sub.jpg")).unwrap(); // a directory named like an image
         let album = open(&d.join("img2.jpg")).unwrap();
-        let names: Vec<_> = album.files.iter().map(|f| file_name(Path::new(f)).to_string()).collect();
+        let names: Vec<_> = album
+            .files
+            .iter()
+            .map(|f| file_name(Path::new(f)).to_string())
+            .collect();
         assert_eq!(names, ["IMG1.png", "img2.jpg", "img10.jpg"]);
         assert_eq!(album.index, 1);
         let _ = std::fs::remove_dir_all(&d);

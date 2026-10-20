@@ -1,5 +1,6 @@
 import { fade, slide as slideAnim } from "./anim";
 import { previewSrc } from "./api";
+import { takePreloadedPreview } from "./boot";
 import * as chrome from "./chrome";
 import type { Dir } from "./nav";
 import type { Slide } from "./slide";
@@ -37,6 +38,8 @@ export class Transitioner {
 
 /** The EXIF preview of a photo, or null when it has none (the full decode is simply awaited). */
 export async function loadPreview(path: string): Promise<HTMLImageElement | null> {
+  const early = takePreloadedPreview(previewSrc(path));
+  if (early) return (await early.ready) ? early.img : null;
   const img = new Image();
   img.src = previewSrc(path);
   try {

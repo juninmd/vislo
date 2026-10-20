@@ -1,4 +1,5 @@
 import { srcFor } from "./api";
+import { takePreloaded } from "./boot";
 
 export interface Loaded {
   img: HTMLImageElement;
@@ -14,11 +15,17 @@ export class ImageCache {
   get(index: number): Loaded {
     let entry = this.entries.get(index);
     if (!entry) {
-      const img = new Image();
-      img.decoding = "async";
-      img.draggable = false;
-      img.src = srcFor(this.pathOf(index));
-      entry = { img, ready: img.decode().then(() => true, () => false) };
+      const src = srcFor(this.pathOf(index));
+      const early = takePreloaded(src);
+      if (early) {
+        entry = { img: early.img, ready: early.ready };
+      } else {
+        const img = new Image();
+        img.decoding = "async";
+        img.draggable = false;
+        img.src = src;
+        entry = { img, ready: img.decode().then(() => true, () => false) };
+      }
       this.entries.set(index, entry);
     }
     return entry;
