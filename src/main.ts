@@ -1,16 +1,16 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getSettings, initialPath, openPath, registerAssociations } from "./api";
 import { showFitted } from "./chrome";
+import { bindSettingsPanel } from "./settings-panel";
 import "./style.css";
-import { type Album, Viewer } from "./viewer";
+import { Viewer } from "./viewer";
 
 const app = document.getElementById("app")!;
-const viewer = new Viewer(app, document.getElementById("stage")!);
 
-async function openPath(path: string): Promise<void> {
+async function open(viewer: Viewer, path: string): Promise<void> {
   try {
-    await viewer.load(await invoke<Album>("open_path", { path }));
+    await viewer.load(await openPath(path));
   } catch (err) {
     viewer.notify(String(err));
     if (!viewer.hasAlbum) viewer.showEmpty();
@@ -19,14 +19,27 @@ async function openPath(path: string): Promise<void> {
 }
 
 async function boot(): Promise<void> {
-  await listen<string>("open-path", (e) => void openPath(e.payload));
+  const settings = await getSettings();
+  const viewer = new Viewer(app, settings);
+  bindSettingsPanel(document.getElementById("panel")!, settings, (s) => viewer.applySettings(s), (t) => viewer.notify(t));
+
+  document.getElementById("btn-assoc")!.addEventListener("click", async () => {
+    try {
+      await registerAssociations();
+      viewer.notify("Registered. Pick Vislo for your image types in Settings > Default apps.");
+    } catch (err) {
+      viewer.notify(String(err));
+    }
+  });
+
+  await listen<string>("open-path", (e) => void open(viewer, e.payload));
   await getCurrentWebview().onDragDropEvent((e) => {
     const p = e.payload;
     app.classList.toggle("dragover", p.type === "enter" || p.type === "over");
-    if (p.type === "drop" && p.paths[0]) void openPath(p.paths[0]);
+    if (p.type === "drop" && p.paths[0]) void open(viewer, p.paths[0]);
   });
-  const initial = await invoke<string | null>("initial_path");
-  if (initial) await openPath(initial);
+  const initial = await initialPath();
+  if (initial) await open(viewer, initial);
   else {
     viewer.showEmpty();
     await showFitted(null);
