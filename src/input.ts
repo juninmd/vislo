@@ -103,13 +103,19 @@ export function bindInput(ctl: Controller): void {
     const k = e.key;
     if (e.ctrlKey) {
       const lower = k.toLowerCase();
-      if (lower === "c") ctl.command("copy");
-      else if (lower === "o") ctl.command("open");
-      else if (k === "ArrowRight") ctl.go(10);
+      let handled = true;
+      if (lower === "c") {
+        if (getSelection()?.toString()) return; // text selected in the info panel: let the browser copy it
+        if (!e.repeat) ctl.command("copy");
+      } else if (lower === "o") {
+        if (!e.repeat) ctl.command("open");
+      } else if (k === "ArrowRight") ctl.go(10);
       else if (k === "ArrowLeft") ctl.go(-10);
-      else return;
-      e.preventDefault();
-      return;
+      else handled = false; // other Ctrl combinations (Ctrl+R, Ctrl+0 ...) keep their plain-key meaning
+      if (handled) {
+        e.preventDefault();
+        return;
+      }
     }
     if (k === "ArrowRight" || k === "PageDown" || k === "k" || k === "K" || (k === " " && !e.shiftKey)) ctl.go(1);
     else if (k === "ArrowLeft" || k === "PageUp" || k === "j" || k === "J" || k === "Backspace" || (k === " " && e.shiftKey)) ctl.go(-1);
@@ -119,7 +125,9 @@ export function bindInput(ctl: Controller): void {
     else if (k === "-" || k === "_" || k === "ArrowDown") ctl.zoomStep(-1, e.repeat);
     else if (k === "0") ctl.zoomFit();
     else if (k === "1") ctl.toggleActual(0, 0);
-    else if (k === "o" || k === "O") ctl.command("open");
+    else if (k === "o" || k === "O") {
+      if (!e.repeat) ctl.command("open");
+    }
     else if (k === "r") ctl.rotate(1);
     else if (k === "R") ctl.rotate(-1);
     else if (k === "t" || k === "T") ctl.toggleStrip();

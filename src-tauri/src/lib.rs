@@ -68,10 +68,11 @@ fn register_associations(groups: Vec<String>) -> Result<(), String> {
 
 /// The "Image files" open dialog; `None` when cancelled.
 #[tauri::command]
-async fn pick_image(app: AppHandle) -> Option<String> {
+async fn pick_image(app: AppHandle, window: tauri::WebviewWindow) -> Option<String> {
     use tauri_plugin_dialog::DialogExt;
     let exts: Vec<&str> = album::extensions().collect();
-    let file = app.dialog().file().add_filter("Image files", &exts).blocking_pick_file()?;
+    // Parented, so the viewer is blocked while the dialog is up and a second one cannot stack.
+    let file = app.dialog().file().set_parent(&window).add_filter("Image files", &exts).blocking_pick_file()?;
     file.into_path().ok().map(|p| p.to_string_lossy().into_owned())
 }
 

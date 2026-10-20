@@ -283,6 +283,7 @@ export class Viewer implements Controller {
   }
 
   escape(): void {
+    if (this.menu.open) return this.menu.hide();
     void (async () => {
       const panel = this.q("#panel");
       if (panel.classList.contains("show")) panel.classList.remove("show");

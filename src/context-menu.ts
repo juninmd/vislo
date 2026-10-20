@@ -69,7 +69,10 @@ export class ContextMenu {
     else if (e.key === "Home") move(0);
     else if (e.key === "End") move(-1);
     else if (e.key === "Escape" || e.key === "Tab") this.hide();
-    else return; // Enter/Space activate the focused button natively
+    else {
+      e.stopPropagation(); // Enter/Space activate the focused button natively; no shortcut may steal them
+      return;
+    }
     e.preventDefault();
     e.stopPropagation(); // the global shortcuts must not see keys meant for the menu
   }
