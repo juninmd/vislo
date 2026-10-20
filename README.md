@@ -1,4 +1,4 @@
-# OpenPic
+# Vislo
 
 A fast, minimal image viewer for Windows built with [Tauri 2](https://tauri.app).
 Double-click an image and it opens instantly; flip through every image in the same
@@ -8,8 +8,13 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 
 ## Use
 
-* Set OpenPic as the default app for images (or *Open with → OpenPic*).
-* Opening another image while OpenPic is running reuses the same window.
+* **Make it the default viewer** (works for the installed app and the portable `.exe`, no admin needed):
+  click *Set as default image viewer* on the empty screen, or run
+  `vislo.exe --register-associations`. It registers Vislo for the image types and opens
+  *Settings → Default apps*, where Windows asks you to confirm (Windows does not let apps
+  take over defaults silently). `vislo.exe --unregister-associations` removes it.
+* Or use *Open with → Vislo* on any image.
+* Opening another image while Vislo is running reuses the same window.
 * No file given: drop an image onto the window.
 
 | Input | Action |
@@ -47,7 +52,7 @@ npm test                    # frontend unit tests
 cargo test --manifest-path src-tauri/Cargo.toml
 npm run tauri dev           # hot-reload frontend, empty state (drop a file)
 npm run tauri build         # NSIS installer with image file associations
-.\src-tauri\target\release\openpic.exe "C:\path\to\image.jpg"   # run the built binary on a file
+.\src-tauri\target\release\vislo.exe "C:\path\to\image.jpg"   # run the built binary on a file
 ```
 
 ## Security

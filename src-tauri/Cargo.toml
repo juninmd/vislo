@@ -1,11 +1,11 @@
 [package]
-name = "openpic"
+name = "vislo"
 version = "0.1.0"
 description = "Fast image viewer: open a file, flip through its folder."
 edition = "2021"
 
 [lib]
-name = "openpic_lib"
+name = "vislo_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -17,6 +17,9 @@ tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 natord = "1"
 dunce = "1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56"
 
 [profile.release]
 opt-level = 3

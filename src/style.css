@@ -22,6 +22,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #empty { position: absolute; inset: 0; display: none; place-items: center; align-content: center; gap: 4px; color: var(--dim); text-align: center; }
 #empty p { margin: 0; font-size: 18px; }
 #app.empty #empty { display: grid; }
+#btn-assoc { margin-top: 18px; padding: 8px 16px; border: 1px solid #ffffff2e; border-radius: 8px; background: #1a1a1e; color: var(--fg); cursor: pointer; font: inherit; }
+#btn-assoc:hover { border-color: var(--accent); }
 #app.dragover #empty { color: var(--accent); }
 
 #msg { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px;
