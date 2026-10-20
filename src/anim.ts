@@ -37,3 +37,11 @@ export function bump(el: HTMLElement, dir: Dir): Animation {
     { duration: reduced.matches ? 0 : 260, easing: EASE },
   );
 }
+
+/** Crossfade used by the slideshow (1 s by default). */
+export function fade(incoming: HTMLElement, outgoing: HTMLElement | null, ms: number): Animation[] {
+  const opts: KeyframeAnimationOptions = { duration: reduced.matches ? 0 : ms, easing: "ease-in-out", fill: "both" };
+  const anims = [incoming.animate([{ opacity: 0 }, { opacity: 1 }], opts)];
+  if (outgoing) anims.push(outgoing.animate([{ opacity: 1 }, { opacity: 0 }], opts));
+  return anims;
+}

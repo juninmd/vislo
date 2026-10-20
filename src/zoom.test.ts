@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actualScale, clampView, fitSize, maxScale, zoomAt, zoomPercent } from "./zoom";
+import { actualScale, clampView, effectiveBox, elementSize, fitSize, maxScale, normaliseTurn, zoomAt, zoomPercent } from "./zoom";
 
 const stage = { w: 1000, h: 600 };
 
@@ -75,5 +75,31 @@ describe("maxScale (1000% of image pixels)", () => {
   it("lets a HiDPI display reach 1000% of image pixels (CSS size = px / dpr)", () => {
     // 4000px image on a 2x display: natural CSS width 2000, fit 800 -> 10 * 2000 / 800
     expect(maxScale({ w: 2000, h: 1500 }, { w: 800, h: 600 })).toBe(25);
+  });
+});
+
+describe("rotation helpers", () => {
+  it("swaps width and height on quarter turns only", () => {
+    const nat = { w: 400, h: 200 };
+    expect(effectiveBox(nat, 0)).toEqual(nat);
+    expect(effectiveBox(nat, 90)).toEqual({ w: 200, h: 400 });
+    expect(effectiveBox(nat, -90)).toEqual({ w: 200, h: 400 });
+    expect(effectiveBox(nat, 180)).toEqual(nat);
+    expect(effectiveBox(nat, 270)).toEqual({ w: 200, h: 400 });
+    expect(effectiveBox(nat, 450)).toEqual({ w: 200, h: 400 });
+  });
+  it("sizes the element so its rotated box is the fitted box", () => {
+    expect(elementSize({ w: 300, h: 600 }, 90)).toEqual({ w: 600, h: 300 });
+    expect(elementSize({ w: 300, h: 600 }, 0)).toEqual({ w: 300, h: 600 });
+  });
+  it("normalises turns into 0..359", () => {
+    expect(normaliseTurn(-90)).toBe(270);
+    expect(normaliseTurn(450)).toBe(90);
+    expect(normaliseTurn(0)).toBe(0);
+  });
+  it("fits a landscape photo rotated upright into a portrait stage", () => {
+    const stage = { w: 600, h: 1000 };
+    const eff = effectiveBox({ w: 1200, h: 800 }, 90); // 800 x 1200 on its side
+    expect(fitSize(eff, stage)).toEqual({ w: 600, h: 900 });
   });
 });

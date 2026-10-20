@@ -1,4 +1,4 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { srcFor } from "./api";
 
 export interface Loaded {
   img: HTMLImageElement;
@@ -17,7 +17,7 @@ export class ImageCache {
       const img = new Image();
       img.decoding = "async";
       img.draggable = false;
-      img.src = convertFileSrc(this.pathOf(index));
+      img.src = srcFor(this.pathOf(index));
       entry = { img, ready: img.decode().then(() => true, () => false) };
       this.entries.set(index, entry);
     }
