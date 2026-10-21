@@ -1,15 +1,32 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call: # the release workflow runs the same checks on main before it publishes
 
 permissions:
   contents: read
 
 jobs:
+  commits:
+    # Squash merges use the PR title as the commit, so both the title and every commit must be semantic.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pull request title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/check-commits.mjs --message "$TITLE"
+      - name: Commit messages
+        run: node scripts/check-commits.mjs --range "origin/${{ github.base_ref }}..${{ github.event.pull_request.head.sha }}"
+
   check:
     runs-on: windows-latest
     steps:

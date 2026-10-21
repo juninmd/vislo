@@ -7,13 +7,17 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "screenshots": "node scripts/screenshots/capture.mjs",
+    "prepare": "node scripts/setup-hooks.mjs",
+    "check:commits": "node scripts/check-commits.mjs --range origin/main..HEAD"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.3",
+    "playwright-core": "^1.64.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.5"

@@ -1,0 +1,96 @@
+name: release
+
+# Every push to main ships: the version is derived from the semantic commits since the last tag,
+# the installer is built, a tag and a GitHub release are created, and running copies of Vislo
+# pick the release up through their built-in updater (src-tauri/src/update.rs).
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false # releases are strictly ordered; a newer push waits for the one in flight
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    # the job's own version commit must not release again
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags and history are needed to plan the version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Plan the version
+        id: plan
+        run: |
+          node scripts/release.mjs plan > plan.json
+          VERSION=$(node -p "require('./plan.json').version || ''")
+          node -p "require('./plan.json').notes || ''" > notes.md
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Next version: ${VERSION:-none}"
+
+      - name: Stamp the version
+        if: steps.plan.outputs.version != ''
+        run: node scripts/release.mjs stamp "${{ steps.plan.outputs.version }}"
+
+      - name: Build the installer
+        if: steps.plan.outputs.version != ''
+        run: |
+          npm ci
+          npm run tauri build
+
+      - name: Collect release assets
+        if: steps.plan.outputs.version != ''
+        run: |
+          V="${{ steps.plan.outputs.version }}"
+          mkdir -p out
+          cp src-tauri/target/release/bundle/nsis/*-setup.exe "out/Vislo_${V}_x64-setup.exe"
+          cp src-tauri/target/release/vislo.exe "out/Vislo_${V}_x64-portable.exe"
+          (cd out && sha256sum * > ../SHA256SUMS.txt)
+          mv SHA256SUMS.txt out/
+          cat out/SHA256SUMS.txt
+
+      - name: Commit the version, tag and publish
+        if: steps.plan.outputs.version != ''
+        run: |
+          V="${{ steps.plan.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
+          git commit -m "chore(release): v${V} [skip ci]"
+          TARGET="$GITHUB_SHA"
+          git fetch origin main
+          if git rebase origin/main && git tag -a "v${V}" -m "Vislo v${V}" && git push --atomic origin HEAD:main "v${V}"; then
+            TARGET="$(git rev-parse HEAD)"
+          else
+            echo "::warning::could not push the version commit to main (protected branch?); tagging the built commit instead"
+            git rebase --abort 2>/dev/null || true
+          fi
+          gh release create "v${V}" out/* \
+            --target "$TARGET" \
+            --title "Vislo v${V}" \
+            --notes-file notes.md
