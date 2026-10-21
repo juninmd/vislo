@@ -14,6 +14,7 @@ mod resize;
 mod scheme;
 mod settings;
 mod shell;
+mod splash;
 mod thumbs;
 mod tray;
 mod window;
@@ -32,6 +33,8 @@ const JOB_BACKLOG: usize = 256;
 struct Launch {
     path: Option<String>,
     background: bool,
+    /// A native splash is already painting the picture (see splash.rs).
+    splash: bool,
 }
 
 #[tauri::command]
@@ -156,8 +159,12 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         app.handle().exit(0);
         return Ok(());
     }
-    let (init_script, launch_dir) =
-        boot::script(&current, launch.path.as_deref(), launch.background);
+    let (init_script, launch_dir) = boot::script(
+        &current,
+        launch.path.as_deref(),
+        launch.background,
+        launch.splash,
+    );
     if let Some(dir) = launch_dir {
         // Authorised now so the page can start loading the picture before any IPC round trip.
         app.asset_protocol_scope().allow_directory(&dir, false)?;
@@ -182,10 +189,31 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Starts the native first paint before anything slow (WebView2) is touched. Settings are read
+/// straight from the config folder because Tauri's path resolver does not exist yet.
+fn early_splash(launch: &Launch) -> bool {
+    let Some(dir) = std::env::var_os("APPDATA") else {
+        return false;
+    };
+    let settings = settings::load(
+        &Path::new(&dir)
+            .join(splash::IDENTIFIER)
+            .join("settings.json"),
+    );
+    splash::eligible(&settings, launch.path.as_deref(), launch.background)
+        .is_some_and(splash::start)
+}
+
 pub fn run() {
     if let Some(code) = run_cli_action() {
         std::process::exit(code);
     }
+    let mut launch = Launch {
+        path: album::path_from_args(std::env::args()),
+        background: std::env::args().any(|a| a == "--background"),
+        splash: false,
+    };
+    launch.splash = early_splash(&launch);
     tauri::Builder::default()
         // Must be first: a second launch forwards its file to the running window.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -206,10 +234,8 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
-        .manage(Launch {
-            path: album::path_from_args(std::env::args()),
-            background: std::env::args().any(|a| a == "--background"),
-        })
+        .manage(launch)
+        .manage(window::Mode::default())
         .register_asynchronous_uri_scheme_protocol("vislo", |ctx, request, responder| {
             let svc = Arc::clone(ctx.app_handle().state::<Arc<Services>>().inner());
             let Some(route) = scheme::parse(
@@ -257,7 +283,9 @@ pub fn run() {
             copy_image,
             reveal_in_folder,
             open_with,
-            window::show_fitted
+            window::show_fitted,
+            window::set_fullscreen,
+            window::toggle_maximized
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vislo");

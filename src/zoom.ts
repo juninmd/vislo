@@ -20,10 +20,13 @@ export function fitSize(natural: Box, stage: Box): Box {
   return { w: natural.w * f, h: natural.h * f };
 }
 
-/** Keeps the zoomed image covering the stage; an axis smaller than the stage stays centred. */
+/**
+ * Keeps the image on the stage: a larger one keeps covering it, a smaller one can be moved
+ * around but not out of it.
+ */
 export function clampView(view: View, fit: Box, stage: Box): View {
-  const maxX = Math.max(0, (fit.w * view.scale - stage.w) / 2);
-  const maxY = Math.max(0, (fit.h * view.scale - stage.h) / 2);
+  const maxX = Math.abs(fit.w * view.scale - stage.w) / 2;
+  const maxY = Math.abs(fit.h * view.scale - stage.h) / 2;
   return {
     scale: view.scale,
     x: Math.min(maxX, Math.max(-maxX, view.x)),

@@ -8,6 +8,8 @@ export interface Boot {
   file: string | null;
   native: boolean;
   background: boolean;
+  /** A native splash already played the opening zoom-in. */
+  splash: boolean;
 }
 
 declare global {

@@ -24,6 +24,7 @@ export type Background = "dark" | "black" | "transparent";
 export interface Settings {
   wheel: WheelMode;
   fullscreen_on_start: boolean;
+  open_maximized: boolean;
   autohide_controls: boolean;
   background: Background;
   sharp_downscale: boolean;
@@ -45,6 +46,10 @@ export const initialPath = () => invoke<string | null>("initial_path");
 export const registerAssociations = (groups: string[] = []) => invoke<void>("register_associations", { groups });
 export const showFitted = (width: number | null, height: number | null, fullscreen: boolean) =>
   invoke<void>("show_fitted", { width, height, fullscreen });
+export const setFullscreen = (on: boolean) => invoke<void>("set_fullscreen", { on });
+/** Maximized <-> windowed (windowed sizes the window to the picture); resolves to the new maximized state. */
+export const toggleMaximized = (width: number | null, height: number | null) =>
+  invoke<boolean>("toggle_maximized", { width, height });
 export const copyImage = (path: string) => invoke<void>("copy_image", { path });
 export const pickImage = () => invoke<string | null>("pick_image");
 export const revealInFolder = (path: string) => invoke<void>("reveal_in_folder", { path });

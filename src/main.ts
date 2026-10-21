@@ -26,6 +26,8 @@ async function boot(): Promise<void> {
   const settings = bootData?.settings ?? (await getSettings());
   const initial = bootData ? bootData.path : await initialPath();
   const listing = initial ? openPath(initial) : undefined;
+  // The window was created without a title bar (see window.rs `frameless`): show our own buttons.
+  app.classList.toggle("frameless", settings.open_maximized);
   const viewer = new Viewer(app, settings, (p) => open(viewer, p));
   bindSettingsPanel(document.getElementById("panel")!, settings, (s) => viewer.applySettings(s), (t) => viewer.notify(t));
 

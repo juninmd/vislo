@@ -20,7 +20,7 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 .slide { position: absolute; inset: 0; display: grid; place-items: center; will-change: transform, opacity; }
 .slide img { display: block; grid-area: 1 / 1; transform-origin: 50% 50%; will-change: transform; image-rendering: auto; }
 .slide.is-preview img { width: 100%; height: 100%; object-fit: contain; filter: blur(2px); }
-.slide.zoomed img { cursor: grab; }
+.slide.pannable img { cursor: grab; }
 .slide.pixelated img { image-rendering: pixelated; }
 .slide.panning img { cursor: grabbing; }
 .broken { color: var(--dim); text-align: center; }
@@ -63,6 +63,8 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 #next { right: 12px; }
 #app.strip-on .nav { top: calc(50% - var(--strip-h) / 2); }
 #app.empty .nav, #app.empty .hud button, #app.single .nav { display: none; }
+.hud button.frame { display: none; }
+#app.frameless .hud button.frame, #app.frameless.empty .hud button.frame { display: block; }
 
 #strip { position: absolute; left: 0; right: 0; bottom: 0; height: var(--strip-h); display: none; overflow: hidden;
   perspective: 900px; background: #08080a; border-top: 1px solid #ffffff14; z-index: 20; }

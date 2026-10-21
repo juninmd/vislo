@@ -41,8 +41,9 @@ export class Slide {
     return this.img ? { w: this.img.naturalWidth, h: this.img.naturalHeight } : null;
   }
 
-  get zoomed(): boolean {
-    return this.view.scale > 1;
+  /** Any loaded picture can be dragged, also when it is smaller than the stage. */
+  get pannable(): boolean {
+    return this.nat !== null;
   }
 
   setImage(img: HTMLImageElement): void {
@@ -121,7 +122,7 @@ export class Slide {
     this.shown = to;
     const sharpOk = this.sharp !== null && scale === 1 && normaliseTurn(this.rot) === 0;
     if (this.sharp) this.sharp.style.visibility = sharpOk ? "visible" : "hidden";
-    this.el.classList.toggle("zoomed", scale > 1);
+    this.el.classList.add("pannable");
     this.el.classList.toggle("pixelated", (this.percent() ?? 0) >= PIXEL_PERCENT);
   }
 
@@ -138,7 +139,15 @@ export class Slide {
     const fit = this.fit();
     if (!eff || !fit) return;
     const atFit = Math.abs(this.view.scale - 1) < 1e-6;
-    this.zoomBy(atFit ? actualScale(eff, fit) : 1 / this.view.scale, cx, cy);
+    if (atFit) this.zoomBy(actualScale(eff, fit), cx, cy);
+    else this.resetView();
+  }
+
+  /** Back to the fitted size, centred (also undoes any panning). */
+  resetView(): void {
+    if (!this.nat) return;
+    this.view = FIT;
+    this.apply(true);
   }
 
   panTo(x: number, y: number): void {

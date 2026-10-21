@@ -10,6 +10,7 @@ pub fn script(
     settings: &Settings,
     arg: Option<&str>,
     background: bool,
+    splash: bool,
 ) -> (String, Option<PathBuf>) {
     let canon = arg
         .and_then(|a| dunce::canonicalize(a).ok())
@@ -21,6 +22,8 @@ pub fn script(
         "file": canon.as_ref().map(|p| p.to_string_lossy().into_owned()),
         "native": canon.as_deref().is_some_and(album::is_native),
         "background": background,
+        // a native splash plays the zoom-in, so the page must not play it again
+        "splash": splash,
     });
     (
         format!("window.__VISLO__={value};"),
@@ -38,7 +41,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("a.png");
         std::fs::write(&file, b"x").unwrap();
-        let (js, folder) = script(&Settings::default(), file.to_str(), false);
+        let (js, folder) = script(&Settings::default(), file.to_str(), false, false);
         assert!(js.starts_with("window.__VISLO__={") && js.ends_with(";"));
         assert!(js.contains("\"native\":true") && js.contains("\"background\":false"));
         assert_eq!(folder, Some(dunce::canonicalize(&dir).unwrap()));
@@ -47,14 +50,19 @@ mod tests {
 
     #[test]
     fn unusable_arguments_still_reach_the_page_but_authorise_nothing() {
-        let (js, folder) = script(&Settings::default(), Some("C:/nope/missing.png"), true);
+        let (js, folder) = script(
+            &Settings::default(),
+            Some("C:/nope/missing.png"),
+            true,
+            false,
+        );
         assert!(
             js.contains("\"file\":null")
                 && js.contains("missing.png")
                 && js.contains("\"background\":true")
         );
         assert_eq!(folder, None);
-        let (js, folder) = script(&Settings::default(), None, false);
+        let (js, folder) = script(&Settings::default(), None, false, true);
         assert!(js.contains("\"path\":null"));
         assert_eq!(folder, None);
     }

@@ -12,11 +12,21 @@ export async function isFullscreen(): Promise<boolean> {
   return win.isFullscreen();
 }
 
+// Fullscreen and maximize go through the backend: it drops the maximized state around fullscreen
+// (a maximized window would not cover the taskbar) and restores it afterwards.
 export async function toggleFullscreen(): Promise<void> {
-  await win.setFullscreen(!(await win.isFullscreen()));
+  await api.setFullscreen(!(await win.isFullscreen()));
 }
 
-export const setFullscreen = (on: boolean) => win.setFullscreen(on);
+export const setFullscreen = (on: boolean) => api.setFullscreen(on);
+
+export const toggleMaximized = (natural: Box | null): Promise<boolean> => api.toggleMaximized(natural?.w ?? null, natural?.h ?? null);
+
+/** Drags the window by the top bar; a maximized window stays put. */
+export async function dragWindow(): Promise<void> {
+  if (!(await win.isMaximized()) && !(await win.isFullscreen())) await win.startDragging();
+}
 
 export const setTitle = (title: string) => win.setTitle(title);
 export const closeWindow = () => win.close();
+export const minimizeWindow = () => win.minimize();

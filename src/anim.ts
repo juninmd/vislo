@@ -29,6 +29,22 @@ export function slide(incoming: HTMLElement, outgoing: HTMLElement | null, dir: 
   return anims;
 }
 
+const APPEAR_MS = 320;
+
+/**
+ * A picture opening: it grows from slightly smaller while fading in, like Picasa's load effect.
+ * Returned paused on its first frame so the caller can start it the moment the window is shown;
+ * it starts fairly opaque so the first painted frame already shows the picture.
+ */
+export function appear(el: HTMLElement): Animation {
+  const a = el.animate(
+    [{ transform: "scale(0.94)", opacity: 0.4 }, { transform: "scale(1)", opacity: 1 }],
+    { duration: reduced.matches ? 0 : APPEAR_MS, easing: EASE, fill: "backwards" },
+  );
+  a.pause();
+  return a;
+}
+
 /** Rubber-band nudge when the user pushes past the first or last image. */
 export function bump(el: HTMLElement, dir: Dir): Animation {
   const dx = dir * 18;
