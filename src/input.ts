@@ -42,6 +42,10 @@ function fromCentre(stage: HTMLElement, e: { clientX: number; clientY: number })
 /** On-screen buttons mirror the keyboard shortcuts. */
 export function bindButtons(root: HTMLElement, ctl: Controller): void {
   const on = (sel: string, fn: () => void) => root.querySelector(sel)!.addEventListener("click", fn);
+  // A mouse-clicked button must not keep the keyboard: Space would otherwise click it again as well as navigate.
+  root.addEventListener("click", (e) => {
+    if ((e as MouseEvent).detail > 0) (e.target as Element).closest("button")?.blur();
+  });
   on("#prev", () => ctl.go(-1));
   on("#next", () => ctl.go(1));
   on("#btn-strip", () => ctl.toggleStrip());

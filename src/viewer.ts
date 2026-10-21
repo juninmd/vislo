@@ -88,7 +88,10 @@ export class Viewer implements Controller {
 
   wheelMode = (): WheelMode => this.settings.wheel;
   slide = (): Slide | null => this.current;
-  pointerDown = (): void => this.slideshow.stop();
+  pointerDown = (): void => {
+    this.slideshow.stop();
+    this.q("#panel").classList.remove("show"); // clicking the picture dismisses the settings
+  };
 
   async load(album: Album): Promise<void> {
     this.slideshow.stop();
