@@ -16,7 +16,7 @@ import { type Dir, jumpIndex, preloadWindow, stepIndex } from "./nav";
 import { Sharpener } from "./sharp";
 import { Slide } from "./slide";
 import { Slideshow } from "./slideshow";
-import { nextSlide } from "./slideshow-logic";
+import { canSlideshow, nextSlide } from "./slideshow-logic";
 import { loadPreview, slideshowFullscreen, type Transition, Transitioner } from "./transitions";
 import { ZoomControls } from "./zoom-controls";
 import type { Box } from "./zoom";
@@ -288,7 +288,10 @@ export class Viewer implements Controller {
   }
 
   toggleInfo = (): void => this.info.toggle(this.album?.files[this.index] ?? null);
-  toggleSlideshow = (): void => this.slideshow.toggle();
+  toggleSlideshow(): void {
+    if (!this.slideshow.running && !canSlideshow(this.album?.files.length ?? 0)) return this.notify("A slideshow needs at least two pictures");
+    this.slideshow.toggle();
+  }
   toggleSettings = (): void => void this.q("#panel").classList.toggle("show");
   toggleFullscreen = (): void => void chrome.toggleFullscreen();
   closeWindow = (): void => void chrome.closeWindow();

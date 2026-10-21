@@ -68,14 +68,15 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 #panel input[type="checkbox"] { accent-color: var(--accent); }
 #panel input:focus-visible, #panel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .hud svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-#app.strip-on #btn-strip, #app.slideshow #btn-show { color: var(--accent); }
+#app.strip-on #btn-strip, #app:has(#info.show) #btn-info, #app:has(#panel.show) #btn-gear { color: var(--accent); }
 
 .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 72px; border: 0; border-radius: 10px; z-index: 30;
   background: #00000055; color: var(--fg); font-size: 34px; line-height: 1; cursor: pointer; transition: opacity 0.25s var(--ease), background 0.15s; }
 #prev { left: 12px; }
 #next { right: 12px; }
 #app.strip-on .nav { top: calc(50% - var(--strip-h) / 2); }
-#app.empty .nav, #app.empty .hud button, #app.single .nav { display: none; }
+/* Settings stay reachable without a picture: they hold "default viewer" and the update check. */
+#app.empty .nav, #app.empty .hud button:not(#btn-gear), #app.single .nav { display: none; }
 .hud button.frame { display: none; }
 #app.frameless .hud button.frame, #app.frameless.empty .hud button.frame { display: block; }
 
@@ -120,6 +121,11 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
   #dims, #count { display: none; }
   #info, #panel { width: calc(100% - 24px); }
   #panel fieldset { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* The frameless bar has ten buttons: at the 360px minimum width they must still all fit. */
+@media (max-width: 420px) {
+  .hud { gap: 0; padding-left: 8px; padding-right: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
