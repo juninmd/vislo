@@ -31,10 +31,10 @@ pub fn pose(p: f32) -> (f32, f32) {
 
 /// Straight RGBA -> premultiplied BGRA, the layout `UpdateLayeredWindow` blends.
 pub fn premultiplied_bgra(rgba: &[u8], out: &mut [u8]) {
-    for (src, dst) in rgba.chunks_exact(4).zip(out.chunks_exact_mut(4)) {
+    for (src, dst) in rgba.as_chunks::<4>().0.iter().zip(out.as_chunks_mut::<4>().0) {
         let a = u32::from(src[3]);
         let mul = |c: u8| ((u32::from(c) * a + 127) / 255) as u8;
-        dst.copy_from_slice(&[mul(src[2]), mul(src[1]), mul(src[0]), src[3]]);
+        *dst = [mul(src[2]), mul(src[1]), mul(src[0]), src[3]];
     }
 }
 
