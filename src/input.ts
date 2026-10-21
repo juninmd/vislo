@@ -27,6 +27,10 @@ export interface Controller {
   toggleSettings(): void;
   toggleFullscreen(): void;
   escape(): void;
+  closeWindow(): void;
+  minimize(): void;
+  toggleMaximized(): void;
+  dragWindow(): void;
 }
 
 /** Cursor position relative to the stage centre, the origin zoom math works in. */
@@ -48,6 +52,16 @@ export function bindButtons(root: HTMLElement, ctl: Controller): void {
   on("#btn-rot-l", () => ctl.rotate(-1));
   on("#btn-rot-r", () => ctl.rotate(1));
   on("#btn-open", () => ctl.command("open"));
+  on("#btn-close", () => ctl.closeWindow());
+  on("#btn-min", () => ctl.minimize());
+  on("#btn-max", () => ctl.toggleMaximized());
+  // The top bar doubles as the title bar of the frameless window: drag to move, double-click to toggle.
+  root.querySelector(".hud")!.addEventListener("mousedown", (e) => {
+    const m = e as MouseEvent;
+    if (m.button !== 0 || !root.classList.contains("frameless") || (m.target as Element).closest("button")) return;
+    if (m.detail === 2) ctl.toggleMaximized();
+    else ctl.dragWindow();
+  });
 }
 
 export function bindInput(ctl: Controller): void {
@@ -83,7 +97,7 @@ export function bindInput(ctl: Controller): void {
   stage.addEventListener("pointerdown", (e) => {
     ctl.pointerDown();
     const s = ctl.slide();
-    if (e.button !== 0 || !s?.zoomed) return;
+    if (e.button !== 0 || !s?.pannable) return;
     drag = { x: e.clientX, y: e.clientY, vx: s.view.x, vy: s.view.y };
     stage.setPointerCapture(e.pointerId);
     s.el.classList.add("panning");

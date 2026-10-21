@@ -1,6 +1,7 @@
 import { registerAssociations, type Settings, setSettings } from "./api";
 
 const CHECKS: [string, keyof Settings][] = [
+  ["#s-max", "open_maximized"],
   ["#s-fs", "fullscreen_on_start"],
   ["#s-autohide", "autohide_controls"],
   ["#s-sharp", "sharp_downscale"],

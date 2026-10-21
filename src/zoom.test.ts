@@ -26,9 +26,11 @@ describe("zoomAt", () => {
     expect(zoomAt({ scale: 1, x: 0, y: 0 }, 0.5, 0, 0, fit, stage, 24, 0.05).scale).toBe(0.5);
     expect(zoomAt({ scale: 0.06, x: 0, y: 0 }, 0.1, 0, 0, fit, stage, 24, 0.05).scale).toBe(0.05);
   });
-  it("stays centred while smaller than the stage", () => {
+  it("zooming out keeps the picture inside the stage", () => {
     const v = zoomAt({ scale: 1, x: 40, y: 40 }, 0.1, 300, 200, fit, stage, 24, 0.05);
-    expect([v.x, v.y]).toEqual([0, 0]);
+    // 80 x 60 on a 1000 x 600 stage: at most 460 / 270 from the centre
+    expect(Math.abs(v.x)).toBeLessThanOrEqual(460);
+    expect(Math.abs(v.y)).toBeLessThanOrEqual(270);
   });
   it("caps at the given maximum scale", () => {
     expect(zoomAt({ scale: 20, x: 0, y: 0 }, 10, 0, 0, fit, stage, 24).scale).toBe(24);
@@ -37,8 +39,10 @@ describe("zoomAt", () => {
 
 describe("clampView", () => {
   const fit = { w: 800, h: 600 };
-  it("centres an axis that is smaller than the stage", () => {
-    expect(clampView({ scale: 1, x: 300, y: 300 }, fit, stage)).toEqual({ scale: 1, x: 0, y: 0 });
+  it("lets a picture smaller than the stage move, but not leave it", () => {
+    // 800 x 600 on a 1000 x 600 stage: 100 px of room sideways, none vertically
+    expect(clampView({ scale: 1, x: 300, y: 300 }, fit, stage)).toEqual({ scale: 1, x: 100, y: 0 });
+    expect(clampView({ scale: 0.5, x: -999, y: 999 }, fit, stage)).toEqual({ scale: 0.5, x: -300, y: 150 });
   });
   it("limits panning to the overflow", () => {
     // 800*2=1600 wide vs 1000 stage -> max pan 300; 600*2=1200 tall vs 600 -> 300
