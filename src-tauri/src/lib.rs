@@ -17,6 +17,7 @@ mod shell;
 mod splash;
 mod thumbs;
 mod tray;
+mod update;
 mod window;
 
 use paths::Allowed;
@@ -117,6 +118,31 @@ async fn reveal_in_folder(svc: State<'_, Arc<Services>>, path: String) -> Result
 #[tauri::command]
 async fn open_with(svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
     shell::open_with(&svc.allowed.resolve(&path)?)
+}
+
+/// Looks for a newer release on GitHub; `None` when this build is current.
+#[tauri::command]
+async fn check_update() -> Result<Option<update::Update>, String> {
+    tauri::async_runtime::spawn_blocking(|| update::check(env!("CARGO_PKG_VERSION")))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Downloads and verifies the latest installer, starts it and quits so it can replace the files.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let setup = tauri::async_runtime::spawn_blocking(|| update::fetch_installer(env!("CARGO_PKG_VERSION")))
+        .await
+        .map_err(|e| e.to_string())??;
+    update::run_installer(&setup)?;
+    app.exit(0);
+    Ok(())
+}
+
+/// Portable copies cannot replace themselves: send the user to the releases page.
+#[tauri::command]
+fn open_releases() -> Result<(), String> {
+    shell::open_url(&format!("https://github.com/{}/releases/latest", update::REPO))
 }
 
 /// `--register-associations` / `--unregister-associations`: headless, for scripts and portable use.
@@ -283,6 +309,9 @@ pub fn run() {
             copy_image,
             reveal_in_folder,
             open_with,
+            check_update,
+            install_update,
+            open_releases,
             window::show_fitted,
             window::set_fullscreen,
             window::toggle_maximized

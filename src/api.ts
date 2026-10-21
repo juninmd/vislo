@@ -35,6 +35,15 @@ export interface Settings {
   slideshow_fade_ms: number;
   keep_ready: boolean;
   start_with_windows: boolean;
+  check_updates: boolean;
+}
+
+export interface Update {
+  version: string;
+  notes: string;
+  page: string;
+  /** False for portable copies, which are sent to the release page instead. */
+  installable: boolean;
 }
 
 export const openPath = (path: string) => invoke<Album>("open_path", { path });
@@ -54,6 +63,10 @@ export const copyImage = (path: string) => invoke<void>("copy_image", { path });
 export const pickImage = () => invoke<string | null>("pick_image");
 export const revealInFolder = (path: string) => invoke<void>("reveal_in_folder", { path });
 export const openWith = (path: string) => invoke<void>("open_with", { path });
+export const checkUpdate = () => invoke<Update | null>("check_update");
+/** Downloads, verifies and runs the installer; the app quits and comes back updated. */
+export const installUpdate = () => invoke<void>("install_update");
+export const openReleases = () => invoke<void>("open_releases");
 
 export const query = (params: Record<string, string | number>): string =>
   Object.entries(params)

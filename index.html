@@ -9,12 +9,18 @@
     <div id="app" class="bg-dark">
       <div id="stage"></div>
       <div id="empty">
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="10" width="52" height="44" rx="9"/><circle cx="22" cy="26" r="5"/><path d="M8 46l15-14 11 10 8-7 15 14"/></svg>
         <p>Open an image with <b>Vislo</b></p>
-        <small>or drop a file here</small>
+        <small>or drop a file anywhere in this window</small>
         <button id="btn-open" class="assoc" type="button">Open image… <kbd>O</kbd></button>
         <button id="btn-assoc" class="assoc" type="button">Set as default image viewer</button>
       </div>
       <div id="msg" role="status"></div>
+      <div id="update" role="status" hidden>
+        <span id="update-text"></span>
+        <button id="update-go" type="button">Update &amp; restart</button>
+        <button id="update-later" type="button" aria-label="Dismiss" title="Later">✕</button>
+      </div>
       <div id="zoomtip" role="status" aria-live="polite"></div>
       <div id="caption"></div>
       <header class="hud">
@@ -56,6 +62,7 @@
       <aside id="info" aria-label="Image information"></aside>
       <aside id="panel" aria-label="Settings">
         <h2>Settings</h2>
+        <h3>Viewing</h3>
         <label>Mouse wheel
           <select id="s-wheel"><option value="zoom">Zoom</option><option value="navigate">Previous / next image</option></select>
         </label>
@@ -64,15 +71,23 @@
         <label class="check"><input type="checkbox" id="s-preview" /> Instant preview for large photos</label>
         <label class="check"><input type="checkbox" id="s-3d" /> 3D filmstrip</label>
         <label class="check"><input type="checkbox" id="s-hover" /> Filmstrip hover preview</label>
-        <label>Slideshow: show for (s) <input type="number" id="s-display" min="0.5" max="60" step="0.5" /></label>
-        <label>Slideshow: fade (s) <input type="number" id="s-fade" min="0" max="5" step="0.5" /></label>
-        <label class="check"><input type="checkbox" id="s-max" /> Open maximized, no title bar <em>(next launch)</em></label>
+        <h3>Slideshow</h3>
+        <label>Show each picture for (s) <input type="number" id="s-display" min="0.5" max="60" step="0.5" /></label>
+        <label>Cross-fade (s) <input type="number" id="s-fade" min="0" max="5" step="0.5" /></label>
+        <h3>Window</h3>
+        <label class="check"><input type="checkbox" id="s-max" /> Open maximized <em>(next launch)</em></label>
         <label class="check"><input type="checkbox" id="s-fs" /> Open in fullscreen <em>(next launch)</em></label>
-        <label>Background <em>(next launch)</em>
+        <label>Background (next launch)
           <select id="s-bg"><option value="dark">Dark</option><option value="black">Black</option><option value="transparent">Transparent</option></select>
         </label>
-        <label class="check"><input type="checkbox" id="s-keep" /> Keep ready in the background <em>(opens faster)</em></label>
+        <label class="check"><input type="checkbox" id="s-keep" /> Keep ready in tray <em>(opens faster)</em></label>
         <label class="check"><input type="checkbox" id="s-login" /> Start ready when I sign in</label>
+        <h3>Updates</h3>
+        <label class="check"><input type="checkbox" id="s-updates" /> Check for updates automatically</label>
+        <div class="about">
+          <span id="s-version">Vislo</span>
+          <button id="btn-update-check" class="assoc" type="button">Check for updates</button>
+        </div>
         <fieldset id="s-groups">
           <legend>Default viewer for</legend>
           <label class="check"><input type="checkbox" data-group="jpeg" checked /> JPEG</label>

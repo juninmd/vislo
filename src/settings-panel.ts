@@ -10,6 +10,7 @@ const CHECKS: [string, keyof Settings][] = [
   ["#s-hover", "hover_preview"],
   ["#s-keep", "keep_ready"],
   ["#s-login", "start_with_windows"],
+  ["#s-updates", "check_updates"],
 ];
 
 const GROUPS_KEY = "vislo.groups";

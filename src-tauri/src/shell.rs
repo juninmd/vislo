@@ -28,6 +28,24 @@ pub fn open_with(path: &Path) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Opens a fixed `https` URL in the default browser (Explorer hands it to the registered handler).
+#[cfg(windows)]
+pub fn open_url(url: &str) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("only https links can be opened".into());
+    }
+    std::process::Command::new("explorer.exe")
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(not(windows))]
+pub fn open_url(_url: &str) -> Result<(), String> {
+    Err("opening links is Windows-only".into())
+}
+
 #[cfg(not(windows))]
 pub fn reveal(_path: &Path) -> Result<(), String> {
     Err("showing a file in its folder is Windows-only".into())

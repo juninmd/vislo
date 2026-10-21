@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { type Album, getSettings, initialPath, openPath, registerAssociations } from "./api";
@@ -6,6 +7,7 @@ import { showFitted } from "./chrome";
 import { bindFolderSync } from "./folder-sync";
 import { bindSettingsPanel } from "./settings-panel";
 import "./style.css";
+import { Updater } from "./update";
 import { Viewer } from "./viewer";
 
 const app = document.getElementById("app")!;
@@ -29,7 +31,19 @@ async function boot(): Promise<void> {
   // The window was created without a title bar (see window.rs `frameless`): show our own buttons.
   app.classList.toggle("frameless", settings.open_maximized);
   const viewer = new Viewer(app, settings, (p) => open(viewer, p));
-  bindSettingsPanel(document.getElementById("panel")!, settings, (s) => viewer.applySettings(s), (t) => viewer.notify(t));
+  let current = settings;
+  bindSettingsPanel(
+    document.getElementById("panel")!,
+    settings,
+    (s) => viewer.applySettings((current = s)),
+    (t) => viewer.notify(t),
+  );
+  const updater = new Updater(document.getElementById("update")!, (t) => viewer.notify(t), () => current.check_updates);
+  document.getElementById("btn-update-check")!.addEventListener("click", () => void updater.check(true));
+  getVersion().then(
+    (v) => (document.getElementById("s-version")!.textContent = `Vislo ${v}`),
+    () => undefined,
+  );
 
   document.getElementById("btn-assoc")!.addEventListener("click", async () => {
     try {
@@ -63,6 +77,7 @@ async function boot(): Promise<void> {
     }),
   ]);
   await opened;
+  updater.start(); // never competes with the first picture
 }
 
 void boot();

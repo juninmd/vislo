@@ -39,6 +39,8 @@ pub struct Settings {
     pub keep_ready: bool,
     /// Launch parked when the user signs in (only meaningful with `keep_ready`).
     pub start_with_windows: bool,
+    /// Look for a newer release on GitHub when Vislo starts (and every few hours while it runs).
+    pub check_updates: bool,
 }
 
 impl Default for Settings {
@@ -57,6 +59,7 @@ impl Default for Settings {
             slideshow_fade_ms: 1000,
             keep_ready: false,
             start_with_windows: false,
+            check_updates: true,
         }
     }
 }
@@ -160,6 +163,17 @@ mod tests {
             (s.wheel, s.background, s.open_maximized),
             (WheelMode::Navigate, Background::Dark, true)
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn update_checks_are_on_unless_a_settings_file_says_otherwise() {
+        assert!(Settings::default().check_updates);
+        let dir = temp("updates");
+        std::fs::write(dir.join("s.json"), br#"{"check_updates":false}"#).unwrap();
+        assert!(!load(&dir.join("s.json")).check_updates);
+        std::fs::write(dir.join("old.json"), br#"{"wheel":"zoom"}"#).unwrap();
+        assert!(load(&dir.join("old.json")).check_updates);
         let _ = std::fs::remove_dir_all(dir);
     }
 
