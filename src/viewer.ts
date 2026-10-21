@@ -34,6 +34,7 @@ export class Viewer implements Controller {
   private index = 0; // shown
   private target = 0; // requested; runs ahead of `index` while a decode is pending
   private seq = 0;
+  private maximizedTimer = 0;
   private dir: Dir = 1;
   private current: Slide | null = null;
   private transitions = new Transitioner();
@@ -78,7 +79,9 @@ export class Viewer implements Controller {
     new ResizeObserver(() => {
       this.current?.layout(this.stageBox());
       this.scheduleSharp();
+      this.syncMaximized();
     }).observe(this.stage);
+    this.syncMaximized();
     bindButtons(app, this);
     bindInput(this);
     this.applySettings(settings);
@@ -255,6 +258,20 @@ export class Viewer implements Controller {
     const px = this.current?.pixels() ?? null;
     this.hud.setPicture(name, index, album.files.length, px);
     void chrome.setTitle(titleFor(name, px));
+  }
+
+  /** Mirrors the real window state (button, double-click, Win+Up, snapping) so the bar shows maximize or restore. */
+  private syncMaximized(): void {
+    if (!this.app.classList.contains("frameless")) return;
+    clearTimeout(this.maximizedTimer);
+    this.maximizedTimer = window.setTimeout(() => {
+      void chrome.isMaximized().then((on) => {
+        this.app.classList.toggle("maximized", on);
+        const btn = this.q("#btn-max");
+        btn.title = on ? "Restore down (double-click the bar)" : "Maximize (double-click the bar)";
+        btn.setAttribute("aria-label", on ? "Restore down" : "Maximize");
+      });
+    }, 80);
   }
 
   private stageBox(): Box {

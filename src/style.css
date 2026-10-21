@@ -78,6 +78,8 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 /* Settings stay reachable without a picture: they hold "default viewer" and the update check. */
 #app.empty .nav, #app.empty .hud button:not(#btn-gear), #app.single .nav { display: none; }
 .hud button.frame { display: none; }
+.ico-restore, #app.maximized .ico-max { display: none; }
+#app.maximized .ico-restore { display: block; }
 #app.frameless .hud button.frame, #app.frameless.empty .hud button.frame { display: block; }
 
 #strip { position: absolute; left: 0; right: 0; bottom: 0; height: var(--strip-h); display: none; overflow: hidden;
