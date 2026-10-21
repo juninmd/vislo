@@ -43,6 +43,15 @@
         <button id="btn-full" title="Fullscreen (F11)" aria-label="Toggle fullscreen">
           <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none"/></svg>
         </button>
+        <button id="btn-max" class="frame" title="Maximize / window (double-click the bar)" aria-label="Toggle maximized window">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>
+        </button>
+        <button id="btn-min" class="frame" title="Minimise" aria-label="Minimise">
+          <svg viewBox="0 0 24 24"><path d="M5 18h14"/></svg>
+        </button>
+        <button id="btn-close" class="frame" title="Close (Esc)" aria-label="Close">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </header>
       <aside id="info" aria-label="Image information"></aside>
       <aside id="panel" aria-label="Settings">
@@ -57,6 +66,7 @@
         <label class="check"><input type="checkbox" id="s-hover" /> Filmstrip hover preview</label>
         <label>Slideshow: show for (s) <input type="number" id="s-display" min="0.5" max="60" step="0.5" /></label>
         <label>Slideshow: fade (s) <input type="number" id="s-fade" min="0" max="5" step="0.5" /></label>
+        <label class="check"><input type="checkbox" id="s-max" /> Open maximized, no title bar <em>(next launch)</em></label>
         <label class="check"><input type="checkbox" id="s-fs" /> Open in fullscreen <em>(next launch)</em></label>
         <label>Background <em>(next launch)</em>
           <select id="s-bg"><option value="dark">Dark</option><option value="black">Black</option><option value="transparent">Transparent</option></select>

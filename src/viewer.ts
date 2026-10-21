@@ -1,5 +1,6 @@
-import { bump } from "./anim";
+import { appear, bump } from "./anim";
 import type { Album, Settings, WheelMode } from "./api";
+import { boot as bootData } from "./boot";
 import { ImageCache, type Loaded } from "./cache";
 import { type Command, Commands } from "./commands";
 import { ContextMenu } from "./context-menu";
@@ -233,7 +234,12 @@ export class Viewer implements Controller {
     const dpr = window.devicePixelRatio || 1;
     const size = this.album?.size;
     const natural = slide.natural() ?? (size ? { w: size[0] / dpr, h: size[1] / dpr } : null);
-    await chrome.showFitted(natural, this.settings.fullscreen_on_start);
+    const opening = bootData?.splash ? null : appear(slide.el); // parked on its first frame while the window is still hidden
+    try {
+      await chrome.showFitted(natural, this.settings.fullscreen_on_start);
+    } finally {
+      opening?.play();
+    }
     this.warm(this.index);
   }
 
@@ -282,6 +288,10 @@ export class Viewer implements Controller {
   toggleSlideshow = (): void => this.slideshow.toggle();
   toggleSettings = (): void => void this.q("#panel").classList.toggle("show");
   toggleFullscreen = (): void => void chrome.toggleFullscreen();
+  closeWindow = (): void => void chrome.closeWindow();
+  minimize = (): void => void chrome.minimizeWindow();
+  toggleMaximized = (): void => void chrome.toggleMaximized(this.current?.natural() ?? null);
+  dragWindow = (): void => void chrome.dragWindow();
 
   escape(): void {
     if (this.menu.open) return this.menu.hide();

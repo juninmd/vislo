@@ -8,13 +8,19 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 
 ## Features
 
+* **Opens maximized** – maximized, no title bar, over a dimmed transparent background; the picture
+  zooms in as it appears. On a cold start a native first-paint window shows the decoded picture
+  while WebView2 is still starting (≈100 ms to first pixels for typical images), then hands over
+  seamlessly. The top bar is the title bar: drag it to move, double-click it (or use the ▢ button)
+  to switch between maximized and a window sized to the picture. `F11` is true fullscreen (covers
+  the taskbar) and returns to where it came from. *Settings → Open maximized* turns this off.
 * **Instant open** – the window stays hidden until the first picture is decoded, then appears
   already sized to it. Large JPEGs and RAW files show their embedded preview first.
 * **Folder navigation** – every image next to the one you opened, in Explorer order
   (`img2` before `img10`), with slide animations and look-ahead preloading.
 * **Zoom from 1% to 10,000%** – wheel / pinch / `+` `-` zoom at the cursor with an eased, even
   animation (1% → 100% takes one smooth move, not a late rush); a `NN%` tooltip shows the level
-  and fades after 2 s. From 400% up, pixels are drawn as crisp squares. Drag to pan,
+  and fades after 2 s. From 400% up, pixels are drawn as crisp squares. Drag to pan (at any zoom level, also below 100%; `0` recentres),
   double-click toggles fit ↔ 100%. Honours the OS "reduce motion" setting.
 * **Sharp downscaling** – photos shown much smaller than their pixels are re-sampled with
   Lanczos in Rust instead of the browser's cheaper filter.
@@ -64,7 +70,8 @@ Scope is deliberately small: **view on open**. No library, no editing, no import
 | `Home` / `End` | first / last image |
 | Double-click, `1` | toggle fit ↔ actual pixels (100%) |
 | `0` | fit to window |
-| Drag (when zoomed) | pan |
+| Drag | pan the picture at any zoom level |
+| Drag / double-click the top bar | move the window / maximize ↔ window |
 | `Ctrl+C` | copy the picture to the clipboard |
 | `O`, `Ctrl+O` | open an image (file dialog) |
 | Right-click | menu: copy, open, show in folder, open with, info, slideshow, … |

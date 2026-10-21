@@ -25,6 +25,8 @@ pub enum Background {
 pub struct Settings {
     pub wheel: WheelMode,
     pub fullscreen_on_start: bool,
+    /// Open filling the screen without a title bar; off sizes the window to the picture.
+    pub open_maximized: bool,
     pub autohide_controls: bool,
     pub background: Background,
     pub sharp_downscale: bool,
@@ -44,8 +46,9 @@ impl Default for Settings {
         Settings {
             wheel: WheelMode::Zoom,
             fullscreen_on_start: false,
+            open_maximized: true,
             autohide_controls: true,
-            background: Background::Dark,
+            background: Background::Transparent,
             sharp_downscale: true,
             embedded_preview: true,
             filmstrip_3d: true,
@@ -135,6 +138,29 @@ mod tests {
         let d = Settings::default();
         assert_eq!((d.slideshow_display_ms, d.slideshow_fade_ms), (4000, 1000));
         assert_eq!(d.wheel, WheelMode::Zoom);
+    }
+
+    #[test]
+    fn defaults_open_maximized_over_a_transparent_background() {
+        let d = Settings::default();
+        assert!(d.open_maximized && !d.fullscreen_on_start);
+        assert_eq!(d.background, Background::Transparent);
+    }
+
+    #[test]
+    fn settings_files_written_before_open_maximized_existed_still_load() {
+        let dir = temp("legacy");
+        std::fs::write(
+            dir.join("s.json"),
+            br#"{"wheel":"navigate","background":"dark"}"#,
+        )
+        .unwrap();
+        let s = load(&dir.join("s.json"));
+        assert_eq!(
+            (s.wheel, s.background, s.open_maximized),
+            (WheelMode::Navigate, Background::Dark, true)
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

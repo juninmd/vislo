@@ -23,8 +23,8 @@ export class ZoomControls {
   };
 
   fit = (): void => {
-    const s = this.slide();
-    if (s) this.zoomBy(1 / s.view.scale);
+    this.slide()?.resetView();
+    this.showZoom();
   };
 
   toggleActual = (cx: number, cy: number): void => {
