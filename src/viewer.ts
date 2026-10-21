@@ -304,12 +304,18 @@ export class Viewer implements Controller {
     this.hover.hide();
   }
 
-  toggleInfo = (): void => this.info.toggle(this.album?.files[this.index] ?? null);
+  toggleInfo(): void {
+    if (!this.info.visible && matchMedia("(max-width: 620px)").matches) this.q("#panel").classList.remove("show"); // both are full width there
+    this.info.toggle(this.album?.files[this.index] ?? null);
+  }
   toggleSlideshow(): void {
     if (!this.slideshow.running && !canSlideshow(this.album?.files.length ?? 0)) return this.notify("A slideshow needs at least two pictures");
     this.slideshow.toggle();
   }
-  toggleSettings = (): void => void this.q("#panel").classList.toggle("show");
+  toggleSettings(): void {
+    const opening = this.q("#panel").classList.toggle("show");
+    if (opening && matchMedia("(max-width: 620px)").matches) this.info.close();
+  }
   toggleFullscreen = (): void => void chrome.toggleFullscreen();
   closeWindow = (): void => void chrome.closeWindow();
   minimize = (): void => void chrome.minimizeWindow();

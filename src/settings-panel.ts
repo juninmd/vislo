@@ -61,8 +61,9 @@ export function bindSettingsPanel(
     next.wheel = el<HTMLSelectElement>("#s-wheel").value as Settings["wheel"];
     next.background = el<HTMLSelectElement>("#s-bg").value as Settings["background"];
     const secs = (sel: string, fallback: number) => {
-      const n = Number(el<HTMLInputElement>(sel).value);
-      return Number.isFinite(n) && n >= 0 ? Math.round(n * 1000) : fallback;
+      const text = el<HTMLInputElement>(sel).value.trim();
+      const n = Number(text);
+      return text !== "" && Number.isFinite(n) && n >= 0 ? Math.round(n * 1000) : fallback; // a cleared field is not "0 s"
     };
     next.slideshow_display_ms = secs("#s-display", current.slideshow_display_ms);
     next.slideshow_fade_ms = secs("#s-fade", current.slideshow_fade_ms);
