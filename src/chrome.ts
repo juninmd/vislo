@@ -18,7 +18,9 @@ export async function toggleFullscreen(): Promise<void> {
   await api.setFullscreen(!(await win.isFullscreen()));
 }
 
-export const setFullscreen = (on: boolean) => api.setFullscreen(on);
+export const isMaximized = (): Promise<boolean> => win.isMaximized();
+
+export const setFullscreen =(on: boolean) => api.setFullscreen(on);
 
 export const toggleMaximized = (natural: Box | null): Promise<boolean> => api.toggleMaximized(natural?.w ?? null, natural?.h ?? null);
 

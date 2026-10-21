@@ -48,6 +48,14 @@ export class Hud {
   touch(autohide: boolean): void {
     this.app.classList.remove("idle");
     clearTimeout(this.timers.idle);
-    if (autohide) this.timers.idle = window.setTimeout(() => this.app.classList.add("idle"), IDLE_MS);
+    if (autohide) this.armIdle();
+  }
+
+  /** The bar never vanishes from under a resting pointer: it waits until the pointer leaves. */
+  private armIdle(): void {
+    this.timers.idle = window.setTimeout(() => {
+      if (this.q(".hud").matches(":hover")) this.armIdle();
+      else this.app.classList.add("idle");
+    }, IDLE_MS);
   }
 }
