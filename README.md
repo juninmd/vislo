@@ -11,15 +11,16 @@ Dê dois cliques numa foto e ela já está na tela. Navegue pela pasta, dê zoom
 [![Build](https://img.shields.io/github/actions/workflow/status/juninmd/vislo/release.yml?branch=main&style=for-the-badge&label=build)](https://github.com/juninmd/vislo/actions/workflows/release.yml)
 [![Validate](https://img.shields.io/github/actions/workflow/status/juninmd/vislo/validate.yml?branch=main&style=for-the-badge&label=validate)](https://github.com/juninmd/vislo/actions/workflows/validate.yml)
 [![Downloads](https://img.shields.io/github/downloads/juninmd/vislo/total?style=for-the-badge&color=2ea043)](https://github.com/juninmd/vislo/releases)
-![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=for-the-badge)
-![Rust](https://img.shields.io/badge/Rust-backend-dea584?style=for-the-badge)
-![Conventional Commits](https://img.shields.io/badge/commits-conventional-fe5196?style=for-the-badge)
+[![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=for-the-badge)](https://tauri.app)
+[![Rust](https://img.shields.io/badge/Rust-backend-dea584?style=for-the-badge)](https://www.rust-lang.org)
 
 <br/>
 
 <img src="assets/screenshots/viewer.png" alt="Vislo exibindo uma foto maximizada, com a barra superior e as setas de navegação" width="860" />
 
 </div>
+
+> **Dê dois cliques numa foto e ela já está na tela.** Folheie a pasta com as setas e dê zoom de 1% a 10.000% com a roda do mouse.
 
 ---
 
@@ -34,8 +35,9 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 
 [Funcionalidades](#funcionalidades) · [Tour](#tour) · [Instalação](#instalação) · [Uso](#uso) ·
 [Arquitetura](#arquitetura) · [Atualização automática](#atualização-automática) · [Atalhos](#atalhos-de-teclado-e-mouse) ·
-[Desempenho](#por-que-é-rápido) · [Desenvolvimento](#desenvolvimento) · [Gates de CI](#gates-de-ci) ·
-[Contribuindo](#contribuindo) · [Segurança](#segurança)
+[Desempenho](#por-que-é-rápido) · [Configuração](#configuração) · [Desenvolvimento](#desenvolvimento) ·
+[Gates de CI](#gates-de-ci) · [Contribuindo](#contribuindo) · [Segurança](#segurança) · [Limitações](#limitações-conhecidas) ·
+[Licença](#licença)
 
 ## Funcionalidades
 
@@ -95,6 +97,10 @@ proceduralmente (`scripts/screenshots/`), então são reproduzíveis e não usam
 
 Plataforma suportada: Windows x64 com WebView2.
 
+> [!WARNING]
+> O instalador não é assinado digitalmente (o workflow de release não assina binários), então o Windows pode mostrar
+> um aviso de editor desconhecido antes de executar.
+
 ## Uso
 
 Abrir uma imagem (a pasta dela vira o álbum). Sem saída no terminal: o app é gráfico.
@@ -111,7 +117,8 @@ vislo.exe --register-associations jpeg,png,raw
 vislo.exe --unregister-associations
 ```
 
-Os dois comandos retornam código de saída `0` em sucesso e `1` em falha (`src-tauri/src/lib.rs`). *Abrir com &rarr; Vislo*
+Os dois comandos retornam código de saída `0` em sucesso e `1` em falha (`src-tauri/src/lib.rs`). Ao registrar, o Windows
+abre *Configurações &rarr; Aplicativos padrão* para você confirmar. *Abrir com &rarr; Vislo*
 funciona em qualquer imagem. Para iniciar já estacionado na bandeja (só vale com *Keep ready* ligado; senão o processo encerra):
 
 ```sh
@@ -169,9 +176,9 @@ flowchart LR
 O Vislo se atualiza a partir das releases deste repositório:
 
 ```
-início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ──► banner "Vislo 1.4.0 is available"
+início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ──► banner "Vislo <nova versão> is available"
                                                                           │ Update & restart
-   novo Vislo inicia ◄── instalação silenciosa ◄── SHA256 confere? ◄── baixa Vislo_1.4.0_x64-setup.exe
+   novo Vislo inicia ◄── instalação silenciosa ◄── SHA256 confere? ◄── baixa Vislo_<versão>_x64-setup.exe
 ```
 
 * A verificação roda alguns segundos depois da primeira imagem aparecer, então nunca atrasa a abertura. Dá para
@@ -225,6 +232,11 @@ O `.github/workflows/release.yml` transforma cada push em `main` numa release, s
 * Miniaturas, prévias e conversões de formato rodam num pequeno pool de workers LIFO, então a imagem que você está
   vendo sempre é atendida antes do backlog.
 
+## Configuração
+
+As preferências ficam em `settings.json`, na pasta de configuração do app (`app_config_dir` do Tauri), e são editadas
+pelo painel de configurações (ícone de engrenagem). O app não lê variáveis de ambiente.
+
 ## Desenvolvimento
 
 Requer Node 20+ (o CI usa Node 22), Rust stable e os
@@ -274,3 +286,18 @@ CI e o planejador de release dependem disso. As regras, as regras de release e a
 * As alterações de registro para associações de arquivo são apenas por usuário (`HKCU`).
 * As atualizações vêm apenas das releases do GitHub deste repositório, por HTTPS, e o instalador é conferido contra o
   `SHA256SUMS.txt` da release antes de ser executado.
+
+## Limitações conhecidas
+
+* Só Windows x64 com WebView2. Não há build para macOS ou Linux.
+* Não edita, não organiza biblioteca e não importa: o escopo é ver a imagem.
+* Arquivos RAW são exibidos pelo JPEG de prévia embutido no arquivo, não pela revelação do sensor.
+* Imagens enormes ou corrompidas são recusadas com mensagem.
+* Cópias portáteis não se atualizam sozinhas; o banner leva à página da release.
+* O instalador não é assinado (ver [Instalação](#instalação)).
+
+## Licença
+
+> [!CAUTION]
+> Este repositório ainda não define uma licença: não há arquivo `LICENSE` nem campo `license` no `package.json`. Sem
+> licença publicada, valem os direitos reservados do autor por padrão.
