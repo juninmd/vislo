@@ -68,6 +68,9 @@ Running copies of Vislo find the release through the built-in updater (`src-taur
   cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings   # on Windows, as in CI
   ```
 
+* CI gates: `ci` (`commits` + `check` above) and `Validate` run on PRs; `Security Scan` runs on `main` and weekly
+  (`Validate` and `Security Scan` are reusable workflows from `juninmd/base-actions`).
+  `pwsh scripts/ci-local.ps1` runs the `check` steps locally.
 * UI changes: regenerate the README screenshots with `npm run screenshots` and commit the PNGs in
   `assets/screenshots/` when the look changes.
 

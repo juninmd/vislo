@@ -1,0 +1,18 @@
+$ npm test
+> vislo@0.2.2 test
+> vitest run
+ RUN  v5.0.5 <repo>
+ Test Files  11 passed (11)
+      Tests  74 passed (74)
+   Start at  10:00:38
+   Duration  378ms (transform 42%, import 36%, tests 11%, worker 10%)
+
+$ node scripts/check-commits.mjs --message "docs: update README and AGENTS.md"
+✓ 1 commit message(s) follow Conventional Commits
+
+$ node scripts/check-commits.mjs --message "Update stuff"
+✗ Update stuff
+    - "Update stuff" is not a semantic commit: use <type>(<scope>): <subject>, type one of feat, fix, perf, refactor, docs, style, test, build, ci, chore, revert
+
+Commits follow Conventional Commits: feat(scope): add a thing | fix: correct a bug | docs: ... (see AGENTS.md)
+(exit code 1)
