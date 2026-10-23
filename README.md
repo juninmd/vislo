@@ -4,11 +4,12 @@
 
 # Vislo
 
-**A fast, minimal image viewer for Windows.**<br/>
-Double-click a picture and it is on screen before you finish blinking. Flip through the folder, zoom from 1% to 10,000%, and let it keep itself up to date.
+**Um visualizador de imagens rápido e minimalista para Windows.**<br/>
+Dê dois cliques numa foto e ela já está na tela. Navegue pela pasta, dê zoom de 1% a 10.000% e deixe o app se atualizar sozinho.
 
 [![Release](https://img.shields.io/github/v/release/juninmd/vislo?style=for-the-badge&color=4da3ff&label=release)](https://github.com/juninmd/vislo/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/juninmd/vislo/release.yml?branch=main&style=for-the-badge&label=build)](https://github.com/juninmd/vislo/actions/workflows/release.yml)
+[![Validate](https://img.shields.io/github/actions/workflow/status/juninmd/vislo/validate.yml?branch=main&style=for-the-badge&label=validate)](https://github.com/juninmd/vislo/actions/workflows/validate.yml)
 [![Downloads](https://img.shields.io/github/downloads/juninmd/vislo/total?style=for-the-badge&color=2ea043)](https://github.com/juninmd/vislo/releases)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=for-the-badge)
 ![Rust](https://img.shields.io/badge/Rust-backend-dea584?style=for-the-badge)
@@ -16,179 +17,260 @@ Double-click a picture and it is on screen before you finish blinking. Flip thro
 
 <br/>
 
-<img src="assets/screenshots/viewer.png" alt="Vislo showing a photo maximized, with the top bar and navigation arrows" width="860" />
+<img src="assets/screenshots/viewer.png" alt="Vislo exibindo uma foto maximizada, com a barra superior e as setas de navegação" width="860" />
 
 </div>
 
 ---
 
-## Why Vislo
+## O que é
 
-Scope is deliberately small: **view on open**. No library, no editing, no import.
+Vislo é um app desktop (Tauri 2: backend em Rust, interface em TypeScript sem framework) para quem só quer **abrir uma
+imagem e folhear a pasta dela**, sem biblioteca, sem edição e sem importação. Ele ataca a lentidão dos visualizadores
+pesados: uma janela nativa mostra a imagem decodificada enquanto o WebView2 ainda está subindo, e um modo residente
+reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: **ver ao abrir**.
 
-* **Instant.** A native first-paint window shows the decoded picture while WebView2 is still starting
-  (about 100 ms to first pixels for typical images); a resident *keep ready* mode brings reopening down to tens of milliseconds.
-* **Smooth.** Eased slide animations, look-ahead preloading, a 3D filmstrip and a zoom that never jumps.
-* **Everything opens.** JPEG, PNG, GIF, WebP, AVIF, BMP, TIFF, PSD, HDR, EXR, 26 camera RAW types and more.
-* **Self-updating.** New releases are found, verified and installed from this repository in one click.
+## Índice
+
+[Funcionalidades](#funcionalidades) · [Tour](#tour) · [Instalação](#instalação) · [Uso](#uso) ·
+[Arquitetura](#arquitetura) · [Atualização automática](#atualização-automática) · [Atalhos](#atalhos-de-teclado-e-mouse) ·
+[Desempenho](#por-que-é-rápido) · [Desenvolvimento](#desenvolvimento) · [Gates de CI](#gates-de-ci) ·
+[Contribuindo](#contribuindo) · [Segurança](#segurança)
+
+## Funcionalidades
+
+* **Instantâneo.** Primeira tela em cerca de 100 ms para imagens típicas; o modo *keep ready* (residente na bandeja)
+  reduz a reabertura para dezenas de milissegundos.
+* **Fluido.** Animações suaves de slide, pré-carregamento antecipado, filmstrip 3D e um zoom que não dá saltos.
+* **Abre quase tudo.** JPEG, PNG, GIF, WebP, AVIF, BMP, TIFF, PSD, HDR, EXR, 26 tipos de RAW de câmera e mais.
+* **Autoatualizável.** Novas versões são encontradas, verificadas e instaladas a partir deste repositório, com um clique.
+* **Abre maximizado**, sem barra de título, sobre fundo transparente escurecido; a barra superior move a janela e
+  alterna entre maximizado e janela do tamanho da imagem (`F11` é tela cheia de verdade). *Settings &rarr; Open maximized* desliga isso.
+* **Navegação por pasta** na ordem do Explorer (`img2` antes de `img10`), com slides animados.
+* **Zoom de 1% a 10.000%** no cursor (roda, pinça ou `+` `-`); a partir de 400% os pixels aparecem como quadrados nítidos.
+  Arrastar move a imagem em qualquer zoom; duplo clique alterna ajustar e 100%. Respeita "reduzir movimento" do sistema.
+* **Redução nítida:** fotos exibidas muito menores que seus pixels são reamostradas com Lanczos em Rust.
+* **Apresentação de slides** (`S` / `F5`): tela cheia, 4 s por imagem e 1 s de cross-fade por padrão, em loop.
+* **Girar a visualização** (`R` / `Shift+R`) e tamanho em pixels ao lado do nome e no título da janela.
+* **Muitos formatos:** JPEG (inclui JIF/JFI/PJPEG), PNG/APNG, GIF, WebP, BMP/DIB, AVIF, ICO, TIFF, TGA, PSD,
+  Netpbm (PBM/PGM/PPM/PNM/PAM), Radiance HDR e OpenEXR (com tone-mapping para sRGB), DDS (DXT), QOI, farbfeld e o JPEG
+  embutido de 26 tipos de RAW (DNG, CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF, PEF, SRW, X3F, 3FR, FFF,
+  IIQ, MEF, MOS, MRW, DCR, KDC, ERF, RWL, RAW). A orientação EXIF é aplicada.
+* **Keep ready** (configuração, desligado por padrão): fechar a janela estaciona o Vislo na bandeja em vez de sair;
+  *Start ready when I sign in* cria uma entrada Run por usuário (`vislo.exe --background`).
+* **Sempre sincronizado:** arquivos criados ou apagados no Explorer aparecem quando a janela recupera o foco;
+  apagar a imagem exibida abre a vizinha.
+* **Decodificação robusta:** imagens enormes ou corrompidas são recusadas com mensagem, sem derrubar o app.
+* **Visualizador padrão:** registra-se para os tipos de imagem que você marcar.
+* **Painel de configurações** (ícone de engrenagem): roda, tela cheia ao iniciar, controles que somem, fundo
+  (escuro / preto / transparente), redução nítida, prévia instantânea, filmstrip 3D, prévia ao passar o mouse,
+  tempos da apresentação, modo bandeja e atualizações. Salvo na pasta de configuração do app.
 
 ## Tour
 
 <table>
 <tr>
-<td width="50%"><img src="assets/screenshots/filmstrip.png" alt="3D filmstrip below the picture" /><br/><b>3D filmstrip</b> (<kbd>T</kbd>) &ndash; thumbnails rendered in Rust, cached on disk, eased continuously, with an enlarged hover preview.</td>
-<td width="50%"><img src="assets/screenshots/zoom.png" alt="Picture zoomed in with a percentage tooltip" /><br/><b>Zoom 1% &rarr; 10,000%</b> &ndash; wheel, pinch or <kbd>+</kbd> <kbd>-</kbd> at the cursor; crisp pixels from 400%.</td>
+<td width="50%"><img src="assets/screenshots/filmstrip.png" alt="Filmstrip 3D abaixo da imagem" /><br/><b>Filmstrip 3D</b> (<kbd>T</kbd>) &ndash; miniaturas geradas em Rust, em cache no disco, com animação contínua e prévia ampliada ao passar o mouse.</td>
+<td width="50%"><img src="assets/screenshots/zoom.png" alt="Imagem ampliada com tooltip de porcentagem" /><br/><b>Zoom 1% &rarr; 10.000%</b> &ndash; roda, pinça ou <kbd>+</kbd> <kbd>-</kbd> no cursor; pixels nítidos a partir de 400%.</td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/screenshots/info.png" alt="Information panel with camera, exposure and GPS" /><br/><b>Info panel</b> (<kbd>I</kbd>) &ndash; size, dimensions, camera, lens, exposure, date taken and GPS.</td>
-<td width="50%"><img src="assets/screenshots/menu.png" alt="Right-click menu" /><br/><b>Right-click menu</b> &ndash; copy, open, show in folder, open with, slideshow and more.</td>
+<td width="50%"><img src="assets/screenshots/info.png" alt="Painel de informações com câmera, exposição e GPS" /><br/><b>Painel de informações</b> (<kbd>I</kbd>) &ndash; tamanho, dimensões, câmera, lente, exposição, data da foto e GPS.</td>
+<td width="50%"><img src="assets/screenshots/menu.png" alt="Menu de contexto" /><br/><b>Menu do botão direito</b> &ndash; copiar, abrir, mostrar na pasta, abrir com, apresentação e mais.</td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/screenshots/update.png" alt="Settings panel and the update banner" /><br/><b>Settings &amp; updates</b> &ndash; a banner offers new versions; one click downloads, verifies and restarts.</td>
-<td width="50%"><img src="assets/screenshots/empty.png" alt="Empty state with open button" /><br/><b>Drop a file</b> anywhere, press <kbd>O</kbd>, or make Vislo your default viewer.</td>
+<td width="50%"><img src="assets/screenshots/update.png" alt="Painel de configurações e o banner de atualização" /><br/><b>Configurações e atualizações</b> &ndash; um banner oferece novas versões; um clique baixa, verifica e reinicia.</td>
+<td width="50%"><img src="assets/screenshots/empty.png" alt="Estado vazio com botão de abrir" /><br/><b>Solte um arquivo</b> em qualquer lugar, aperte <kbd>O</kbd> ou torne o Vislo o visualizador padrão.</td>
 </tr>
 </table>
 
-## Install
+As telas acima são renderizadas a partir do frontend real rodando contra um backend Tauri simulado e fotos desenhadas
+proceduralmente (`scripts/screenshots/`), então são reproduzíveis e não usam imagens de terceiros.
 
-1. Download **`Vislo_<version>_x64-setup.exe`** from the [latest release](https://github.com/juninmd/vislo/releases/latest)
-   (or the `-portable.exe` if you prefer no installer) and run it. No admin rights needed.
-2. Click *Set as default image viewer* on the empty screen, or in the settings panel. Windows asks you to
-   confirm the choice in *Settings &rarr; Default apps* (it does not let apps take defaults silently).
+## Instalação
 
-Command line: `vislo.exe --register-associations [jpeg,png,raw]` registers the chosen format groups,
-`vislo.exe --unregister-associations` removes them. *Open with &rarr; Vislo* works on any image.
+1. Baixe **`Vislo_<versão>_x64-setup.exe`** da [última release](https://github.com/juninmd/vislo/releases/latest)
+   (ou o `-portable.exe`, se preferir sem instalador) e execute. Não exige administrador.
+2. Clique em *Set as default image viewer* na tela vazia ou no painel de configurações. O Windows pede que você confirme
+   em *Configurações &rarr; Aplicativos padrão* (ele não deixa apps assumirem padrões silenciosamente).
 
-## Automatic updates
+Plataforma suportada: Windows x64 com WebView2.
 
-Vislo updates itself from this repository's releases:
+## Uso
 
-```
-start / every 6 h ──► GET releases/latest ──► newer tag? ──► banner "Vislo 1.4.0 is available"
-                                                                      │ Update & restart
-   new Vislo starts ◄── silent install ◄── SHA256 matches? ◄── download Vislo_1.4.0_x64-setup.exe
-```
-
-* The check runs a few seconds after the first picture is up, so it never delays opening. Turn it off in
-  *Settings &rarr; Updates*; *Check for updates* checks on demand.
-* The installer is downloaded over HTTPS from this repository only and compared with the release's
-  `SHA256SUMS.txt`; a mismatch discards it.
-* Portable copies cannot replace themselves, so the banner offers a *Download* button for the release page.
-
-### Every commit on `main` is a release
-
-`.github/workflows/release.yml` turns each push to `main` into a release, with no manual steps:
-
-1. CI runs (tests, build, clippy).
-2. The next version is computed from the [semantic commits](AGENTS.md) since the last tag
-   (`feat` &rarr; minor, `fix` and the rest &rarr; patch, `!` / `BREAKING CHANGE` &rarr; major).
-3. The installer and the portable exe are built, `SHA256SUMS.txt` is written.
-4. `chore(release): vX.Y.Z` is committed, tagged `vX.Y.Z`, and a GitHub release is published with notes grouped by type.
-5. Running copies see the release and offer the update.
-
-## Features
-
-* **Opens maximized** &ndash; no title bar, over a dimmed transparent background; the picture zooms in as it
-  appears. The top bar is the title bar: drag it to move, double-click it (or use the &#9634; button) to switch
-  between maximized and a window sized to the picture. `F11` is true fullscreen (covers the taskbar) and
-  returns to where it came from. *Settings &rarr; Open maximized* turns this off.
-* **Instant open** &ndash; the window stays hidden until the first picture is decoded, then appears already sized
-  to it. Large JPEGs and RAW files show their embedded preview first.
-* **Folder navigation** &ndash; every image next to the one you opened, in Explorer order (`img2` before `img10`),
-  with slide animations and look-ahead preloading.
-* **Zoom from 1% to 10,000%** &ndash; wheel / pinch / `+` `-` zoom at the cursor with an eased, even animation
-  (1% &rarr; 100% takes one smooth move, not a late rush); a `NN%` tooltip shows the level and fades after 2 s.
-  From 400% up, pixels are drawn as crisp squares. Drag to pan (at any zoom level, also below 100%; `0`
-  recentres), double-click toggles fit &harr; 100%. Honours the OS "reduce motion" setting.
-* **Sharp downscaling** &ndash; photos shown much smaller than their pixels are re-sampled with Lanczos in Rust
-  instead of the browser's cheaper filter.
-* **Slideshow** (`S` / `F5`) &ndash; fullscreen, 4 s per picture and a 1 s cross-fade by default, loops.
-* **Rotate the view** (`R` / `Shift+R`), pixel size beside the file name and in the window title.
-* **Many formats** &ndash; JPEG (incl. JIF/JFI/PJPEG), PNG/APNG, GIF, WebP, BMP/DIB, AVIF, ICO, plus TIFF, TGA, PSD,
-  Netpbm (PBM/PGM/PPM/PNM/PAM), Radiance HDR and OpenEXR (tone-mapped to sRGB), DDS (DXT), QOI, farbfeld, and the
-  embedded JPEG of 26 camera RAW types (DNG, CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF, PEF, SRW,
-  X3F, 3FR, FFF, IIQ, MEF, MOS, MRW, DCR, KDC, ERF, RWL, RAW). EXIF orientation is applied.
-* **Keep ready** (settings, off by default) &ndash; closing the window parks Vislo in the tray instead of quitting,
-  so the next image opens in tens of milliseconds; *Start ready when I sign in* adds a per-user Run entry
-  (`vislo.exe --background`). Tray menu: *Quit Vislo*.
-* **Always in sync** &ndash; files added or deleted in Explorer appear when the window regains focus; deleting the
-  picture on screen opens its neighbour.
-* **Robust decoding** &ndash; oversized or corrupt images are refused with a message instead of crashing the app.
-* **Default viewer** &ndash; registers itself for the image types you tick.
-* **Settings panel** (gear icon) &ndash; wheel behaviour, fullscreen on start, auto-hiding controls, background
-  (dark / black / transparent), sharp downscaling, instant preview, 3D filmstrip, hover preview, slideshow
-  timing, tray mode and updates. Saved in the app config folder.
-
-## Keyboard & mouse
-
-| Input | Action |
-|---|---|
-| Wheel, pinch | zoom at the cursor, from **1%** to **10,000%** of the image's pixels |
-| `+` `-`, `↑` `↓` | zoom in steps of 15%; a held key snaps to fit and 100% and stops there |
-| `Shift` + wheel, horizontal swipe | previous / next image (the wheel can be switched to navigate in settings; `Ctrl` + wheel always zooms) |
-| `←` `→`, `PageUp` `PageDown`, `Space`, `Backspace`, on-screen arrows | previous / next image |
-| `Ctrl` + `←` `→` | jump 10 images |
-| `J` / `K` | previous / next image |
-| `Home` / `End` | first / last image |
-| Double-click, `1` | toggle fit ↔ actual pixels (100%) |
-| `0` | fit to window |
-| Drag | pan the picture at any zoom level |
-| Drag / double-click the top bar | move the window / maximize ↔ window |
-| `Ctrl+C` | copy the picture to the clipboard |
-| `O`, `Ctrl+O` | open an image (file dialog) |
-| Right-click | menu: copy, open, show in folder, open with, info, slideshow, … |
-| `R` / `Shift+R` | rotate the view clockwise / counter-clockwise |
-| `T` | filmstrip |
-| `I` | info panel |
-| `S` / `F5` | slideshow |
-| `F` / `F11` | fullscreen |
-| `Esc` | close panels, stop the slideshow, leave fullscreen, then close |
-
-## Why it is fast
-
-* Images load straight from disk through Tauri's asset protocol – no base64 over IPC.
-* Decoding is off the main thread (`img.decode()`); the next 4 and previous 2 images are kept
-  decoded, biased toward the direction you are moving.
-* Navigation is latest-wins: holding an arrow key never queues stale work.
-* Thumbnails, previews and format conversions run on a small LIFO worker pool, so the picture
-  you are looking at is always served before the backlog.
-
-## Develop
-
-Requires Node 20+, Rust stable and the
-[Tauri prerequisites](https://tauri.app/start/prerequisites/) for Windows (WebView2, MSVC build tools).
+Abrir uma imagem (a pasta dela vira o álbum). Sem saída no terminal: o app é gráfico.
 
 ```sh
-npm install                                     # also installs the commit-msg hook (semantic commits)
-npm test                                        # frontend + release-tooling unit tests
-pwsh scripts/ci-local.ps1                       # everything the CI pipeline runs
-cargo test --manifest-path src-tauri/Cargo.toml # backend tests
-npm run tauri dev                               # hot-reload frontend, empty state (drop a file)
-npm run tauri build                             # NSIS installer with image file associations
-npm run screenshots                             # regenerate assets/screenshots (headless Chromium, mocked backend)
-cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # fast optimised build (no LTO) for perf work
-.\src-tauri\target\release\vislo.exe "C:\path\to\image.jpg"
+vislo.exe "C:\fotos\ferias\praia.jpg"
 ```
 
-Manual-test photos (EXIF, rotated, PSD, RAW) can be generated with
+Registrar o Vislo como visualizador padrão por grupos de formato, sem abrir a janela principal, e desfazer depois.
+Alteram só o registro por usuário (`HKCU`); saída não verificada (não executado, para não alterar o registro desta máquina):
+
+```sh
+vislo.exe --register-associations jpeg,png,raw
+vislo.exe --unregister-associations
+```
+
+Os dois comandos retornam código de saída `0` em sucesso e `1` em falha (`src-tauri/src/lib.rs`). *Abrir com &rarr; Vislo*
+funciona em qualquer imagem. Para iniciar já estacionado na bandeja (só vale com *Keep ready* ligado; senão o processo encerra):
+
+```sh
+vislo.exe --background
+```
+
+Uma segunda execução com outro arquivo não abre outra janela: o caminho é encaminhado à instância em execução
+(`tauri-plugin-single-instance`).
+
+Como o app é gráfico, o terminal real do projeto é o de desenvolvimento. Exemplo verificado, o validador de commits
+(o log completo, com `npm test`, está em [`assets/terminal.txt`](assets/terminal.txt)):
+
+```text
+$ node scripts/check-commits.mjs --message "docs: update README and AGENTS.md"
+✓ 1 commit message(s) follow Conventional Commits
+
+$ npm test
+ Test Files  11 passed (11)
+      Tests  74 passed (74)
+```
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    subgraph Web["Frontend (src/, TypeScript + Vite)"]
+        main["main.ts"] --> viewer["viewer.ts, zoom.ts, slide.ts"]
+        main --> filmstrip["filmstrip.ts"]
+        main --> panel["settings-panel.ts, info.ts"]
+        main --> upd["update.ts"]
+        viewer --> api["api.ts"]
+        filmstrip --> api
+        panel --> api
+        upd --> api
+    end
+    subgraph Core["Backend Rust (src-tauri/src/)"]
+        lib["lib.rs: comandos IPC"] --> album["album.rs: pasta e ordenação"]
+        lib --> settings["settings.rs: settings.json"]
+        lib --> assoc["assoc.rs: associações HKCU"]
+        lib --> update["update.rs: releases e SHA256"]
+        scheme["scheme.rs: protocolo vislo://"] --> pool["pool.rs: workers LIFO"]
+        pool --> decode["decode.rs, raw.rs, resize.rs"]
+        pool --> thumbs["thumbs.rs: cache de miniaturas"]
+        splash["splash/: primeira tela nativa"]
+    end
+    api -- "invoke (IPC)" --> lib
+    filmstrip -- "vislo://" --> scheme
+    viewer -- "asset protocol" --> disk[("Pasta da imagem")]
+    scheme --> disk
+    update -- "HTTPS" --> gh[("GitHub Releases")]
+```
+
+## Atualização automática
+
+O Vislo se atualiza a partir das releases deste repositório:
+
+```
+início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ──► banner "Vislo 1.4.0 is available"
+                                                                          │ Update & restart
+   novo Vislo inicia ◄── instalação silenciosa ◄── SHA256 confere? ◄── baixa Vislo_1.4.0_x64-setup.exe
+```
+
+* A verificação roda alguns segundos depois da primeira imagem aparecer, então nunca atrasa a abertura. Dá para
+  desligar em *Settings &rarr; Updates*; *Check for updates* verifica sob demanda.
+* O instalador é baixado por HTTPS apenas deste repositório e comparado com o `SHA256SUMS.txt` da release; se não
+  bater, é descartado.
+* Cópias portáteis não conseguem se substituir, então o banner oferece o botão *Download* para a página da release.
+
+### Todo commit em `main` vira uma release
+
+O `.github/workflows/release.yml` transforma cada push em `main` numa release, sem passos manuais:
+
+1. O CI roda (testes, build, clippy).
+2. A próxima versão é calculada pelos [commits semânticos](AGENTS.md) desde a última tag
+   (`feat` &rarr; minor, `fix` e demais &rarr; patch, `!` / `BREAKING CHANGE` &rarr; major).
+3. O instalador e o exe portátil são construídos e o `SHA256SUMS.txt` é escrito.
+4. `chore(release): vX.Y.Z` é commitado, tagueado `vX.Y.Z` e uma release do GitHub é publicada com notas por tipo.
+5. As cópias em execução veem a release e oferecem a atualização.
+
+## Atalhos de teclado e mouse
+
+| Entrada | Ação |
+|---|---|
+| Roda, pinça | zoom no cursor, de **1%** a **10.000%** dos pixels da imagem |
+| `+` `-`, `↑` `↓` | zoom em passos de 15%; tecla segurada para no ajuste e em 100% |
+| `Shift` + roda, deslize horizontal | imagem anterior / próxima (a roda pode navegar nas configurações; `Ctrl` + roda sempre dá zoom) |
+| `←` `→`, `PageUp` `PageDown`, `Space`, `Backspace`, setas na tela | imagem anterior / próxima |
+| `Ctrl` + `←` `→` | pula 10 imagens |
+| `J` / `K` | imagem anterior / próxima |
+| `Home` / `End` | primeira / última imagem |
+| Duplo clique, `1` | alterna ajustar ↔ pixels reais (100%) |
+| `0` | ajustar à janela |
+| Arrastar | move a imagem em qualquer zoom |
+| Arrastar / duplo clique na barra superior | mover a janela / maximizar ↔ janela |
+| `Ctrl+C` | copia a imagem para a área de transferência |
+| `O`, `Ctrl+O` | abrir uma imagem (diálogo de arquivo) |
+| Botão direito | menu: copiar, abrir, mostrar na pasta, abrir com, info, apresentação, … |
+| `R` / `Shift+R` | gira a visualização no sentido horário / anti-horário |
+| `T` | filmstrip |
+| `I` | painel de informações |
+| `S` / `F5` | apresentação de slides |
+| `F` / `F11` | tela cheia |
+| `Esc` | fecha painéis, para a apresentação, sai da tela cheia e, por fim, fecha |
+
+## Por que é rápido
+
+* As imagens carregam direto do disco pelo protocolo de assets do Tauri, sem base64 via IPC.
+* A decodificação ocorre fora da thread principal (`img.decode()`); as próximas 4 e as 2 anteriores ficam decodificadas,
+  com viés para a direção do movimento.
+* A navegação é "o último vence": segurar uma seta nunca enfileira trabalho obsoleto.
+* Miniaturas, prévias e conversões de formato rodam num pequeno pool de workers LIFO, então a imagem que você está
+  vendo sempre é atendida antes do backlog.
+
+## Desenvolvimento
+
+Requer Node 20+ (o CI usa Node 22), Rust stable e os
+[pré-requisitos do Tauri](https://tauri.app/start/prerequisites/) para Windows (WebView2, MSVC build tools).
+
+```sh
+npm install                                     # também instala o hook commit-msg (commits semânticos)
+npm test                                        # testes unitários do frontend e das ferramentas de release (vitest)
+npm run build                                   # tsc --noEmit + vite build
+pwsh scripts/ci-local.ps1                       # tudo o que o pipeline de CI roda
+cargo test --manifest-path src-tauri/Cargo.toml # testes do backend
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+npm run tauri dev                               # frontend com hot reload, estado vazio (solte um arquivo)
+npm run tauri build                             # instalador NSIS com associações de arquivo de imagem
+npm run screenshots                             # regenera assets/screenshots (Chromium headless, backend simulado)
+npm run check:commits                           # valida os commits de origin/main..HEAD
+cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # build otimizado rápido (sem LTO) para trabalho de desempenho
+.\src-tauri\target\release\vislo.exe "C:\caminho\para\imagem.jpg"
+```
+
+Fotos para teste manual (EXIF, rotacionadas, PSD, RAW) podem ser geradas com
 `VISLO_FIXTURES=<dir> cargo test --manifest-path src-tauri/Cargo.toml write_fixtures -- --ignored`.
 
-The screenshots above are rendered from the real frontend running against a mocked Tauri backend and
-procedurally drawn photos (`scripts/screenshots/`), so they are reproducible and need no stock images.
+O app não lê variáveis de ambiente para configuração; `VISLO_FIXTURES` só é usada por esse teste.
 
-## Contributing
+## Gates de CI
 
-Commit messages and PR titles must be [Conventional Commits](https://www.conventionalcommits.org) &ndash; the hook,
-CI and the release planner all rely on it. The rules, the release rules and the code conventions are in
+| Workflow | Quando | O que checa |
+|---|---|---|
+| `ci.yml` (`ci`) | pull request, manual e chamado pelo release | job `commits`: título do PR e cada commit seguem Conventional Commits; job `check` (Windows): `npm ci`, `npm test`, `npm run build`, `cargo test`, `cargo clippy -D warnings` |
+| `release.yml` (`release`) | push em `main` | roda o `ci`, calcula a versão, constrói instalador e exe portátil, escreve `SHA256SUMS.txt`, commita `chore(release)`, tagueia e publica a release |
+| `validate.yml` (`Validate`) | pull request e push em `main` | validação reutilizável de `juninmd/base-actions` (`reusable-validate.yml`) |
+| `security.yml` (`Security Scan`) | push em `main`, manual e semanal (domingo 00:00 UTC) | varredura de segurança reutilizável de `juninmd/base-actions` (`reusable-security-scan.yml`) |
+
+## Contribuindo
+
+Mensagens de commit e títulos de PR devem seguir [Conventional Commits](https://www.conventionalcommits.org): o hook, o
+CI e o planejador de release dependem disso. As regras, as regras de release e as convenções de código estão em
 [AGENTS.md](AGENTS.md).
 
-## Security
+## Segurança
 
-* The asset protocol scope starts empty and is widened at runtime to the **single directory**
-  of the image you open (non-recursive).
-* The `vislo://` thumbnail / conversion protocol only serves image files inside an opened
-  folder; every path is canonicalised first (traversal and non-image files get a 403).
-* Strict CSP; only window size, fullscreen, title and close permissions are granted to the webview.
-* Registry changes for file associations are per-user (`HKCU`) only.
-* Updates come only from this repository's GitHub releases over HTTPS, and the installer is checked
-  against the release's `SHA256SUMS.txt` before it is run.
+* O escopo do asset protocol começa vazio e é ampliado em runtime para o **diretório único** da imagem aberta (sem recursão).
+* O protocolo `vislo://` de miniaturas e conversões só serve arquivos de imagem dentro de uma pasta aberta; todo caminho
+  é canonicalizado antes (path traversal e arquivos que não são imagem recebem 403).
+* CSP estrita; só as permissões de tamanho da janela, tela cheia, título e fechar são concedidas ao webview.
+* As alterações de registro para associações de arquivo são apenas por usuário (`HKCU`).
+* As atualizações vêm apenas das releases do GitHub deste repositório, por HTTPS, e o instalador é conferido contra o
+  `SHA256SUMS.txt` da release antes de ser executado.
