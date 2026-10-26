@@ -77,16 +77,41 @@ impl Settings {
     }
 }
 
-/// A missing or corrupt file falls back to defaults; the bad file is left for the user to fix.
-pub fn load(path: &Path) -> Settings {
-    match std::fs::read(path) {
-        Ok(bytes) => serde_json::from_slice::<Settings>(&bytes).unwrap_or_else(|e| {
-            eprintln!("vislo: ignoring unreadable settings ({e})");
-            Settings::default()
-        }),
-        Err(_) => Settings::default(),
+/// Applies each field of `value` on top of the defaults, one at a time, so one bad value
+/// (an unknown enum variant, a negative number) costs only that field, not the whole file.
+fn lenient(value: serde_json::Value) -> Option<Settings> {
+    let serde_json::Value::Object(fields) = value else {
+        return None;
+    };
+    let mut merged = serde_json::to_value(Settings::default()).ok()?;
+    for (key, v) in fields {
+        let mut trial = merged.clone();
+        trial[&key] = v;
+        match serde_json::from_value::<Settings>(trial.clone()) {
+            Ok(_) => merged = trial,
+            Err(e) => eprintln!("vislo: ignoring invalid setting {key} ({e})"),
+        }
     }
-    .normalised()
+    serde_json::from_value(merged).ok()
+}
+
+/// A missing file falls back to defaults. Valid fields of a partly bad file are kept; a file
+/// that is not a JSON object at all is copied to `<name>.bak` (once) before defaults take over.
+pub fn load(path: &Path) -> Settings {
+    let Ok(bytes) = std::fs::read(path) else {
+        return Settings::default();
+    };
+    let parsed = serde_json::from_slice(&bytes).ok().and_then(lenient);
+    parsed
+        .unwrap_or_else(|| {
+            eprintln!("vislo: ignoring unreadable settings");
+            let bak = path.with_extension("json.bak");
+            if !bak.exists() {
+                let _ = std::fs::copy(path, bak);
+            }
+            Settings::default()
+        })
+        .normalised()
 }
 
 pub fn save(path: &Path, settings: &Settings) -> Result<(), String> {
@@ -229,5 +254,35 @@ mod tests {
         }
         .normalised();
         assert_eq!((s.slideshow_display_ms, s.slideshow_fade_ms), (500, 500));
+    }
+
+    #[test]
+    fn one_invalid_field_keeps_the_others() {
+        let dir = temp("lenient");
+        let f = dir.join("s.json");
+        std::fs::write(
+            &f,
+            br#"{"keep_ready":true,"background":"checker","slideshow_display_ms":9000,"slideshow_fade_ms":-5,"future":1}"#,
+        )
+        .unwrap();
+        let s = load(&f);
+        assert!(s.keep_ready);
+        assert_eq!(s.background, Background::Transparent);
+        assert_eq!((s.slideshow_display_ms, s.slideshow_fade_ms), (9000, 1000));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn unreadable_file_is_backed_up_once() {
+        let dir = temp("bak");
+        let f = dir.join("s.json");
+        std::fs::write(&f, b"{\"keep_ready\":tru").unwrap();
+        assert_eq!(load(&f), Settings::default());
+        let bak = dir.join("s.json.bak");
+        assert_eq!(std::fs::read(&bak).unwrap(), b"{\"keep_ready\":tru");
+        std::fs::write(&f, b"").unwrap();
+        load(&f);
+        assert_eq!(std::fs::read(&bak).unwrap(), b"{\"keep_ready\":tru");
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
