@@ -61,3 +61,21 @@ export function fade(incoming: HTMLElement, outgoing: HTMLElement | null, ms: nu
   if (outgoing) anims.push(outgoing.animate([{ opacity: 1 }, { opacity: 0 }], opts));
   return anims;
 }
+
+/** Fades `el` out and removes it: a placeholder giving way to the real picture. */
+export function dissolve(el: HTMLElement, ms = 160): void {
+  const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reduced.matches ? 0 : ms, easing: "ease-out", fill: "forwards" });
+  const done = () => el.remove();
+  a.finished.then(done, done);
+}
+
+/**
+ * FLIP: after the stage resized, eases the picture from where it was (`dy` px higher or lower, `k` times
+ * as large) to where it is now. Transform only, so nothing is laid out per frame.
+ */
+export function settle(el: HTMLElement, dy: number, k: number): Animation {
+  return el.animate(
+    [{ transform: `translateY(${dy}px) scale(${k})` }, { transform: "none" }],
+    { duration: reduced.matches ? 0 : 220, easing: EASE },
+  );
+}

@@ -44,7 +44,8 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 
 * **Instantâneo.** Primeira tela em cerca de 100 ms para imagens típicas; o modo *keep ready* (residente na bandeja)
   reduz a reabertura para dezenas de milissegundos.
-* **Fluido.** Animações suaves de slide, pré-carregamento antecipado, filmstrip 3D e um zoom que não dá saltos.
+* **Fluido.** Animações suaves de slide, pré-carregamento antecipado, filmstrip 3D e um zoom que não dá saltos; menus, painéis,
+  banner e filmstrip entram e saem com fade (só `opacity`/`transform`, sem layout) e respeitam "reduzir movimento".
 * **Abre quase tudo.** JPEG, PNG, GIF, WebP, AVIF, BMP, TIFF, PSD, HDR, EXR, 26 tipos de RAW de câmera e mais.
 * **14 idiomas.** Inglês, português (Brasil), espanhol, francês, alemão, italiano, russo, turco, japonês, coreano, chinês
   simplificado e tradicional, polonês e holandês; segue o idioma do sistema ou troca em *Settings &rarr; Language*, na hora.
@@ -250,6 +251,8 @@ O `.github/workflows/release.yml` transforma cada push em `main` numa release, s
 * Miniaturas, prévias e conversões de formato rodam num pequeno pool de workers LIFO, então a imagem que você está
   vendo sempre é atendida antes do backlog.
 
+Comparação com outros visualizadores e as medições por trás dessas escolhas: [BENCHMARK.md](BENCHMARK.md).
+
 ## Configuração
 
 As preferências ficam em `settings.json`, na pasta de configuração do app (`app_config_dir` do Tauri), e são editadas
@@ -270,6 +273,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 npm run tauri dev                               # frontend com hot reload, estado vazio (solte um arquivo)
 npm run tauri build                             # instalador NSIS com associações de arquivo de imagem
 npm run screenshots                             # regenera assets/screenshots (Chromium headless, backend simulado)
+npm run perf:ui                                 # mede layouts, recálculos de estilo e quadros lentos num cenário fixo de UI
 npm run icons                                   # regenera icon.ico e os PNGs de src-tauri/icons a partir de app-icon*.svg
 npm run check:commits                           # valida os commits de origin/main..HEAD
 cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # build otimizado rápido (sem LTO) para trabalho de desempenho

@@ -146,8 +146,8 @@ pub fn serve(svc: &Services, route: Route) -> Response<Cow<'static, [u8]>> {
             None => error(StatusCode::NOT_FOUND, "no embedded preview"),
         },
         Route::Fit { w, h, .. } => jpeg(
-            decode::load(&file)
-                .and_then(|img| resize::fit(&img, w, h, FilterType::Lanczos3))
+            decode::load_fit(&file, w, h)
+                .and_then(|img| resize::fit_owned(img, w, h, FilterType::Lanczos3))
                 .and_then(|img| resize::to_jpeg(&img, 90)),
         ),
         Route::Convert { .. } => match decode::load(&file) {
