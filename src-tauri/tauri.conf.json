@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Vislo",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "identifier": "dev.juninmd.vislo",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -27,15 +27,18 @@
       { "ext": ["gif"], "name": "GIF image", "description": "GIF image", "role": "Viewer" },
       { "ext": ["webp"], "name": "WebP image", "description": "WebP image", "role": "Viewer" },
       { "ext": ["bmp", "dib"], "name": "Bitmap image", "description": "Bitmap image", "role": "Viewer" },
-      { "ext": ["avif"], "name": "AVIF image", "description": "AVIF image", "role": "Viewer" },
+      { "ext": ["avif", "avifs"], "name": "AVIF image", "description": "AVIF image", "role": "Viewer" },
       { "ext": ["tif", "tiff"], "name": "TIFF image", "description": "TIFF image", "role": "Viewer" },
-      { "ext": ["tga"], "name": "Targa image", "description": "Targa image", "role": "Viewer" },
+      { "ext": ["tga", "vda", "icb", "vst"], "name": "Targa image", "description": "Targa image", "role": "Viewer" },
       { "ext": ["psd"], "name": "Photoshop image", "description": "Photoshop image", "role": "Viewer" },
-      { "ext": ["ico"], "name": "Icon", "description": "Icon", "role": "Viewer" },
+      { "ext": ["ico", "cur"], "name": "Icon", "description": "Icon", "role": "Viewer" },
+      { "ext": ["svg"], "name": "SVG image", "description": "SVG vector image", "role": "Viewer" },
+      { "ext": ["jxl"], "name": "JPEG XL image", "description": "JPEG XL image", "role": "Viewer" },
+      { "ext": ["jp2", "j2k", "j2c", "jpc"], "name": "JPEG 2000 image", "description": "JPEG 2000 image", "role": "Viewer" },
       { "ext": ["pbm", "pgm", "ppm", "pnm", "pam"], "name": "Netpbm image", "description": "Netpbm image", "role": "Viewer" },
       { "ext": ["hdr", "exr"], "name": "HDR image", "description": "HDR image", "role": "Viewer" },
       { "ext": ["dds", "qoi", "ff"], "name": "Texture image", "description": "DDS / QOI / farbfeld image", "role": "Viewer" },
-      { "ext": ["dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef", "srw", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "dcr", "kdc", "erf", "rwl", "raw"], "name": "RAW photo", "description": "RAW photo (embedded preview)", "role": "Viewer" }
+      { "ext": ["dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef", "srw", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "dcr", "kdc", "erf", "rwl", "raw", "arq", "gpr", "ori", "k25"], "name": "RAW photo", "description": "RAW photo (embedded preview)", "role": "Viewer" }
     ]
   }
 }

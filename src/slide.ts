@@ -7,6 +7,8 @@ import { type Pose, PoseMotion, poseCss } from "./zoom-anim";
 
 /** From this share of the image's pixels up, pixels are shown as crisp squares instead of a blur. */
 const PIXEL_PERCENT = 400;
+/** Vector pictures have no pixel size of their own: show them at least this large (CSS px, longest side) so a 24 px icon is not a speck. */
+const VECTOR_MIN_SIDE = 1024;
 /** Re-rendering is only worth it when the browser would shrink the picture at least this much. */
 const SHARP_RATIO = 1.6;
 
@@ -47,11 +49,12 @@ export class Slide {
     return this.nat !== null;
   }
 
-  setImage(img: HTMLImageElement): void {
+  setImage(img: HTMLImageElement, vector = false): void {
     const dpr = window.devicePixelRatio || 1;
     const preview = this.el.classList.contains("is-preview") ? this.el.firstElementChild : null;
     this.img = img;
-    this.nat = { w: img.naturalWidth / dpr, h: img.naturalHeight / dpr };
+    const up = vector ? Math.max(1, (VECTOR_MIN_SIDE * dpr) / Math.max(img.naturalWidth, img.naturalHeight, 1)) : 1;
+    this.nat = { w: (img.naturalWidth / dpr) * up, h: (img.naturalHeight / dpr) * up };
     this.el.className = "slide";
     this.el.replaceChildren(img);
     this.sharp = null;

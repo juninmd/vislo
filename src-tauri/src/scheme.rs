@@ -94,8 +94,9 @@ fn mime_of(path: &std::path::Path) -> &'static str {
         Some("gif") => "image/gif",
         Some("webp") => "image/webp",
         Some("bmp" | "dib") => "image/bmp",
-        Some("avif") => "image/avif",
-        Some("ico") => "image/x-icon",
+        Some("avif" | "avifs") => "image/avif",
+        Some("ico" | "cur") => "image/x-icon",
+        Some("svg") => "image/svg+xml",
         _ => "application/octet-stream",
     }
 }

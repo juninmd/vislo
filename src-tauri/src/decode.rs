@@ -1,6 +1,6 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::RAW_EXTENSIONS, exif_info, jpeg_scaled, raw};
+use crate::{album::RAW_EXTENSIONS, codecs, exif_info, jpeg_scaled, raw};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
@@ -21,6 +21,15 @@ fn ext(path: &Path) -> String {
         .and_then(|e| e.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase()
+}
+
+/// Reader for `path`; the `image` crate only knows `.tga`, so Targa's other extensions name the format here.
+fn open_reader(path: &Path, ext: &str) -> std::io::Result<ImageReader<std::io::BufReader<std::fs::File>>> {
+    let mut reader = ImageReader::open(path).and_then(ImageReader::with_guessed_format)?;
+    if reader.format().is_none() && matches!(ext, "vda" | "icb" | "vst") {
+        reader.set_format(image::ImageFormat::Tga);
+    }
+    Ok(reader)
 }
 
 fn is_raw(ext: &str) -> bool {
@@ -106,14 +115,16 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
     let mut preview_orientation = None;
     let img = if ext == "psd" {
         decode_psd(path)?
+    } else if ext == "jxl" {
+        to_display(codecs::decode_jxl(path, MAX_PIXELS)?)
+    } else if matches!(ext.as_str(), "jp2" | "j2k" | "j2c" | "jpc") {
+        codecs::decode_jp2(path, MAX_PIXELS)?
     } else if is_raw(&ext) {
         let (img, own) = decode_raw_preview(path)?;
         preview_orientation = own;
         img
     } else {
-        let mut reader = ImageReader::open(path)
-            .and_then(ImageReader::with_guessed_format)
-            .map_err(|e| e.to_string())?;
+        let mut reader = open_reader(path, &ext).map_err(|e| e.to_string())?;
         let mut limits = Limits::default();
         limits.max_alloc = Some(MAX_ALLOC);
         reader.limits(limits);
@@ -155,10 +166,13 @@ fn is_photo(ext: &str) -> bool {
 /// decoding (PSD, RAW previews).
 pub fn dimensions(path: &Path) -> Option<(u32, u32)> {
     let ext = ext(path);
-    if ext == "psd" || is_raw(&ext) {
-        return None;
+    if ext == "svg" {
+        return codecs::svg_dimensions(path);
     }
-    let (w, h) = image::image_dimensions(path).ok()?;
+    if matches!(ext.as_str(), "psd" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc") || is_raw(&ext) {
+        return None; // not readable from a header without a decoder
+    }
+    let (w, h) = open_reader(path, &ext).ok()?.into_dimensions().ok()?;
     let turned = is_photo(&ext)
         && exif_info::read(path).is_some_and(|e| (5..=8).contains(&exif_info::orientation(&e)));
     Some(if turned { (h, w) } else { (w, h) })
@@ -333,6 +347,32 @@ mod tests {
             .unwrap();
         assert_eq!(load(&dir.join("t.tga")).unwrap().dimensions(), (9, 5));
         assert_eq!(dimensions(&dir.join("t.tga")), Some((9, 5)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn extension_aliases_and_new_codecs_reach_their_decoders() {
+        use crate::codecs::tests::{bytes, JP2, JXL};
+        let dir = temp("aliases");
+        let mut raw = vec![0x49, 0x49, 0x2A, 0x00, 8, 0, 0, 0];
+        raw.extend(jpeg(32, 24));
+        for name in ["a.arq", "a.gpr", "a.ori", "a.k25"] {
+            std::fs::write(dir.join(name), &raw).unwrap();
+            assert_eq!(load(&dir.join(name)).unwrap().dimensions(), (32, 24), "{name}");
+        }
+        for name in ["a.vda", "a.icb", "a.vst"] {
+            image::RgbImage::from_pixel(9, 5, image::Rgb([1, 2, 3])).save_with_format(dir.join(name), image::ImageFormat::Tga).unwrap();
+            assert_eq!(load(&dir.join(name)).unwrap().dimensions(), (9, 5), "{name}");
+        }
+        std::fs::write(dir.join("a.jxl"), bytes(JXL)).unwrap();
+        assert_eq!(load(&dir.join("a.jxl")).unwrap().dimensions(), (16, 8));
+        for name in ["a.jp2", "a.j2k", "a.jpc"] {
+            std::fs::write(dir.join(name), bytes(JP2)).unwrap();
+            assert_eq!(load(&dir.join(name)).unwrap().dimensions(), (16, 8), "{name}");
+        }
+        std::fs::write(dir.join("v.svg"), r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"></svg>"#).unwrap();
+        assert_eq!(dimensions(&dir.join("v.svg")), Some((30, 20)));
+        assert!(load(&dir.join("v.svg")).is_err(), "SVG is served as-is to the webview, never rasterised here");
         let _ = std::fs::remove_dir_all(dir);
     }
 

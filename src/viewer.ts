@@ -6,7 +6,7 @@ import { type Command, Commands } from "./commands";
 import { ContextMenu } from "./context-menu";
 import * as chrome from "./chrome";
 import { Filmstrip } from "./filmstrip";
-import { isJpeg, isNative, isStill } from "./formats";
+import { isJpeg, isNative, isStill, isVector } from "./formats";
 import { HoverPreview } from "./hover";
 import { onLanguageChange, t } from "./i18n";
 import { InfoPanel } from "./info";
@@ -215,7 +215,7 @@ export class Viewer implements Controller {
   }
 
   private fill(slide: Slide, loaded: Loaded, ok: boolean, path: string): void {
-    if (ok) slide.setImage(loaded.img);
+    if (ok) slide.setImage(loaded.img, isVector(path));
     else slide.setError(t("msg.invalidImage", { name: basename(path) }));
     slide.layout(this.stageBox());
     if (slide === this.current) {
