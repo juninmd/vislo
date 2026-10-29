@@ -212,11 +212,25 @@ início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ─�
 O `.github/workflows/release.yml` transforma cada push em `main` numa release, sem passos manuais:
 
 1. O CI roda (testes, build, clippy).
-2. A próxima versão é calculada pelos [commits semânticos](AGENTS.md) desde a última tag
+2. A próxima versão é calculada pelos [commits semânticos](AGENTS.md) desde a **maior** tag `vX.Y.Z` já incluída em
+   `main` (não a mais próxima no histórico, que pode ser menor)
    (`feat` &rarr; minor, `fix` e demais &rarr; patch, `!` / `BREAKING CHANGE` &rarr; major).
 3. O instalador e o exe portátil são construídos e o `SHA256SUMS.txt` é escrito.
 4. `chore(release): vX.Y.Z` é commitado, tagueado `vX.Y.Z` e uma release do GitHub é publicada com notas por tipo.
 5. As cópias em execução veem a release e oferecem a atualização.
+
+As releases são serializadas (um push novo espera a anterior terminar). Se o commit de versão não puder ser
+enviado a `main` (conflito ou branch protegida), a tag e a release saem no commit que foi construído e o job avisa.
+
+#### Conferir uma release
+
+```sh
+gh release view --json tagName,assets -q '.tagName, (.assets[].name)'   # Vislo_<v>_x64-setup.exe, ..-portable.exe, SHA256SUMS.txt
+curl -fsSLO https://github.com/juninmd/vislo/releases/latest/download/SHA256SUMS.txt
+curl -fsSLO https://github.com/juninmd/vislo/releases/latest/download/Vislo_<versão>_x64-setup.exe
+sha256sum -c --ignore-missing SHA256SUMS.txt        # o mesmo teste que o app faz antes de instalar
+node scripts/release.mjs plan                       # a versão que o próximo push em main publicaria
+```
 
 ## Atalhos de teclado e mouse
 

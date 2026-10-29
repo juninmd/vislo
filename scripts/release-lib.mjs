@@ -10,6 +10,19 @@ export function parseVersion(text) {
 export const formatVersion = ([a, b, c]) => `${a}.${b}.${c}`;
 
 /**
+ * The release to plan from: the highest version among `tags`. `git describe` picks the tag nearest in
+ * history instead, which is wrong once a release is tagged on an older commit than a lower one.
+ */
+export function latestTag(tags) {
+  const versions = tags
+    .filter((tag) => tag.startsWith("v"))
+    .map((tag) => ({ tag, v: parseVersion(tag) }))
+    .filter((x) => x.v);
+  versions.sort((a, b) => b.v[0] - a.v[0] || b.v[1] - a.v[1] || b.v[2] - a.v[2]);
+  return versions[0]?.tag ?? null;
+}
+
+/**
  * major: a breaking change (while still 0.x it bumps the minor, as is customary)
  * minor: feat
  * patch: everything else, so each commit on main is deliverable
