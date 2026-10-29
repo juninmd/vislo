@@ -2,6 +2,7 @@
   "name": "vislo",
   "version": "0.2.5",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +10,7 @@
     "test": "vitest run",
     "tauri": "tauri",
     "screenshots": "node scripts/screenshots/capture.mjs",
+    "icons": "node scripts/icons/build.mjs",
     "prepare": "node scripts/setup-hooks.mjs",
     "check:commits": "node scripts/check-commits.mjs --range origin/main..HEAD"
   },

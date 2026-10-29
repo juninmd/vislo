@@ -13,6 +13,7 @@ Dê dois cliques numa foto e ela já está na tela. Navegue pela pasta, dê zoom
 [![Downloads](https://img.shields.io/github/downloads/juninmd/vislo/total?style=for-the-badge&color=2ea043)](https://github.com/juninmd/vislo/releases)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=for-the-badge)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-backend-dea584?style=for-the-badge)](https://www.rust-lang.org)
+[![License: MIT](https://img.shields.io/github/license/juninmd/vislo?style=for-the-badge&color=2ea043)](LICENSE)
 
 <br/>
 
@@ -253,6 +254,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 npm run tauri dev                               # frontend com hot reload, estado vazio (solte um arquivo)
 npm run tauri build                             # instalador NSIS com associações de arquivo de imagem
 npm run screenshots                             # regenera assets/screenshots (Chromium headless, backend simulado)
+npm run icons                                   # regenera icon.ico e os PNGs de src-tauri/icons a partir de app-icon*.svg
 npm run check:commits                           # valida os commits de origin/main..HEAD
 cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # build otimizado rápido (sem LTO) para trabalho de desempenho
 .\src-tauri\target\release\vislo.exe "C:\caminho\para\imagem.jpg"
@@ -302,6 +304,4 @@ CI e o planejador de release dependem disso. As regras, as regras de release e a
 
 ## Licença
 
-> [!CAUTION]
-> Este repositório ainda não define uma licença: não há arquivo `LICENSE` nem campo `license` no `package.json`. Sem
-> licença publicada, valem os direitos reservados do autor por padrão.
+Distribuído sob a licença [MIT](LICENSE). Copyright (c) 2026 Antonio Carlos.
