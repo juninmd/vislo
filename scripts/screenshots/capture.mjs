@@ -69,5 +69,20 @@ await scene("menu", async (page) => {
 });
 await scene("empty");
 
+// The same screen in other languages: the browser locale drives "Automatic".
+for (const [name, locale] of [["ja", "ja-JP"], ["de", "de-DE"], ["ru", "ru-RU"]]) {
+  const context = await browser.newContext({ locale, viewport: { width: 1360, height: 900 }, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  await page.goto(`${base}?scene=viewer`);
+  await page.waitForSelector("#app");
+  await wait(900);
+  await page.keyboard.press("i");
+  await page.click("#btn-gear");
+  await wait(700);
+  await page.screenshot({ path: `${OUT}lang-${name}.png`, clip: { x: 0, y: 0, width: 1360, height: 900 } });
+  await context.close();
+  console.log("wrote", `lang-${name}.png`);
+}
+
 await browser.close();
 await server.close();
