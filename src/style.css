@@ -114,6 +114,10 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 .info-row { display: grid; grid-template-columns: 86px 1fr; gap: 8px; padding: 3px 0; }
 .info-row span:first-child { color: var(--dim); }
 .info-row span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.info-row span:last-child { cursor: copy; transition: color var(--t-fast); }
+.info-row span.copied { color: var(--accent); }
+.info-group { margin: 10px 0 2px; padding-top: 8px; border-top: 1px solid var(--line, rgba(255,255,255,.08)); color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.info-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 
 #app.idle:not(.empty) { cursor: none; }
 #app.idle .hud, #app.idle .nav { opacity: 0; pointer-events: none; }

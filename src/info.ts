@@ -1,24 +1,8 @@
 import { fileInfo, type Info } from "./api";
-import { currentLanguage, type Key, t } from "./i18n";
+import { buildGroups } from "./info-rows";
+import { currentLanguage, t } from "./i18n";
 
-export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  const units = ["KB", "MB", "GB"];
-  let v = n / 1024;
-  let u = 0;
-  while (v >= 1024 && u < units.length - 1) {
-    v /= 1024;
-    u++;
-  }
-  return `${v >= 100 ? v.toFixed(0) : v.toFixed(1)} ${units[u]}`;
-}
-
-export function formatDimensions(w: number | null, h: number | null): string | null {
-  if (!w || !h) return null;
-  return `${w} × ${h} px (${((w * h) / 1e6).toFixed(1)} MP)`;
-}
-
-/** Side panel with file facts and EXIF, the usual photo properties. */
+/** Side panel with file facts and EXIF, grouped; a click on a value copies it. */
 export class InfoPanel {
   private token = 0;
 
@@ -52,32 +36,20 @@ export class InfoPanel {
       return;
     }
     if (mine !== this.token) return; // a newer image was requested meanwhile
-    const rows: [string, string | null][] = [
-      [t("info.file"), info.name],
-      [t("info.folder"), info.folder],
-      [t("info.size"), formatBytes(info.size)],
-      [t("info.dimensions"), formatDimensions(info.width, info.height)],
-      [t("info.modified"), info.modified_ms === null ? null : new Date(info.modified_ms).toLocaleString(currentLanguage())],
-      ...info.rows.map(([label, value]): [string, string] => [rowLabel(label), value]),
-    ];
-    this.el.replaceChildren(...rows.filter((r): r is [string, string] => r[1] !== null).map(([k, v]) => row(k, v)));
+    const fmt = new Intl.DateTimeFormat(currentLanguage(), { dateStyle: "medium", timeStyle: "short" });
+    const groups = buildGroups(info, t, (ms) => fmt.format(ms));
+    this.el.replaceChildren(
+      ...groups.flatMap((g) => [heading(g.title), ...g.lines.map((l) => row(l.label, l.value))]),
+    );
   }
 }
 
-/** The backend names its rows in English; known names are translated, unknown ones shown as they are. */
-const ROW_KEYS: Record<string, Key> = {
-  Camera: "info.camera",
-  Lens: "info.lens",
-  "Focal length": "info.focal",
-  Exposure: "info.exposure",
-  Aperture: "info.aperture",
-  ISO: "info.iso",
-  Taken: "info.taken",
-  Flash: "info.flash",
-  Software: "info.software",
-  GPS: "info.gps",
-};
-const rowLabel = (label: string): string => (label in ROW_KEYS ? t(ROW_KEYS[label]) : label);
+function heading(title: string): HTMLElement {
+  const h = document.createElement("div");
+  h.className = "info-group";
+  h.textContent = title;
+  return h;
+}
 
 function row(label: string, value: string): HTMLElement {
   const wrap = document.createElement("div");
@@ -86,7 +58,19 @@ function row(label: string, value: string): HTMLElement {
   k.textContent = label;
   const v = document.createElement("span");
   v.textContent = value; // textContent: EXIF strings are untrusted
-  v.title = value;
+  v.title = `${value}\n${t("info.copy")}`;
+  v.addEventListener("click", () => void copy(v, value));
   wrap.append(k, v);
   return wrap;
+}
+
+async function copy(el: HTMLElement, value: string): Promise<void> {
+  if (getSelection()?.toString()) return; // a selection drag ends in a click: leave it alone
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    return; // clipboard blocked: the text stays selectable
+  }
+  el.classList.add("copied");
+  setTimeout(() => el.classList.remove("copied"), 700);
 }
