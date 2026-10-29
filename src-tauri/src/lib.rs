@@ -3,6 +3,7 @@ mod assoc;
 mod autostart;
 mod boot;
 mod clipboard;
+mod codecs;
 mod decode;
 mod exif_info;
 #[cfg(test)]
