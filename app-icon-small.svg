@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Variant for 16-32 px: no filmstrip bars, a larger picture and sun, and a light rim so the dark
+       tile stays visible on a dark taskbar. Rendered by scripts/icons/build.mjs. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#243a62"/>
+      <stop offset="1" stop-color="#101722"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cc0ff"/>
+      <stop offset="1" stop-color="#2f6fd6"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="976" height="976" rx="212" fill="url(#bg)" stroke="#ffffff" stroke-opacity="0.35" stroke-width="40"/>
+  <rect x="136" y="200" width="752" height="624" rx="72" fill="url(#sky)"/>
+  <circle cx="340" cy="392" r="104" fill="#fff6c8"/>
+  <path d="M136 720 L420 424 L596 600 L704 496 L888 680 L888 752 a72 72 0 0 1 -72 72 L208 824 a72 72 0 0 1 -72 -72 Z" fill="#0b1a33"/>
+</svg>

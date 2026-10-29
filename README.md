@@ -252,6 +252,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 npm run tauri dev                               # frontend com hot reload, estado vazio (solte um arquivo)
 npm run tauri build                             # instalador NSIS com associações de arquivo de imagem
 npm run screenshots                             # regenera assets/screenshots (Chromium headless, backend simulado)
+npm run icons                                   # regenera icon.ico e os PNGs de src-tauri/icons a partir de app-icon*.svg
 npm run check:commits                           # valida os commits de origin/main..HEAD
 cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # build otimizado rápido (sem LTO) para trabalho de desempenho
 .\src-tauri\target\release\vislo.exe "C:\caminho\para\imagem.jpg"
