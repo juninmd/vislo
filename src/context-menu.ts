@@ -24,7 +24,7 @@ export class ContextMenu {
   show(x: number, y: number, entries: readonly MenuEntry[]): void {
     this.el.replaceChildren(...entries.map((entry) => this.row(entry)));
     this.el.hidden = false;
-    const { width, height } = this.el.getBoundingClientRect();
+    const { offsetWidth: width, offsetHeight: height } = this.el; // not the transformed rect: the entry animation scales it
     this.el.style.left = `${Math.max(0, Math.min(x, innerWidth - width))}px`;
     this.el.style.top = `${Math.max(0, Math.min(y, innerHeight - height))}px`;
     this.buttons().find((b) => !b.disabled)?.focus();
@@ -32,8 +32,7 @@ export class ContextMenu {
 
   hide(): void {
     if (this.el.hidden) return;
-    this.el.hidden = true;
-    this.el.replaceChildren();
+    this.el.hidden = true; // the rows stay until the next show(), so the exit transition has something to fade
   }
 
   private row(entry: MenuEntry): HTMLElement {

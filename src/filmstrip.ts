@@ -100,6 +100,7 @@ export class Filmstrip {
       img.decoding = "async";
       img.draggable = false;
       img.alt = "";
+      img.onload = () => img.classList.add("loaded");
       img.src = thumbSrc(path, THUMB_PX);
       img.onerror = () => {
         img.onerror = null;

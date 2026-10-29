@@ -1,6 +1,6 @@
 {
   "name": "vislo",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -10,6 +10,7 @@
     "test": "vitest run",
     "tauri": "tauri",
     "screenshots": "node scripts/screenshots/capture.mjs",
+    "perf:ui": "node scripts/perf/ui-metrics.mjs",
     "icons": "node scripts/icons/build.mjs",
     "prepare": "node scripts/setup-hooks.mjs",
     "check:commits": "node scripts/check-commits.mjs --range origin/main..HEAD"

@@ -1,4 +1,4 @@
-import { appear, bump } from "./anim";
+import { appear, bump, settle } from "./anim";
 import type { Album, Settings, WheelMode } from "./api";
 import { boot as bootData } from "./boot";
 import { ImageCache, type Loaded } from "./cache";
@@ -300,8 +300,15 @@ export class Viewer implements Controller {
   }
 
   toggleStrip(): void {
+    const slide = this.current;
+    const before = slide?.fit();
+    const h0 = this.stage.clientHeight;
     this.app.classList.toggle("strip-on");
     this.hover.hide();
+    if (!slide || !before || slide.view.scale !== 1 || slide.view.x !== 0 || slide.view.y !== 0) return;
+    slide.layout(this.stageBox()); // the stage just changed height: re-fit now and ease from the old pose
+    const after = slide.fit();
+    if (after) settle(slide.el, (h0 - this.stage.clientHeight) / 2, before.w / after.w);
   }
 
   toggleInfo(): void {
