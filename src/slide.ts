@@ -2,6 +2,7 @@ import {
   actualScale, type Box, clampView, effectiveBox, elementSize, FIT, fitSize, isQuarterTurn,
   maxScale, minScale, normaliseTurn, type View, zoomAt, zoomPercent,
 } from "./zoom";
+import { dissolve } from "./anim";
 import { type Pose, PoseMotion, poseCss } from "./zoom-anim";
 
 /** From this share of the image's pixels up, pixels are shown as crisp squares instead of a blur. */
@@ -48,12 +49,19 @@ export class Slide {
 
   setImage(img: HTMLImageElement): void {
     const dpr = window.devicePixelRatio || 1;
+    const preview = this.el.classList.contains("is-preview") ? this.el.firstElementChild : null;
     this.img = img;
     this.nat = { w: img.naturalWidth / dpr, h: img.naturalHeight / dpr };
     this.el.className = "slide";
     this.el.replaceChildren(img);
     this.sharp = null;
     this.sharpKey = "";
+    if (preview instanceof HTMLElement) {
+      // Keeps the placeholder's look (it was styled by `.is-preview`) while it dissolves over the sharp picture.
+      preview.style.cssText = "width:100%;height:100%;object-fit:contain;filter:blur(2px);pointer-events:none";
+      this.el.append(preview);
+      dissolve(preview);
+    }
   }
 
   /** Low-res stand-in shown while the full picture decodes; no zoom until it is replaced. */
