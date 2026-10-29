@@ -10,16 +10,16 @@
       <div id="stage"></div>
       <div id="empty">
         <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="10" width="52" height="44" rx="9"/><circle cx="22" cy="26" r="5"/><path d="M8 46l15-14 11 10 8-7 15 14"/></svg>
-        <p>Open an image with <b>Vislo</b></p>
-        <small>or drop a file anywhere in this window</small>
-        <button id="btn-open" class="assoc" type="button">Open image… <kbd>O</kbd></button>
-        <button id="btn-assoc" class="assoc" type="button">Set as default image viewer</button>
+        <p data-i18n="empty.title">Open an image with <b>Vislo</b></p>
+        <small data-i18n="empty.hint">or drop a file anywhere in this window</small>
+        <button id="btn-open" class="assoc" type="button"><span data-i18n="action.open">Open image…</span> <kbd>O</kbd></button>
+        <button id="btn-assoc" class="assoc" type="button" data-i18n="action.setDefault">Set as default image viewer</button>
       </div>
       <div id="msg" role="status"></div>
       <div id="update" role="status" hidden>
         <span id="update-text"></span>
-        <button id="update-go" type="button">Update &amp; restart</button>
-        <button id="update-later" type="button" aria-label="Dismiss" title="Later">✕</button>
+        <button id="update-go" type="button" data-i18n="update.install">Update &amp; restart</button>
+        <button id="update-later" type="button" data-i18n-aria="hud.dismiss" data-i18n-tip="hud.later" aria-label="Dismiss" title="Later">✕</button>
       </div>
       <div id="zoomtip" role="status" aria-live="polite"></div>
       <div id="caption"></div>
@@ -28,69 +28,72 @@
         <span id="dims"></span>
         <span id="count"></span>
         <span class="spacer"></span>
-        <button id="btn-rot-l" title="Rotate left (Shift+R)" aria-label="Rotate left">
+        <button id="btn-rot-l" data-i18n-tip="hud.rotateLeft" data-keys="Shift+R" title="Rotate left (Shift+R)" aria-label="Rotate left">
           <svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 1 1-1 5"/><path d="M4 4v5h5"/></svg>
         </button>
-        <button id="btn-rot-r" title="Rotate right (R)" aria-label="Rotate right">
+        <button id="btn-rot-r" data-i18n-tip="hud.rotateRight" data-keys="R" title="Rotate right (R)" aria-label="Rotate right">
           <svg viewBox="0 0 24 24"><path d="M20 9a8 8 0 1 0 1 5"/><path d="M20 4v5h-5"/></svg>
         </button>
-        <button id="btn-show" title="Slideshow (S)" aria-label="Start slideshow">
+        <button id="btn-show" data-i18n-tip="hud.slideshow" data-keys="S" title="Slideshow (S)" aria-label="Slideshow">
           <svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>
         </button>
-        <button id="btn-info" title="Info (I)" aria-label="Toggle info panel">
+        <button id="btn-info" data-i18n-tip="hud.info" data-keys="I" title="Information (I)" aria-label="Information">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
         </button>
-        <button id="btn-strip" title="Filmstrip (T)" aria-label="Toggle filmstrip">
+        <button id="btn-strip" data-i18n-tip="hud.filmstrip" data-keys="T" title="Filmstrip (T)" aria-label="Filmstrip">
           <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="9" rx="1.5"/><rect x="3" y="17" width="4" height="3" rx="1"/><rect x="10" y="17" width="4" height="3" rx="1"/><rect x="17" y="17" width="4" height="3" rx="1"/></svg>
         </button>
-        <button id="btn-gear" title="Settings" aria-label="Settings">
+        <button id="btn-gear" data-i18n-tip="hud.settings" title="Settings" aria-label="Settings">
           <svg viewBox="0 0 24 24"><path d="M10.05 4.97L10.5 2.52H13.5L13.95 4.97L15.59 5.65L17.64 4.23L19.77 6.36L18.35 8.41L19.03 10.05L21.48 10.5V13.5L19.03 13.95L18.35 15.59L19.77 17.64L17.64 19.77L15.59 18.35L13.95 19.03L13.5 21.48H10.5L10.05 19.03L8.41 18.35L6.36 19.77L4.23 17.64L5.65 15.59L4.97 13.95L2.52 13.5V10.5L4.97 10.05L5.65 8.41L4.23 6.36L6.36 4.23L8.41 5.65Z"/><circle cx="12" cy="12" r="2.9"/></svg>
         </button>
-        <button id="btn-full" title="Full screen (F11)" aria-label="Toggle full screen">
+        <button id="btn-full" data-i18n-tip="hud.fullscreen" data-keys="F11" title="Full screen (F11)" aria-label="Full screen">
           <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none"/></svg>
         </button>
-        <button id="btn-max" class="frame" title="Maximize (double-click the bar)" aria-label="Maximize">
+        <button id="btn-max" class="frame" data-i18n-tip="hud.maximize" title="Maximize (double-click the bar)" aria-label="Maximize">
           <svg class="ico-max" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>
           <svg class="ico-restore" viewBox="0 0 24 24"><rect x="4" y="9" width="11" height="11" rx="1.5"/><path d="M9 9V5.5A1.5 1.5 0 0 1 10.5 4H18.5A1.5 1.5 0 0 1 20 5.5V13.5A1.5 1.5 0 0 1 18.5 15H15"/></svg>
         </button>
-        <button id="btn-min" class="frame" title="Minimise" aria-label="Minimise">
+        <button id="btn-min" class="frame" data-i18n-tip="hud.minimize" title="Minimise" aria-label="Minimise">
           <svg viewBox="0 0 24 24"><path d="M5 18h14"/></svg>
         </button>
-        <button id="btn-close" class="frame" title="Close (Esc)" aria-label="Close">
+        <button id="btn-close" class="frame" data-i18n-tip="hud.close" data-keys="Esc" title="Close (Esc)" aria-label="Close">
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </header>
-      <aside id="info" aria-label="Image information"></aside>
-      <aside id="panel" aria-label="Settings">
-        <h2>Settings</h2>
-        <h3>Viewing</h3>
-        <label>Mouse wheel
-          <select id="s-wheel"><option value="zoom">Zoom</option><option value="navigate">Previous / next image</option></select>
+      <aside id="info" data-i18n-aria="aria.info" aria-label="Image information"></aside>
+      <aside id="panel" data-i18n-aria="hud.settings" aria-label="Settings">
+        <h2 data-i18n="hud.settings">Settings</h2>
+        <label><span data-i18n="panel.language">Language</span>
+          <select id="s-lang"><option value="auto" data-i18n="panel.languageAuto">Automatic (system)</option></select>
         </label>
-        <label class="check"><input type="checkbox" id="s-autohide" /> Auto-hide controls</label>
-        <label class="check"><input type="checkbox" id="s-sharp" /> Sharp downscaling</label>
-        <label class="check"><input type="checkbox" id="s-preview" /> Instant preview for large photos</label>
-        <label class="check"><input type="checkbox" id="s-3d" /> 3D filmstrip</label>
-        <label class="check"><input type="checkbox" id="s-hover" /> Filmstrip hover preview</label>
-        <h3>Slideshow</h3>
-        <label>Show each picture for (s) <input type="number" id="s-display" min="0.5" max="60" step="0.5" /></label>
-        <label>Cross-fade (s) <input type="number" id="s-fade" min="0" max="5" step="0.5" /></label>
-        <h3>Window</h3>
-        <label class="check"><input type="checkbox" id="s-max" /> Open maximized <em>(next launch)</em></label>
-        <label class="check"><input type="checkbox" id="s-fs" /> Open in fullscreen <em>(next launch)</em></label>
-        <label>Background (next launch)
-          <select id="s-bg"><option value="dark">Dark</option><option value="black">Black</option><option value="transparent">Transparent</option></select>
+        <h3 data-i18n="panel.viewing">Viewing</h3>
+        <label><span data-i18n="panel.wheel">Mouse wheel</span>
+          <select id="s-wheel"><option value="zoom" data-i18n="panel.wheelZoom">Zoom</option><option value="navigate" data-i18n="panel.wheelNavigate">Previous / next image</option></select>
         </label>
-        <label class="check"><input type="checkbox" id="s-keep" /> Keep ready in tray <em>(opens faster)</em></label>
-        <label class="check"><input type="checkbox" id="s-login" /> Start ready when I sign in</label>
-        <h3>Updates</h3>
-        <label class="check"><input type="checkbox" id="s-updates" /> Check for updates automatically</label>
+        <label class="check"><input type="checkbox" id="s-autohide" /> <span data-i18n="panel.autohide">Auto-hide controls</span></label>
+        <label class="check"><input type="checkbox" id="s-sharp" /> <span data-i18n="panel.sharp">Sharp downscaling</span></label>
+        <label class="check"><input type="checkbox" id="s-preview" /> <span data-i18n="panel.preview">Instant preview for large photos</span></label>
+        <label class="check"><input type="checkbox" id="s-3d" /> <span data-i18n="panel.strip3d">3D filmstrip</span></label>
+        <label class="check"><input type="checkbox" id="s-hover" /> <span data-i18n="panel.hover">Filmstrip hover preview</span></label>
+        <h3 data-i18n="panel.slideshow">Slideshow</h3>
+        <label><span data-i18n="panel.display">Show each picture for (s)</span> <input type="number" id="s-display" min="0.5" max="60" step="0.5" /></label>
+        <label><span data-i18n="panel.fade">Cross-fade (s)</span> <input type="number" id="s-fade" min="0" max="5" step="0.5" /></label>
+        <h3 data-i18n="panel.window">Window</h3>
+        <label class="check"><input type="checkbox" id="s-max" /> <span data-i18n="panel.maximized">Open maximized</span> <em data-i18n="panel.nextLaunch">(next launch)</em></label>
+        <label class="check"><input type="checkbox" id="s-fs" /> <span data-i18n="panel.fullscreenStart">Open in fullscreen</span> <em data-i18n="panel.nextLaunch">(next launch)</em></label>
+        <label><span data-i18n="panel.background">Background (next launch)</span>
+          <select id="s-bg"><option value="dark" data-i18n="panel.bgDark">Dark</option><option value="black" data-i18n="panel.bgBlack">Black</option><option value="transparent" data-i18n="panel.bgTransparent">Transparent</option></select>
+        </label>
+        <label class="check"><input type="checkbox" id="s-keep" /> <span data-i18n="panel.keepReady">Keep ready in tray</span> <em data-i18n="panel.keepReadyHint">(opens faster)</em></label>
+        <label class="check"><input type="checkbox" id="s-login" /> <span data-i18n="panel.login">Start ready when I sign in</span></label>
+        <h3 data-i18n="panel.updates">Updates</h3>
+        <label class="check"><input type="checkbox" id="s-updates" /> <span data-i18n="panel.autoUpdate">Check for updates automatically</span></label>
         <div class="about">
           <span id="s-version">Vislo</span>
-          <button id="btn-update-check" class="assoc" type="button">Check for updates</button>
+          <button id="btn-update-check" class="assoc" type="button" data-i18n="panel.checkUpdate">Check for updates</button>
         </div>
         <fieldset id="s-groups">
-          <legend>Default viewer for</legend>
+          <legend data-i18n="panel.defaultFor">Default viewer for</legend>
           <label class="check"><input type="checkbox" data-group="jpeg" checked /> JPEG</label>
           <label class="check"><input type="checkbox" data-group="png" checked /> PNG</label>
           <label class="check"><input type="checkbox" data-group="gif" checked /> GIF</label>
@@ -106,13 +109,13 @@
           <label class="check"><input type="checkbox" data-group="other" checked /> DDS / QOI / FF</label>
           <label class="check"><input type="checkbox" data-group="raw" checked /> RAW</label>
         </fieldset>
-        <button id="btn-assoc-panel" class="assoc" type="button">Set as default image viewer</button>
+        <button id="btn-assoc-panel" class="assoc" type="button" data-i18n="action.setDefault">Set as default image viewer</button>
       </aside>
-      <button id="prev" class="nav" title="Previous (←)" aria-label="Previous image"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <button id="next" class="nav" title="Next (→)" aria-label="Next image"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button id="prev" class="nav" data-i18n-tip="nav.prev" data-keys="←" title="Previous image (←)" aria-label="Previous image"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <button id="next" class="nav" data-i18n-tip="nav.next" data-keys="→" title="Next image (→)" aria-label="Next image"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
       <div id="hover" aria-hidden="true"></div>
-      <div id="ctxmenu" role="menu" aria-label="Image actions" hidden></div>
-      <div id="strip" aria-label="Filmstrip"></div>
+      <div id="ctxmenu" role="menu" data-i18n-aria="aria.menu" aria-label="Image actions" hidden></div>
+      <div id="strip" data-i18n-aria="hud.filmstrip" aria-label="Filmstrip"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

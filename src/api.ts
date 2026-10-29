@@ -36,6 +36,8 @@ export interface Settings {
   keep_ready: boolean;
   start_with_windows: boolean;
   check_updates: boolean;
+  /** `auto` follows the system; otherwise a code from i18n/core.ts LOCALES. */
+  language: string;
 }
 
 export interface Update {

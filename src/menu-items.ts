@@ -1,5 +1,6 @@
 import type { Command } from "./commands";
 import type { MenuEntry } from "./context-menu";
+import { t } from "./i18n";
 
 export interface MenuActions {
   command(command: Command): void;
@@ -14,15 +15,15 @@ export interface MenuActions {
 export function menuItems(a: MenuActions, hasPicture: boolean): MenuEntry[] {
   const file = (label: string, command: Command, hint?: string): MenuEntry => ({ label, hint, disabled: !hasPicture, run: () => a.command(command) });
   return [
-    file("Copy image", "copy", "Ctrl+C"),
-    { label: "Open image…", hint: "O", run: () => a.command("open") },
-    file("Show in folder", "reveal"),
-    file("Open with…", "openWith"),
+    file(t("menu.copy"), "copy", "Ctrl+C"),
+    { label: t("action.open"), hint: "O", run: () => a.command("open") },
+    file(t("menu.reveal"), "reveal"),
+    file(t("menu.openWith"), "openWith"),
     "separator",
-    { label: "Information", hint: "I", disabled: !hasPicture, run: () => a.toggleInfo() },
-    { label: "Slideshow", hint: "S", disabled: !hasPicture, run: () => a.toggleSlideshow() },
-    { label: "Filmstrip", hint: "T", disabled: !hasPicture, run: () => a.toggleStrip() },
-    { label: "Full screen", hint: "F", run: () => a.toggleFullscreen() },
-    { label: "Settings", run: () => a.toggleSettings() },
+    { label: t("hud.info"), hint: "I", disabled: !hasPicture, run: () => a.toggleInfo() },
+    { label: t("hud.slideshow"), hint: "S", disabled: !hasPicture, run: () => a.toggleSlideshow() },
+    { label: t("hud.filmstrip"), hint: "T", disabled: !hasPicture, run: () => a.toggleStrip() },
+    { label: t("hud.fullscreen"), hint: "F", run: () => a.toggleFullscreen() },
+    { label: t("hud.settings"), run: () => a.toggleSettings() },
   ];
 }
