@@ -16,6 +16,13 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 #app { position: fixed; inset: 0; background: var(--bg); transition: background-color var(--t-base) var(--ease); }
 #app.bg-black { background: #000; }
 #app.bg-transparent { background: rgba(0, 0, 0, 0.55); }
+/* The first background class lands while the window is still hidden: no transition until it is shown. */
+html.booting #app { transition: none; }
+/* After a native splash (which is still dimming the desktop) the page's dim and controls wait, then fade in as
+   the splash's dim fades out (src-tauri/src/splash), so the dimming stays level and the controls do not pop. */
+html.handoff #app.bg-transparent { background: rgba(0, 0, 0, 0); }
+html.handoff .hud, html.handoff .nav { opacity: 0; }
+html.handoff-out #app { transition: background-color 250ms ease-out; }
 
 #stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
 #app.strip-on #stage { bottom: var(--strip-h); }
@@ -154,6 +161,7 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0s !important; animation-duration: 0s !important; }
+  html.handoff-out #app { transition-duration: 250ms !important; } /* a level hand-over is not motion */
 }
 
 #panel fieldset { margin: 0; padding: 8px 10px; border: 1px solid #ffffff1c; border-radius: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 8px; }

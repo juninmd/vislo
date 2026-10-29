@@ -1,5 +1,6 @@
 import { previewSrc, type Settings, srcFor } from "./api";
 import { isJpeg, isNative } from "./formats";
+import { beginHandoff } from "./handoff";
 
 /** Injected by the backend before any script runs (see boot.rs). */
 export interface Boot {
@@ -19,6 +20,7 @@ declare global {
 }
 
 export const boot: Boot | undefined = window.__VISLO__;
+beginHandoff(document.documentElement, boot?.splash === true);
 
 interface Preloaded {
   src: string;

@@ -25,8 +25,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 
-/// The real window gets this long to paint its first frame before the splash goes away.
-const HANDOFF: Duration = Duration::from_millis(100);
 /// Safety net: a splash never outlives this, whatever the page does.
 const MAX_LIFE: Duration = Duration::from_secs(5);
 
@@ -171,6 +169,24 @@ fn present(hwnd: HWND, img: &image::RgbaImage, alpha: f32, centre: (i32, i32)) -
     }
 }
 
+/// The real window is up and shows the same picture: the desktop dimming moves from this window to the
+/// page over `FADE_MS`, the picture stays until the end.
+fn fade_backdrop(backdrop: HWND) {
+    let start = Instant::now();
+    loop {
+        let p = start.elapsed().as_secs_f32() / (geometry::FADE_MS as f32 / 1000.0);
+        let alpha = (geometry::dim_alpha_at(p) * 255.0).round() as u8;
+        unsafe {
+            let _ = SetLayeredWindowAttributes(backdrop, Default::default(), alpha, LWA_ALPHA);
+        }
+        if p >= 1.0 {
+            break;
+        }
+        pump();
+        std::thread::sleep(Duration::from_millis(4));
+    }
+}
+
 fn pump() {
     unsafe {
         let mut msg = MSG::default();
@@ -261,9 +277,9 @@ pub fn run(path: &Path) {
     if visible {
         while !is_dismissed() && born.elapsed() < MAX_LIFE {
             pump();
-            std::thread::sleep(Duration::from_millis(10));
+            std::thread::sleep(Duration::from_millis(2)); // the page starts its own fade right after the show
         }
-        std::thread::sleep(HANDOFF);
+        fade_backdrop(backdrop);
     }
     unsafe {
         let _ = DestroyWindow(hwnd);

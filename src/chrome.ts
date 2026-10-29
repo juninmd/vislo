@@ -1,12 +1,13 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as api from "./api";
+import { windowShown } from "./handoff";
 import type { Box } from "./zoom";
 
 const win = getCurrentWindow();
 
 /** Sizes the (still hidden) window around the first image and shows it, in a single IPC call. */
 export const showFitted = (natural: Box | null, fullscreen = false): Promise<void> =>
-  api.showFitted(natural?.w ?? null, natural?.h ?? null, fullscreen);
+  api.showFitted(natural?.w ?? null, natural?.h ?? null, fullscreen).finally(() => windowShown(undefined, undefined, undefined, () => void api.splashRelease()));
 
 export async function isFullscreen(): Promise<boolean> {
   return win.isFullscreen();

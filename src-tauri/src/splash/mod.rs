@@ -22,6 +22,8 @@ pub const IDENTIFIER: &str = "dev.juninmd.vislo";
 
 /// How long the real window waits for the zoom-in to finish before showing itself.
 const ANIMATION_WAIT: Duration = Duration::from_millis(400);
+/// The page releases the splash once it paints its own dimming; if it never does, the splash leaves anyway.
+const RELEASE_TIMEOUT: Duration = Duration::from_millis(1000);
 
 #[derive(Default)]
 struct State {
@@ -98,8 +100,20 @@ pub fn before_show() {
         .unwrap_or_else(|e| e.into_inner());
 }
 
-/// Called right after the real window is shown: the splash removes itself shortly after.
+/// Called right after the real window is shown. The splash keeps dimming the desktop until the page
+/// asks for the hand-over (`release`), because the page needs a moment to paint its own dimming.
 pub fn after_show() {
+    if !STATE.lock().unwrap_or_else(|e| e.into_inner()).started {
+        return;
+    }
+    std::thread::spawn(|| {
+        std::thread::sleep(RELEASE_TIMEOUT);
+        update(|s| s.dismissed = true);
+    });
+}
+
+/// The page is painting its own dimming: the splash may start fading out its own.
+pub fn release() {
     update(|s| s.dismissed = true);
 }
 
