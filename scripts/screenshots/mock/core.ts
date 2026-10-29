@@ -18,6 +18,7 @@ const settings = {
   keep_ready: false,
   start_with_windows: false,
   check_updates: true,
+  language: "auto",
 };
 
 const info = {

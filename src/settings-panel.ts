@@ -1,4 +1,5 @@
 import { registerAssociations, type Settings, setSettings } from "./api";
+import { AUTO, LOCALES, t } from "./i18n";
 
 const CHECKS: [string, keyof Settings][] = [
   ["#s-max", "open_maximized"],
@@ -48,9 +49,14 @@ export function bindSettingsPanel(
   let current = initial;
   const el = <T extends HTMLElement>(sel: string) => panel.querySelector<T>(sel)!;
 
+  const lang = el<HTMLSelectElement>("#s-lang");
+  for (const l of LOCALES) lang.append(new Option(l.name, l.code)); // endonyms: never translated, so always findable
+  lang.value = AUTO;
+
   const render = () => {
     el<HTMLSelectElement>("#s-wheel").value = current.wheel;
     el<HTMLSelectElement>("#s-bg").value = current.background;
+    el<HTMLSelectElement>("#s-lang").value = current.language;
     el<HTMLInputElement>("#s-display").value = String(current.slideshow_display_ms / 1000);
     el<HTMLInputElement>("#s-fade").value = String(current.slideshow_fade_ms / 1000);
     for (const [sel, key] of CHECKS) el<HTMLInputElement>(sel).checked = current[key] as boolean;
@@ -60,6 +66,7 @@ export function bindSettingsPanel(
     const next: Settings = { ...current };
     next.wheel = el<HTMLSelectElement>("#s-wheel").value as Settings["wheel"];
     next.background = el<HTMLSelectElement>("#s-bg").value as Settings["background"];
+    next.language = el<HTMLSelectElement>("#s-lang").value;
     const secs = (sel: string, fallback: number) => {
       const text = el<HTMLInputElement>(sel).value.trim();
       const n = Number(text);
@@ -84,10 +91,10 @@ export function bindSettingsPanel(
   const chosenGroups = bindGroups(panel);
   panel.querySelector("#btn-assoc-panel")?.addEventListener("click", async () => {
     const groups = chosenGroups();
-    if (groups.length === 0) return notify("Tick at least one format first");
+    if (groups.length === 0) return notify(t("msg.tickFormat"));
     try {
       await registerAssociations(groups);
-      notify("Registered. Pick Vislo for your image types in Settings > Default apps.");
+      notify(t("msg.registered"));
     } catch (err) {
       notify(String(err));
     }

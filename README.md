@@ -35,7 +35,7 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 ## Índice
 
 [Funcionalidades](#funcionalidades) · [Tour](#tour) · [Instalação](#instalação) · [Uso](#uso) ·
-[Arquitetura](#arquitetura) · [Atualização automática](#atualização-automática) · [Atalhos](#atalhos-de-teclado-e-mouse) ·
+[Arquitetura](#arquitetura) · [Idiomas](#idiomas) · [Atualização automática](#atualização-automática) · [Atalhos](#atalhos-de-teclado-e-mouse) ·
 [Desempenho](#por-que-é-rápido) · [Configuração](#configuração) · [Desenvolvimento](#desenvolvimento) ·
 [Gates de CI](#gates-de-ci) · [Contribuindo](#contribuindo) · [Segurança](#segurança) · [Limitações](#limitações-conhecidas) ·
 [Licença](#licença)
@@ -47,6 +47,8 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 * **Fluido.** Animações suaves de slide, pré-carregamento antecipado, filmstrip 3D e um zoom que não dá saltos; menus, painéis,
   banner e filmstrip entram e saem com fade (só `opacity`/`transform`, sem layout) e respeitam "reduzir movimento".
 * **Abre quase tudo.** JPEG, PNG, GIF, WebP, AVIF, SVG, JPEG XL, JPEG 2000, BMP, TIFF, PSD, HDR, EXR, 30 tipos de RAW de câmera e mais.
+* **14 idiomas.** Inglês, português (Brasil), espanhol, francês, alemão, italiano, russo, turco, japonês, coreano, chinês
+  simplificado e tradicional, polonês e holandês; segue o idioma do sistema ou troca em *Settings &rarr; Language*, na hora.
 * **Autoatualizável.** Novas versões são encontradas, verificadas e instaladas a partir deste repositório, com um clique.
 * **Abre maximizado**, sem barra de título, sobre fundo transparente escurecido; a barra superior move a janela e
   alterna entre maximizado e janela do tamanho da imagem (`F11` é tela cheia de verdade). *Settings &rarr; Open maximized* desliga isso.
@@ -173,6 +175,21 @@ flowchart LR
     scheme --> disk
     update -- "HTTPS" --> gh[("GitHub Releases")]
 ```
+
+### Idiomas
+
+Os textos ficam em `src/i18n/`: `en.ts` é a fonte de verdade e cada idioma é um módulo carregado só quando escolhido (o inglês
+não carrega nada extra). Para adicionar um idioma: copie `en.ts` para `<código>.ts`, traduza, inclua o código em `LOCALES`
+(`core.ts`), no `loaders` (`index.ts`) e em `LANGUAGES` (`settings.rs`); o teste `i18n.test.ts` falha se faltar uma chave ou
+um `{placeholder}`. Mensagens de erro do backend Rust e o menu da bandeja continuam em inglês.
+
+<table>
+<tr>
+<td width="33%"><img src="assets/screenshots/lang-ja.png" alt="Interface em japonês" /><br/><b>日本語</b></td>
+<td width="33%"><img src="assets/screenshots/lang-de.png" alt="Interface em alemão" /><br/><b>Deutsch</b></td>
+<td width="33%"><img src="assets/screenshots/lang-ru.png" alt="Interface em russo" /><br/><b>Русский</b></td>
+</tr>
+</table>
 
 ## Atualização automática
 

@@ -20,6 +20,11 @@ pub enum Background {
     Transparent,
 }
 
+/// Interface languages, kept equal to `LOCALES` in `src/i18n/core.ts` (checked by a test); `auto` follows the system.
+pub const LANGUAGES: &[&str] = &[
+    "auto", "en", "pt-BR", "es", "fr", "de", "it", "ru", "tr", "ja", "ko", "zh-CN", "zh-TW", "pl", "nl",
+];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -41,6 +46,8 @@ pub struct Settings {
     pub start_with_windows: bool,
     /// Look for a newer release on GitHub when Vislo starts (and every few hours while it runs).
     pub check_updates: bool,
+    /// Interface language: `auto` or one of [`LANGUAGES`].
+    pub language: String,
 }
 
 impl Default for Settings {
@@ -60,6 +67,7 @@ impl Default for Settings {
             keep_ready: false,
             start_with_windows: false,
             check_updates: true,
+            language: "auto".into(),
         }
     }
 }
@@ -73,6 +81,9 @@ impl Settings {
             .min(5_000)
             .min(self.slideshow_display_ms);
         self.start_with_windows &= self.keep_ready;
+        if !LANGUAGES.contains(&self.language.as_str()) {
+            self.language = "auto".into();
+        }
         self
     }
 }
@@ -189,6 +200,35 @@ mod tests {
             (WheelMode::Navigate, Background::Dark, true)
         );
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn language_defaults_to_auto_for_old_files_and_unknown_codes() {
+        assert_eq!(Settings::default().language, "auto");
+        let dir = temp("lang");
+        std::fs::write(dir.join("old.json"), br#"{"wheel":"zoom"}"#).unwrap();
+        assert_eq!(load(&dir.join("old.json")).language, "auto");
+        std::fs::write(dir.join("ja.json"), br#"{"language":"ja"}"#).unwrap();
+        assert_eq!(load(&dir.join("ja.json")).language, "ja");
+        std::fs::write(dir.join("bad.json"), br#"{"language":"tlh","wheel":"navigate"}"#).unwrap();
+        let s = load(&dir.join("bad.json"));
+        assert_eq!((s.language.as_str(), s.wheel), ("auto", WheelMode::Navigate));
+        std::fs::write(dir.join("num.json"), br#"{"language":5}"#).unwrap();
+        assert_eq!(load(&dir.join("num.json")).language, "auto", "a wrong type costs only that field");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn languages_match_the_frontend_locale_list() {
+        let ts = include_str!("../../src/i18n/core.ts");
+        let listed: Vec<&str> = ts
+            .lines()
+            .filter(|l| l.trim_start().starts_with("{ code: \""))
+            .filter_map(|l| l.split('"').nth(1))
+            .collect();
+        let mut want = vec!["auto"];
+        want.extend(listed);
+        assert_eq!(want, LANGUAGES);
     }
 
     #[test]

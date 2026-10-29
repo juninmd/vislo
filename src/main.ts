@@ -5,6 +5,7 @@ import { type Album, getSettings, initialPath, openPath, registerAssociations } 
 import { boot as bootData, prefetchLaunchImage } from "./boot";
 import { showFitted } from "./chrome";
 import { bindFolderSync } from "./folder-sync";
+import { setLanguage, t } from "./i18n";
 import { bindSettingsPanel } from "./settings-panel";
 import "./style.css";
 import { Updater } from "./update";
@@ -30,12 +31,16 @@ async function boot(): Promise<void> {
   const listing = initial ? openPath(initial) : undefined;
   // The window was created without a title bar (see window.rs `frameless`): show our own buttons.
   app.classList.toggle("frameless", settings.open_maximized);
+  await setLanguage(settings.language); // English loads nothing; another language is one small chunk
   const viewer = new Viewer(app, settings, (p) => open(viewer, p));
   let current = settings;
   bindSettingsPanel(
     document.getElementById("panel")!,
     settings,
-    (s) => viewer.applySettings((current = s)),
+    (s) => {
+      if (s.language !== current.language) void setLanguage(s.language);
+      viewer.applySettings((current = s));
+    },
     (t) => viewer.notify(t),
   );
   const updater = new Updater(document.getElementById("update")!, (t) => viewer.notify(t), () => current.check_updates);
@@ -48,7 +53,7 @@ async function boot(): Promise<void> {
   document.getElementById("btn-assoc")!.addEventListener("click", async () => {
     try {
       await registerAssociations();
-      viewer.notify("Registered. Pick Vislo for your image types in Settings > Default apps.");
+      viewer.notify(t("msg.registered"));
     } catch (err) {
       viewer.notify(String(err));
     }

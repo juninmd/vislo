@@ -1,4 +1,5 @@
 import { fileInfo, type Info } from "./api";
+import { currentLanguage, type Key, t } from "./i18n";
 
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -47,21 +48,36 @@ export class InfoPanel {
     try {
       info = await fileInfo(path);
     } catch (err) {
-      if (mine === this.token) this.el.replaceChildren(row("Error", String(err)));
+      if (mine === this.token) this.el.replaceChildren(row(t("info.error"), String(err)));
       return;
     }
     if (mine !== this.token) return; // a newer image was requested meanwhile
     const rows: [string, string | null][] = [
-      ["File", info.name],
-      ["Folder", info.folder],
-      ["Size", formatBytes(info.size)],
-      ["Dimensions", formatDimensions(info.width, info.height)],
-      ["Modified", info.modified_ms === null ? null : new Date(info.modified_ms).toLocaleString()],
-      ...info.rows,
+      [t("info.file"), info.name],
+      [t("info.folder"), info.folder],
+      [t("info.size"), formatBytes(info.size)],
+      [t("info.dimensions"), formatDimensions(info.width, info.height)],
+      [t("info.modified"), info.modified_ms === null ? null : new Date(info.modified_ms).toLocaleString(currentLanguage())],
+      ...info.rows.map(([label, value]): [string, string] => [rowLabel(label), value]),
     ];
     this.el.replaceChildren(...rows.filter((r): r is [string, string] => r[1] !== null).map(([k, v]) => row(k, v)));
   }
 }
+
+/** The backend names its rows in English; known names are translated, unknown ones shown as they are. */
+const ROW_KEYS: Record<string, Key> = {
+  Camera: "info.camera",
+  Lens: "info.lens",
+  "Focal length": "info.focal",
+  Exposure: "info.exposure",
+  Aperture: "info.aperture",
+  ISO: "info.iso",
+  Taken: "info.taken",
+  Flash: "info.flash",
+  Software: "info.software",
+  GPS: "info.gps",
+};
+const rowLabel = (label: string): string => (label in ROW_KEYS ? t(ROW_KEYS[label]) : label);
 
 function row(label: string, value: string): HTMLElement {
   const wrap = document.createElement("div");

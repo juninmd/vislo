@@ -8,6 +8,7 @@ import * as chrome from "./chrome";
 import { Filmstrip } from "./filmstrip";
 import { isJpeg, isNative, isStill, isVector } from "./formats";
 import { HoverPreview } from "./hover";
+import { onLanguageChange, t } from "./i18n";
 import { InfoPanel } from "./info";
 import { Hud, titleFor } from "./hud";
 import { bindButtons, bindInput, type Controller } from "./input";
@@ -82,6 +83,11 @@ export class Viewer implements Controller {
       this.syncMaximized();
     }).observe(this.stage);
     this.syncMaximized();
+    onLanguageChange(() => {
+      this.syncMaximized();
+      const path = this.album?.files[this.index];
+      if (path) this.info.refresh(path);
+    });
     bindButtons(app, this);
     bindInput(this);
     this.applySettings(settings);
@@ -210,7 +216,7 @@ export class Viewer implements Controller {
 
   private fill(slide: Slide, loaded: Loaded, ok: boolean, path: string): void {
     if (ok) slide.setImage(loaded.img, isVector(path));
-    else slide.setError(`${basename(path)} is not a valid image file`);
+    else slide.setError(t("msg.invalidImage", { name: basename(path) }));
     slide.layout(this.stageBox());
     if (slide === this.current) {
       this.updateHud(this.album!, this.index); // the size is only known now
@@ -268,8 +274,9 @@ export class Viewer implements Controller {
       void chrome.isMaximized().then((on) => {
         this.app.classList.toggle("maximized", on);
         const btn = this.q("#btn-max");
-        btn.title = on ? "Restore down (double-click the bar)" : "Maximize (double-click the bar)";
-        btn.setAttribute("aria-label", on ? "Restore down" : "Maximize");
+        const label = t(on ? "hud.restore" : "hud.maximize");
+        btn.title = `${label} (${t("hud.barHint")})`;
+        btn.setAttribute("aria-label", label);
       });
     }, 80);
   }
@@ -316,7 +323,7 @@ export class Viewer implements Controller {
     this.info.toggle(this.album?.files[this.index] ?? null);
   }
   toggleSlideshow(): void {
-    if (!this.slideshow.running && !canSlideshow(this.album?.files.length ?? 0)) return this.notify("A slideshow needs at least two pictures");
+    if (!this.slideshow.running && !canSlideshow(this.album?.files.length ?? 0)) return this.notify(t("msg.needTwo"));
     this.slideshow.toggle();
   }
   toggleSettings(): void {
