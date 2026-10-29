@@ -44,7 +44,7 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 * **Instantâneo.** Primeira tela em cerca de 100 ms para imagens típicas; o modo *keep ready* (residente na bandeja)
   reduz a reabertura para dezenas de milissegundos.
 * **Fluido.** Animações suaves de slide, pré-carregamento antecipado, filmstrip 3D e um zoom que não dá saltos.
-* **Abre quase tudo.** JPEG, PNG, GIF, WebP, AVIF, BMP, TIFF, PSD, HDR, EXR, 26 tipos de RAW de câmera e mais.
+* **Abre quase tudo.** JPEG, PNG, GIF, WebP, AVIF, SVG, JPEG XL, JPEG 2000, BMP, TIFF, PSD, HDR, EXR, 30 tipos de RAW de câmera e mais.
 * **Autoatualizável.** Novas versões são encontradas, verificadas e instaladas a partir deste repositório, com um clique.
 * **Abre maximizado**, sem barra de título, sobre fundo transparente escurecido; a barra superior move a janela e
   alterna entre maximizado e janela do tamanho da imagem (`F11` é tela cheia de verdade). *Settings &rarr; Open maximized* desliga isso.
@@ -54,10 +54,11 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 * **Redução nítida:** fotos exibidas muito menores que seus pixels são reamostradas com Lanczos em Rust.
 * **Apresentação de slides** (`S` / `F5`): tela cheia, 4 s por imagem e 1 s de cross-fade por padrão, em loop.
 * **Girar a visualização** (`R` / `Shift+R`) e tamanho em pixels ao lado do nome e no título da janela.
-* **Muitos formatos:** JPEG (inclui JIF/JFI/PJPEG), PNG/APNG, GIF, WebP, BMP/DIB, AVIF, ICO, TIFF, TGA, PSD,
+* **Muitos formatos:** JPEG (inclui JIF/JFI/PJPEG), PNG/APNG, GIF, WebP, BMP/DIB, AVIF/AVIFS, ICO/CUR, **SVG** (vetor, nítido em
+  qualquer zoom), **JPEG XL** e **JPEG 2000** (JP2, J2K, J2C, JPC; decodificadores em Rust puro), TIFF, TGA (+ VDA, ICB, VST), PSD,
   Netpbm (PBM/PGM/PPM/PNM/PAM), Radiance HDR e OpenEXR (com tone-mapping para sRGB), DDS (DXT), QOI, farbfeld e o JPEG
-  embutido de 26 tipos de RAW (DNG, CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF, PEF, SRW, X3F, 3FR, FFF,
-  IIQ, MEF, MOS, MRW, DCR, KDC, ERF, RWL, RAW). A orientação EXIF é aplicada.
+  embutido de 30 tipos de RAW (DNG, CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF, PEF, SRW, X3F, 3FR, FFF,
+  IIQ, MEF, MOS, MRW, DCR, KDC, ERF, RWL, RAW, ARQ, GPR, ORI, K25). A orientação EXIF é aplicada.
 * **Keep ready** (configuração, desligado por padrão): fechar a janela estaciona o Vislo na bandeja em vez de sair;
   *Start ready when I sign in* cria uma entrada Run por usuário (`vislo.exe --background`).
 * **Sempre sincronizado:** arquivos criados ou apagados no Explorer aparecem quando a janela recupera o foco;
@@ -292,7 +293,10 @@ CI e o planejador de release dependem disso. As regras, as regras de release e a
 * Só Windows x64 com WebView2. Não há build para macOS ou Linux.
 * Não edita, não organiza biblioteca e não importa: o escopo é ver a imagem.
 * Arquivos RAW são exibidos pelo JPEG de prévia embutido no arquivo, não pela revelação do sensor.
-* Imagens enormes ou corrompidas são recusadas com mensagem.
+* Imagens enormes ou corrompidas são recusadas com mensagem. JPEG XL e JPEG 2000 mostram o primeiro quadro e são lidos por
+  completo na memória (limite de 150 milhões de pixels). HEIC/HEIF ainda não é suportado (licença e custo de build, ver #32).
+* SVG pequeno é ampliado para ao menos 1024 px no maior lado; o zoom reutiliza o raster do tamanho ajustado, então zooms muito
+  grandes em SVG podem ficar suaves.
 * Cópias portáteis não se atualizam sozinhas; o banner leva à página da release.
 * O instalador não é assinado (ver [Instalação](#instalação)).
 
