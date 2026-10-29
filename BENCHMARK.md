@@ -5,24 +5,23 @@ afirmava está marcado **não confirmado**; nada foi presumido.
 
 ## 1. Comparação com outros visualizadores
 
-| Visualizador | Pilha | Pré-carga / cache | Decodificadores | Formatos | Metadados | Animação |
-|---|---|---|---|---|---|---|
-| **Vislo** | Tauri 2 (Rust + WebView2) | 4 à frente / 2 atrás, viés de direção, pool LIFO, miniaturas em disco | WebView2 + `image`, `zune-jpeg`, `psd` (+ `jxl-oxide`, `hayro-jpeg2000` em #36) | ~70 extensões (com #36) | EXIF agrupado, GPS | WAAPI + CSS compositor |
-| qView | C++ / Qt | `QCache` de imagens decodificadas com orçamento em bytes (256 MB, distância 1; ou 2 GB, distância 4); decodifica vizinhas em threads; arquivos maiores que metade do cache são pulados | Qt `QImageReader` + plugins | depende dos plugins Qt (não confirmado) | não confirmado | `QMovie` |
-| ImageGlass | C# / .NET | "cache inteligente" sem detalhes públicos | motor não nomeado (não confirmado) | "90+" | EXIF via ExifGlass | GIF, WebP, APNG, SVG com navegação de quadros |
-| nomacs | C++ / Qt6 | não documentado | LibRaw, OpenCV (opcional), LibTiff, Exiv2, kimageformats (AVIF, HEIF, JXL, EXR) | não informado | histograma, EXIF de RAW | não documentado |
-| JPEGView | C++ / Win32 | não documentado | WIC, LibRaw, reamostragem AVX2/SSE2 em até 4 núcleos | JPEG, GIF, BMP, PNG, TIFF, PSD, WebP, JXL, HEIC, AVIF, TGA, JXR + RAW | não documentado | WebP, APNG, JXL animados |
-| Oculante | Rust | cache configurável, carga em threads | `jxl-oxide`, `libheif-rs`, `jpeg2k`, `psd`, `resvg`, `exr`, `quickraw`, `turbojpeg` (opcional) | ~45 | EXIF, histograma, cor do pixel | GIF com tempos |
-| Honeyview / BandiView | nativo Windows (fechado) | n/d | n/d | 27 / JXL, AVIF, EXR, SVG (HEIC só no Pro) | EXIF + GPS / ICC, prompts de Stable Diffusion | GIF, WebP, BPG, PNG |
-| IrfanView / XnView MP | nativo (fechado) | n/d | plugins (RAW, JXL, HEIC, AVIF, JPEG 2000) | "500+" (XnView MP) | EXIF, IPTC, XMP | APNG, GIF, TIFF multipágina |
+| Visualizador | Formatos | Metadados | Animação |
+|---|---|---|---|
+| **Vislo** | ~70 extensões (com #36) | EXIF agrupado, GPS, traduzido (#39) | WAAPI + CSS compositor |
+| qView | depende dos plugins instalados (não confirmado) | não confirmado | GIF e similares |
+| ImageGlass | "90+" | EXIF | GIF, WebP, APNG, SVG |
+| nomacs | inclui AVIF, HEIF, JXL, EXR | histograma, EXIF de RAW | não documentado |
+| JPEGView | JPEG, PNG, TIFF, PSD, WebP, JXL, HEIC, AVIF, TGA + RAW | não documentado | WebP, APNG, JXL animados |
+| Oculante | ~45 | EXIF, histograma, cor do pixel | GIF |
+| Honeyview / BandiView | 27 / inclui JXL, AVIF, EXR, SVG | EXIF + GPS | GIF, WebP, APNG |
+| IrfanView / XnView MP | "500+" (XnView MP) | EXIF, IPTC, XMP | APNG, GIF, TIFF multipágina |
 
-Fontes: github.com/jurplel/qView (`qvimagecore.cpp`), github.com/d2phap/ImageGlass, github.com/nomacs/nomacs,
-github.com/sylikc/jpegview, github.com/woelper/oculante, en.bandisoft.com/honeyview, bandisoft.com/bandiview,
-irfanview.com/main_formats.htm, xnview.com/en/xnviewmp. Ristretto/gThumb: as páginas não renderizaram, **não confirmado**.
+Fontes: as páginas públicas dos projetos (READMEs e sites de produto) e a página de formatos de cada um. Ristretto/gThumb:
+as páginas não renderizaram, **não confirmado**. Só se registra o que cada produto anuncia (formatos, metadados,
+animação); como cada um pré-carrega e decodifica por dentro não é copiado nem comparado aqui.
 
-**Leitura.** Só o qView documenta o desenho da pré-carga (cache de imagens decodificadas com teto em bytes e distância de
-vizinhos); o Vislo já tem o equivalente por contagem. Os visualizadores com mais formatos delegam a decodificadores
-externos (Magick, WIC, LibRaw, libheif, libjxl). O Oculante, também em Rust, usa as mesmas bibliotecas que o Vislo pode usar.
+**Leitura.** Os visualizadores com mais formatos delegam a decodificadores externos. O Vislo cobre o uso comum (fotos,
+RAW, PSD, vetoriais) e ainda não lê IPTC/XMP, que é onde XnView MP e IrfanView ficam à frente.
 
 ## 2. Fatos verificados que decidiram o escopo
 
@@ -66,7 +65,7 @@ execução. Máquina de desenvolvimento Windows 11; a variação entre rodadas �
 
 | Ideia | Motivo |
 |---|---|
-| Orçamento em bytes no cache do frontend (modelo qView) | o ganho só aparece com fotos > 50 MP; precisa de medição própria |
+| Orçamento em bytes no cache do frontend | o ganho só aparece com fotos > 50 MP; precisa de medição própria |
 | Gestão de cor ICC → sRGB com `moxcms` (já no `image`) | exige fixture P3 e decisão sobre o WebView2 já gerenciar cor |
 | Controles de animação (pausa, passo de quadro) | recurso, não desempenho |
 | `turbojpeg` | C + cmake/nasm no build; ganho não medido |
