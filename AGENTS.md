@@ -79,6 +79,9 @@ Running copies of Vislo find the release through the built-in updater (`src-taur
 * Match the surrounding code: comment density, naming, idiom. Comments explain *why*, not *what*.
 * Frontend: TypeScript, no framework, one small module per concern, pure logic split out and unit-tested
   (`*.test.ts`, vitest). Backend: Rust, `#[cfg(windows)]` for OS calls with a stub elsewhere, pure helpers tested.
+* User-visible text goes through `src/i18n`: add the string to `en.ts` and to **every** language file (the test in
+  `i18n.test.ts` fails on a missing key or a lost `{placeholder}`); static markup uses `data-i18n*` attributes. Backend
+  (Rust) error text and the tray menu stay in English.
 * Settings are a contract: a new field in `src-tauri/src/settings.rs` needs a default (`#[serde(default)]`), a
   matching field in `src/api.ts`, and a test that old settings files still load.
 * Security posture is in the README; keep it intact (asset scope, `vislo://` canonicalisation, strict CSP,

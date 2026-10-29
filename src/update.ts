@@ -1,4 +1,5 @@
 import { checkUpdate, installUpdate, openReleases, type Update } from "./api";
+import { t } from "./i18n";
 
 const FIRST_CHECK_MS = 5_000; // after the first picture is up, never before
 const RECHECK_MS = 6 * 60 * 60 * 1000; // a resident instance keeps looking
@@ -6,7 +7,7 @@ const RECHECK_MS = 6 * 60 * 60 * 1000; // a resident instance keeps looking
 /** `Vislo 1.2.0 is available`, with the first line of the release notes when there is one. */
 export function updateText(u: Pick<Update, "version" | "notes">): string {
   const head = u.notes.split("\n").find((l) => /\w/.test(l) && !l.startsWith("#"))?.replace(/^[-*]\s*/, "").replace(/[*_`]/g, "");
-  return `Vislo ${u.version} is available${head ? ` — ${head}` : ""}`;
+  return head ? t("update.availableNotes", { version: u.version, notes: head }) : t("update.available", { version: u.version });
 }
 
 /** Looks for new releases of this very repository and offers a one-click update. */
@@ -36,7 +37,7 @@ export class Updater {
     this.busy = true;
     try {
       const update = await checkUpdate();
-      if (!update) return manual ? this.notify("Vislo is up to date") : undefined;
+      if (!update) return manual ? this.notify(t("update.upToDate")) : undefined;
       if (manual || this.offered !== update.version) this.show(update);
     } catch (err) {
       if (manual) this.notify(String(err)); // offline at startup is not worth a message
@@ -49,7 +50,7 @@ export class Updater {
     this.offered = update.version;
     this.banner.querySelector("#update-text")!.textContent = updateText(update);
     const go = this.banner.querySelector<HTMLButtonElement>("#update-go")!;
-    go.textContent = update.installable ? "Update & restart" : "Download";
+    go.textContent = update.installable ? t("update.install") : t("update.download");
     go.disabled = false;
     go.dataset.installable = String(update.installable);
     this.banner.hidden = false;
@@ -59,13 +60,13 @@ export class Updater {
     const go = this.banner.querySelector<HTMLButtonElement>("#update-go")!;
     if (go.dataset.installable !== "true") return void openReleases().catch((e) => this.notify(String(e)));
     go.disabled = true;
-    go.textContent = "Downloading…";
+    go.textContent = t("update.downloading");
     try {
       await installUpdate(); // the app quits once the installer is running
     } catch (err) {
       this.notify(String(err));
       go.disabled = false;
-      go.textContent = "Update & restart";
+      go.textContent = t("update.install");
     }
   }
 }

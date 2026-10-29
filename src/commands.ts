@@ -1,4 +1,5 @@
 import { copyImage, openWith, pickImage, revealInFolder } from "./api";
+import { t } from "./i18n";
 
 export type Command = "copy" | "open" | "reveal" | "openWith";
 
@@ -28,7 +29,7 @@ export class Commands {
         return;
       } else if (command === "copy") {
         await copyImage(path);
-        this.host.notify("Copied to clipboard");
+        this.host.notify(t("msg.copied"));
       } else if (command === "reveal") {
         await revealInFolder(path);
       } else {
