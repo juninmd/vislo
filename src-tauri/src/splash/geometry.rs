@@ -7,6 +7,14 @@ pub const START_ALPHA: f32 = 0.4;
 pub const DURATION_MS: u64 = 320;
 /// Dimming of the desktop behind the picture: `#app.bg-transparent` in src/style.css.
 pub const DIM_ALPHA: f32 = 0.55;
+/// The hand-over: the splash's dimming fades out while the page's own fades in (`html.handoff-out`
+/// in src/style.css, same duration), so the desktop does not get darker or lighter in between.
+pub const FADE_MS: u64 = 250;
+
+/// Opacity of the splash's dimming `p` (0..=1, linear) into the hand-over.
+pub fn dim_alpha_at(p: f32) -> f32 {
+    DIM_ALPHA * (1.0 - p.clamp(0.0, 1.0))
+}
 
 /// Top-left corner that centres `size` in the area starting at `origin` with extent `area`.
 pub fn centred(size: (u32, u32), origin: (i32, i32), area: (u32, u32)) -> (i32, i32) {
@@ -53,6 +61,40 @@ mod tests {
     fn centres_inside_the_work_area() {
         assert_eq!(centred((1856, 1392), (0, 0), (2560, 1392)), (352, 0));
         assert_eq!(centred((200, 100), (100, 40), (1000, 500)), (500, 240));
+    }
+
+    /// CSS `ease-out` (`cubic-bezier(0, 0, 0.58, 1)`): the curve the page fades its dimming in with.
+    fn css_ease_out(x: f32) -> f32 {
+        let (x1, y1, x2, y2) = (0.0_f32, 0.0_f32, 0.58_f32, 1.0_f32);
+        let bez = |t: f32, a: f32, b: f32| 3.0 * (1.0 - t).powi(2) * t * a + 3.0 * (1.0 - t) * t * t * b + t.powi(3);
+        let (mut lo, mut hi) = (0.0_f32, 1.0_f32);
+        for _ in 0..40 {
+            let mid = (lo + hi) / 2.0;
+            if bez(mid, x1, x2) < x {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        bez((lo + hi) / 2.0, y1, y2)
+    }
+
+    #[test]
+    fn the_hand_over_keeps_the_desktop_dimming_level() {
+        // Two stacked layers of black with opacities a and b darken by 1 - (1 - a)(1 - b).
+        let level = DIM_ALPHA;
+        for i in 0..=100 {
+            let p = i as f32 / 100.0;
+            let (splash, page) = (dim_alpha_at(p), DIM_ALPHA * css_ease_out(p));
+            let darkness = 1.0 - (1.0 - splash) * (1.0 - page);
+            assert!(
+                (darkness - level).abs() < 0.03,
+                "p={p}: {darkness} strays from {level}"
+            );
+        }
+        // the flash being fixed: the page's dim added under a splash that is still fully on
+        assert!(1.0 - (1.0 - DIM_ALPHA) * (1.0 - DIM_ALPHA) > level + 0.2);
+        assert_eq!((dim_alpha_at(0.0), dim_alpha_at(1.0)), (DIM_ALPHA, 0.0));
     }
 
     #[test]

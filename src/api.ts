@@ -71,6 +71,7 @@ export const initialPath = () => invoke<string | null>("initial_path");
 export const registerAssociations = (groups: string[] = []) => invoke<void>("register_associations", { groups });
 export const showFitted = (width: number | null, height: number | null, fullscreen: boolean) =>
   invoke<void>("show_fitted", { width, height, fullscreen });
+export const splashRelease = () => invoke<void>("splash_release");
 export const setFullscreen = (on: boolean) => invoke<void>("set_fullscreen", { on });
 /** Maximized <-> windowed (windowed sizes the window to the picture); resolves to the new maximized state. */
 export const toggleMaximized = (width: number | null, height: number | null) =>

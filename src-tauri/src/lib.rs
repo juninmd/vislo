@@ -318,6 +318,7 @@ pub fn run() {
             install_update,
             open_releases,
             window::show_fitted,
+            window::splash_release,
             window::set_fullscreen,
             window::toggle_maximized
         ])

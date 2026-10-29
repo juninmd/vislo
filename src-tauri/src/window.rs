@@ -157,6 +157,12 @@ pub fn show_fitted(
     Ok(())
 }
 
+/// The page paints its own background dimming from now on: a native splash may fade out its own.
+#[tauri::command]
+pub fn splash_release() {
+    crate::splash::release();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
