@@ -88,6 +88,9 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 <td width="50%"><img src="assets/screenshots/update.png" alt="Painel de configurações e o banner de atualização" /><br/><b>Configurações e atualizações</b> &ndash; um banner oferece novas versões; um clique baixa, verifica e reinicia.</td>
 <td width="50%"><img src="assets/screenshots/empty.png" alt="Estado vazio com botão de abrir" /><br/><b>Solte um arquivo</b> em qualquer lugar, aperte <kbd>O</kbd> ou torne o Vislo o visualizador padrão.</td>
 </tr>
+<tr>
+<td colspan="2"><img src="assets/screenshots/formats.png" alt="Configurações: grupos de formato para o visualizador padrão, incluindo SVG, JPEG XL e JPEG 2000" /><br/><b>Visualizador padrão por grupo de formato</b> &ndash; marque só o que o Vislo deve abrir (JPEG, PNG, SVG, JPEG XL, JPEG 2000, RAW, ...).</td>
+</tr>
 </table>
 
 As telas acima são renderizadas a partir do frontend real rodando contra um backend Tauri simulado e fotos desenhadas
@@ -141,8 +144,8 @@ $ node scripts/check-commits.mjs --message "docs: update README and AGENTS.md"
 ✓ 1 commit message(s) follow Conventional Commits
 
 $ npm test
- Test Files  11 passed (11)
-      Tests  74 passed (74)
+ Test Files  14 passed (14)
+      Tests  125 passed (125)
 ```
 
 ## Arquitetura
@@ -150,9 +153,10 @@ $ npm test
 ```mermaid
 flowchart LR
     subgraph Web["Frontend (src/, TypeScript + Vite)"]
-        main["main.ts"] --> viewer["viewer.ts, zoom.ts, slide.ts"]
+        main["main.ts"] --> i18n["i18n/: 14 idiomas"]
+        main --> viewer["viewer.ts, zoom.ts, slide.ts, anim.ts"]
         main --> filmstrip["filmstrip.ts"]
-        main --> panel["settings-panel.ts, info.ts"]
+        main --> panel["settings-panel.ts, info.ts, info-rows.ts"]
         main --> upd["update.ts"]
         viewer --> api["api.ts"]
         filmstrip --> api
@@ -166,6 +170,9 @@ flowchart LR
         lib --> update["update.rs: releases e SHA256"]
         scheme["scheme.rs: protocolo vislo://"] --> pool["pool.rs: workers LIFO"]
         pool --> decode["decode.rs, raw.rs, resize.rs"]
+        decode --> codecs["codecs.rs: JPEG XL, JPEG 2000, SVG"]
+        decode --> jpegs["jpeg_scaled.rs: JPEG em 1/2, 1/4, 1/8"]
+        lib --> meta["exif_info.rs, metadata.rs: painel de informações"]
         pool --> thumbs["thumbs.rs: cache de miniaturas"]
         splash["splash/: primeira tela nativa"]
     end
@@ -262,6 +269,8 @@ node scripts/release.mjs plan                       # a versão que o próximo p
 * As imagens carregam direto do disco pelo protocolo de assets do Tauri, sem base64 via IPC.
 * A decodificação ocorre fora da thread principal (`img.decode()`); as próximas 4 e as 2 anteriores ficam decodificadas,
   com viés para a direção do movimento.
+* Miniaturas e prévias de JPEG grandes são decodificadas já reduzidas (1/2, 1/4 ou 1/8 no domínio da DCT) quando a
+  redução é de 4× ou mais, e o redimensionamento reaproveita o buffer em vez de copiar a imagem inteira.
 * A navegação é "o último vence": segurar uma seta nunca enfileira trabalho obsoleto.
 * Miniaturas, prévias e conversões de formato rodam num pequeno pool de workers LIFO, então a imagem que você está
   vendo sempre é atendida antes do backlog.
@@ -271,7 +280,8 @@ Comparação com outros visualizadores e as medições por trás dessas escolhas
 ## Configuração
 
 As preferências ficam em `settings.json`, na pasta de configuração do app (`app_config_dir` do Tauri), e são editadas
-pelo painel de configurações (ícone de engrenagem). O app não lê variáveis de ambiente.
+pelo painel de configurações (ícone de engrenagem), inclusive o idioma (`language`: `auto` ou um código como `pt-BR`).
+O app não lê variáveis de ambiente.
 
 ## Desenvolvimento
 
@@ -285,6 +295,7 @@ npm run build                                   # tsc --noEmit + vite build
 pwsh scripts/ci-local.ps1                       # tudo o que o pipeline de CI roda
 cargo test --manifest-path src-tauri/Cargo.toml # testes do backend
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml --profile devrel bench_ -- --ignored --nocapture   # benchmark de decodificação (ver BENCHMARK.md)
 npm run tauri dev                               # frontend com hot reload, estado vazio (solte um arquivo)
 npm run tauri build                             # instalador NSIS com associações de arquivo de imagem
 npm run screenshots                             # regenera assets/screenshots (Chromium headless, backend simulado)

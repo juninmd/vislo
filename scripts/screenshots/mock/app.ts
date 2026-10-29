@@ -1,1 +1,1 @@
-export const getVersion = async () => "0.3.0";
+export const getVersion = async () => "0.5.0";

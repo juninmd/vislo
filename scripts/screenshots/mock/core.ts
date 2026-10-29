@@ -56,7 +56,7 @@ const handlers: Record<string, (args: any) => unknown> = {
   file_info: () => info,
   check_update: () =>
     scene === "update"
-      ? { version: "0.4.0", notes: "## Features\n- **viewer:** smoother zoom animation", page: "", installable: true }
+      ? { version: "0.6.0", notes: "## Features\n- **viewer:** smoother zoom animation", page: "", installable: true }
       : null,
   toggle_maximized: () => true,
 };
