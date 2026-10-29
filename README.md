@@ -79,7 +79,7 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 <td width="50%"><img src="assets/screenshots/zoom.png" alt="Imagem ampliada com tooltip de porcentagem" /><br/><b>Zoom 1% &rarr; 10.000%</b> &ndash; roda, pinça ou <kbd>+</kbd> <kbd>-</kbd> no cursor; pixels nítidos a partir de 400%.</td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/screenshots/info.png" alt="Painel de informações com câmera, exposição e GPS" /><br/><b>Painel de informações</b> (<kbd>I</kbd>) &ndash; tamanho, dimensões, câmera, lente, exposição, data da foto e GPS.</td>
+<td width="50%"><img src="assets/screenshots/info.png" alt="Painel de informações agrupado em arquivo, imagem, câmera, exposição, autoria e local" /><br/><b>Painel de informações</b> (<kbd>I</kbd>) &ndash; agrupado em arquivo (formato, criação, modificação), imagem (dimensões, proporção, cor, resolução, espaço de cor), câmera, exposição (programa, medição, balanço de branco, flash), autoria e local (GPS, altitude, direção). Traduzido para o idioma escolhido; um clique no valor o copia.</td>
 <td width="50%"><img src="assets/screenshots/menu.png" alt="Menu de contexto" /><br/><b>Menu do botão direito</b> &ndash; copiar, abrir, mostrar na pasta, abrir com, apresentação e mais.</td>
 </tr>
 <tr>

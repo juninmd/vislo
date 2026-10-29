@@ -29,7 +29,8 @@ const browser = await chromium.launch({ executablePath, args: ["--no-sandbox"] }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function scene(name, setup) {
-  const page = await browser.newPage({ viewport: { width: 1360, height: 900 }, deviceScaleFactor: 1 });
+  // English whatever the host language is, so the README images do not depend on who ran the script
+  const page = await browser.newPage({ locale: "en-US", viewport: { width: 1360, height: 900 }, deviceScaleFactor: 1 });
   await page.goto(`${base}?scene=${name.split("-")[0]}`);
   await page.waitForSelector("#app");
   await wait(900); // first picture decoded and laid out
