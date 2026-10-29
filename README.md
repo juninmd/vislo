@@ -226,7 +226,8 @@ O `.github/workflows/release.yml` transforma cada push em `main` numa release, s
 4. `chore(release): vX.Y.Z` é commitado, tagueado `vX.Y.Z` e uma release do GitHub é publicada com notas por tipo.
 5. As cópias em execução veem a release e oferecem a atualização.
 
-As releases são serializadas (um push novo espera a anterior terminar). Se o commit de versão não puder ser
+As releases são serializadas (um push novo espera a anterior terminar); se a release anterior já incluiu o commit do run
+que estava na fila, ele não publica nada e termina verde. Se o commit de versão não puder ser
 enviado a `main` (conflito ou branch protegida), a tag e a release saem no commit que foi construído e o job avisa.
 
 #### Conferir uma release

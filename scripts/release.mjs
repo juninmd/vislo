@@ -12,6 +12,11 @@ function lastTag() {
   return latestTag(git("tag", "--merged", "HEAD", "--list", "v[0-9]*").split(/\s+/)); // null: nothing released yet
 }
 
+/** A release made after this checkout was taken (the runs queue) may already contain HEAD. */
+function alreadyReleased() {
+  return git("tag", "--contains", "HEAD", "--list", "v[0-9]*") !== "";
+}
+
 function commitsSince(tag) {
   const SEP = "\u0001";
   const raw = git("log", "--no-merges", `--format=%H${SEP}%B${SEP}%x00`, tag ? `${tag}..HEAD` : "HEAD");
@@ -31,7 +36,7 @@ const [command, arg] = process.argv.slice(2);
 if (command === "plan") {
   const tag = lastTag();
   const base = tag ?? JSON.parse(readFileSync("package.json", "utf8")).version;
-  const result = plan(commitsSince(tag), base, { repo: REPO });
+  const result = alreadyReleased() ? null : plan(commitsSince(tag), base, { repo: REPO });
   console.log(JSON.stringify(result ? { ...result, previous: tag } : {}));
 } else if (command === "stamp" && /^\d+\.\d+\.\d+$/.test(arg ?? "")) {
   const files = Object.fromEntries(FILES.map((f) => [f, readFileSync(f, "utf8")]));
