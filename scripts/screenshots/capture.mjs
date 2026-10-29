@@ -69,6 +69,10 @@ await scene("menu", async (page) => {
   await page.mouse.click(700, 420, { button: "right" });
 });
 await scene("empty");
+await scene("formats", async (page) => {
+  await page.click("#btn-gear");
+  await page.evaluate(() => document.querySelector("#panel fieldset")?.scrollIntoView({ block: "center" }));
+});
 
 // The same screen in other languages: the browser locale drives "Automatic".
 for (const [name, locale] of [["ja", "ja-JP"], ["de", "de-DE"], ["ru", "ru-RU"]]) {
