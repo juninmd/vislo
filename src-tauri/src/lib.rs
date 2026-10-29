@@ -1,6 +1,8 @@
 mod album;
 mod assoc;
 mod autostart;
+#[cfg(test)]
+mod bench;
 mod boot;
 mod clipboard;
 mod decode;
@@ -8,6 +10,7 @@ mod exif_info;
 #[cfg(test)]
 mod fixtures;
 mod paths;
+mod jpeg_scaled;
 mod pool;
 mod raw;
 mod resize;

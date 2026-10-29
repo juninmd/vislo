@@ -234,6 +234,8 @@ O `.github/workflows/release.yml` transforma cada push em `main` numa release, s
 * Miniaturas, prévias e conversões de formato rodam num pequeno pool de workers LIFO, então a imagem que você está
   vendo sempre é atendida antes do backlog.
 
+Comparação com outros visualizadores e as medições por trás dessas escolhas: [BENCHMARK.md](BENCHMARK.md).
+
 ## Configuração
 
 As preferências ficam em `settings.json`, na pasta de configuração do app (`app_config_dir` do Tauri), e são editadas
