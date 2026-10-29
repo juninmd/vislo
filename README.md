@@ -13,6 +13,7 @@ Dê dois cliques numa foto e ela já está na tela. Navegue pela pasta, dê zoom
 [![Downloads](https://img.shields.io/github/downloads/juninmd/vislo/total?style=for-the-badge&color=2ea043)](https://github.com/juninmd/vislo/releases)
 [![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=for-the-badge)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-backend-dea584?style=for-the-badge)](https://www.rust-lang.org)
+[![License: MIT](https://img.shields.io/github/license/juninmd/vislo?style=for-the-badge&color=2ea043)](LICENSE)
 
 <br/>
 
@@ -298,6 +299,4 @@ CI e o planejador de release dependem disso. As regras, as regras de release e a
 
 ## Licença
 
-> [!CAUTION]
-> Este repositório ainda não define uma licença: não há arquivo `LICENSE` nem campo `license` no `package.json`. Sem
-> licença publicada, valem os direitos reservados do autor por padrão.
+Distribuído sob a licença [MIT](LICENSE). Copyright (c) 2026 Antonio Carlos.
