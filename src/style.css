@@ -81,8 +81,9 @@ body:has(#app.bg-transparent), html:has(#app.bg-transparent) { background: trans
 #app.strip-on #btn-strip, #app:has(#info.show) #btn-info, #app:has(#panel.show) #btn-gear { color: var(--accent); }
 
 .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 72px; border: 0; border-radius: 10px; z-index: 30;
-  background: #00000055; color: var(--fg); font-size: 34px; line-height: 1; cursor: pointer;
+  background: #00000055; color: var(--fg); padding: 0; cursor: pointer;
   transition: opacity 0.25s var(--ease), visibility 0.25s, background-color 0.15s, transform var(--t-base) var(--ease); }
+.nav svg { width: 28px; height: 28px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 #prev { left: 12px; }
 #next { right: 12px; }
 #app.strip-on .nav { transform: translateY(calc(-50% - var(--strip-h) / 2)); }
