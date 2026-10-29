@@ -8,6 +8,7 @@ mod clipboard;
 mod codecs;
 mod decode;
 mod exif_info;
+mod metadata;
 #[cfg(test)]
 mod fixtures;
 mod paths;

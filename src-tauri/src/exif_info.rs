@@ -68,13 +68,6 @@ pub fn gps(exif: &Exif) -> Option<(f64, f64)> {
     ))
 }
 
-fn text(exif: &Exif, tag: Tag) -> Option<String> {
-    let field = exif.get_field(tag, In::PRIMARY)?;
-    let s = field.display_value().with_unit(exif).to_string();
-    let s = s.trim().trim_matches('"').trim().to_string();
-    (!s.is_empty()).then_some(s)
-}
-
 /// File facts first, then camera data.
 #[derive(Debug, Serialize, Default)]
 pub struct Info {
@@ -82,9 +75,47 @@ pub struct Info {
     pub folder: String,
     pub size: u64,
     pub modified_ms: Option<u64>,
+    pub created_ms: Option<u64>,
     pub width: Option<u32>,
     pub height: Option<u32>,
-    pub rows: Vec<(String, String)>,
+    /// Container format (JPEG, PNG, CR2 ...), from the extension.
+    pub format: String,
+    /// Channels and bit depth when the header says (`RGB · 8 bit`).
+    pub color: Option<String>,
+    pub rows: Vec<crate::metadata::Row>,
+}
+
+fn millis(t: std::io::Result<std::time::SystemTime>) -> Option<u64> {
+    t.ok()?.duration_since(UNIX_EPOCH).ok().map(|d| d.as_millis() as u64)
+}
+
+/// Display name of the container: the JPEG and TIFF families collapse, everything else is its extension.
+fn format_name(path: &Path) -> String {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
+    match ext.as_str() {
+        "jpg" | "jpeg" | "jpe" | "jfif" | "jif" | "jfi" | "pjpeg" | "pjp" => "JPEG".into(),
+        "tif" | "tiff" => "TIFF".into(),
+        other => other.to_ascii_uppercase(),
+    }
+}
+
+fn color_label(c: image::ColorType) -> String {
+    let channels = u16::from(c.channel_count());
+    let mode = match channels {
+        1 => "Gray",
+        2 => "Gray + alpha",
+        3 => "RGB",
+        _ => "RGBA",
+    };
+    format!("{mode} · {} bit", c.bits_per_pixel() / channels)
+}
+
+/// Size and colour layout from the header only; no pixels are decoded.
+fn header(path: &Path) -> Option<((u32, u32), image::ColorType)> {
+    use image::ImageDecoder;
+    let reader = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?;
+    let decoder = reader.into_decoder().ok()?;
+    Some((decoder.dimensions(), decoder.color_type()))
 }
 
 pub fn info(path: &Path) -> Info {
@@ -96,39 +127,19 @@ pub fn info(path: &Path) -> Info {
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_default(),
         size: meta.as_ref().map_or(0, |m| m.len()),
-        modified_ms: meta
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as u64),
+        modified_ms: meta.as_ref().and_then(|m| millis(m.modified())),
+        created_ms: meta.as_ref().and_then(|m| millis(m.created())),
+        format: format_name(path),
         ..Info::default()
     };
-    if let Ok((w, h)) = image::image_dimensions(path) {
+    if let Some(((w, h), color)) = header(path) {
+        (info.width, info.height) = (Some(w), Some(h));
+        info.color = Some(color_label(color));
+    } else if let Ok((w, h)) = image::image_dimensions(path) {
         (info.width, info.height) = (Some(w), Some(h));
     }
     let Some(exif) = read(path) else { return info };
-    let camera = [Tag::Make, Tag::Model]
-        .iter()
-        .filter_map(|t| text(&exif, *t))
-        .collect::<Vec<_>>()
-        .join(" ");
-    let mut push = |label: &str, value: Option<String>| {
-        if let Some(v) = value.filter(|v| !v.is_empty()) {
-            info.rows.push((label.into(), v));
-        }
-    };
-    push("Camera", Some(camera));
-    push("Lens", text(&exif, Tag::LensModel));
-    push("Focal length", text(&exif, Tag::FocalLength));
-    push("Exposure", text(&exif, Tag::ExposureTime));
-    push("Aperture", text(&exif, Tag::FNumber));
-    push("ISO", text(&exif, Tag::PhotographicSensitivity));
-    push("Taken", text(&exif, Tag::DateTimeOriginal));
-    push("Flash", text(&exif, Tag::Flash));
-    push("Software", text(&exif, Tag::Software));
-    push(
-        "GPS",
-        gps(&exif).map(|(lat, lon)| format!("{lat:.5}, {lon:.5}")),
-    );
+    info.rows = crate::metadata::rows(&exif);
     info
 }
 

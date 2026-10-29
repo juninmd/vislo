@@ -13,9 +13,23 @@ export interface Info {
   folder: string;
   size: number;
   modified_ms: number | null;
+  created_ms: number | null;
   width: number | null;
   height: number | null;
-  rows: [string, string][];
+  /** Container format (JPEG, PNG, CR2 ...). */
+  format: string;
+  /** Channels and bit depth when the header says (`RGB · 8 bit`). */
+  color: string | null;
+  rows: InfoRow[];
+}
+
+export interface InfoRow {
+  group: string;
+  /** Stable id; the UI translates the label from it. */
+  key: string;
+  value: string;
+  /** The enumeration value behind `value`, when the field is one. */
+  code: number | null;
 }
 
 export type WheelMode = "zoom" | "navigate";
