@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseCommit, problems } from "./commits.mjs";
-import { bump, bumpFor, notes, parseVersion, plan, stamp } from "./release-lib.mjs";
+import { bump, bumpFor, latestTag, notes, parseVersion, plan, stamp } from "./release-lib.mjs";
 
 const c = (message, hash = "abcdef0123") => ({ message, hash });
 
@@ -78,5 +78,22 @@ describe("stamping versions", () => {
     expect(out["src-tauri/Cargo.lock"]).toContain('name = "other"\nversion = "9.9.9"');
     expect(out["src-tauri/Cargo.lock"]).toContain('name = "vislo"\nversion = "0.4.0"');
     expect(out["src-tauri/tauri.conf.json"]).toContain('"version": "0.4.0"');
+  });
+});
+
+describe("choosing the tag to plan from", () => {
+  it("takes the highest version, not the one nearest in history", () => {
+    // a release whose version commit could not be pushed is tagged on an older commit than a later, lower one
+    expect(latestTag(["v0.3.1", "v0.4.0", "v0.3.0", "v0.2.7"])).toBe("v0.4.0");
+  });
+
+  it("compares numbers, not text", () => {
+    expect(latestTag(["v0.9.0", "v0.10.0", "v0.2.10"])).toBe("v0.10.0");
+  });
+
+  it("ignores tags that are not versions and returns null when none is left", () => {
+    expect(latestTag(["nightly", "v1", "v1.0.0-rc1", "pr-assets"])).toBeNull();
+    expect(latestTag([])).toBeNull();
+    expect(latestTag(["nightly", "v0.1.0"])).toBe("v0.1.0");
   });
 });

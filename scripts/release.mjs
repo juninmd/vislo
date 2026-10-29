@@ -3,17 +3,13 @@
 //   node scripts/release.mjs stamp X -> writes version X into package.json, package-lock.json, Cargo.toml/lock, tauri.conf.json
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { plan, stamp } from "./release-lib.mjs";
+import { latestTag, plan, stamp } from "./release-lib.mjs";
 
 const REPO = process.env.GITHUB_REPOSITORY ?? "juninmd/vislo";
 const git = (...args) => execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 
 function lastTag() {
-  try {
-    return git("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*");
-  } catch {
-    return null; // nothing released yet
-  }
+  return latestTag(git("tag", "--merged", "HEAD", "--list", "v[0-9]*").split(/\s+/)); // null: nothing released yet
 }
 
 function commitsSince(tag) {
