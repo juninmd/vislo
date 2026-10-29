@@ -43,7 +43,8 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 
 * **Instantâneo.** Primeira tela em cerca de 100 ms para imagens típicas; o modo *keep ready* (residente na bandeja)
   reduz a reabertura para dezenas de milissegundos.
-* **Fluido.** Animações suaves de slide, pré-carregamento antecipado, filmstrip 3D e um zoom que não dá saltos.
+* **Fluido.** Animações suaves de slide, pré-carregamento antecipado, filmstrip 3D e um zoom que não dá saltos; menus, painéis,
+  banner e filmstrip entram e saem com fade (só `opacity`/`transform`, sem layout) e respeitam "reduzir movimento".
 * **Abre quase tudo.** JPEG, PNG, GIF, WebP, AVIF, BMP, TIFF, PSD, HDR, EXR, 26 tipos de RAW de câmera e mais.
 * **Autoatualizável.** Novas versões são encontradas, verificadas e instaladas a partir deste repositório, com um clique.
 * **Abre maximizado**, sem barra de título, sobre fundo transparente escurecido; a barra superior move a janela e
@@ -252,6 +253,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 npm run tauri dev                               # frontend com hot reload, estado vazio (solte um arquivo)
 npm run tauri build                             # instalador NSIS com associações de arquivo de imagem
 npm run screenshots                             # regenera assets/screenshots (Chromium headless, backend simulado)
+npm run perf:ui                                 # mede layouts, recálculos de estilo e quadros lentos num cenário fixo de UI
 npm run check:commits                           # valida os commits de origin/main..HEAD
 cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # build otimizado rápido (sem LTO) para trabalho de desempenho
 .\src-tauri\target\release\vislo.exe "C:\caminho\para\imagem.jpg"
