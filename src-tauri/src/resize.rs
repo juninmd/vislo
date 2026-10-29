@@ -5,18 +5,36 @@ use image::{codecs::jpeg::JpegEncoder, DynamicImage, ExtendedColorType, GenericI
 
 /// Scales `img` down to fit inside `max_w` x `max_h`, never upscaling; aspect ratio is kept.
 pub fn fit(img: &DynamicImage, max_w: u32, max_h: u32, filter: FilterType) -> Result<DynamicImage, String> {
+    let Some((dw, dh)) = target(img, max_w, max_h)? else { return Ok(img.clone()) };
+    let alpha = img.color().has_alpha();
+    let buf = if alpha { img.to_rgba8().into_raw() } else { img.to_rgb8().into_raw() };
+    shrink(img.dimensions(), (dw, dh), alpha, buf, filter)
+}
+
+/// Same as [`fit`] for an image nobody needs afterwards: an RGB8/RGBA8 buffer is reused instead of
+/// copied (a 24 MP photo is 72 MB, about 35 ms of memcpy).
+pub fn fit_owned(img: DynamicImage, max_w: u32, max_h: u32, filter: FilterType) -> Result<DynamicImage, String> {
+    let Some((dw, dh)) = target(&img, max_w, max_h)? else { return Ok(img) };
+    let (dims, alpha) = (img.dimensions(), img.color().has_alpha());
+    let buf = if alpha { img.into_rgba8().into_raw() } else { img.into_rgb8().into_raw() };
+    shrink(dims, (dw, dh), alpha, buf, filter)
+}
+
+/// Size `img` shrinks to inside the box, or `None` when it already fits.
+fn target(img: &DynamicImage, max_w: u32, max_h: u32) -> Result<Option<(u32, u32)>, String> {
     let (sw, sh) = img.dimensions();
     if max_w == 0 || max_h == 0 || sw == 0 || sh == 0 {
         return Err("empty image".into());
     }
     if sw <= max_w && sh <= max_h {
-        return Ok(img.clone());
+        return Ok(None);
     }
     let k = (max_w as f64 / sw as f64).min(max_h as f64 / sh as f64);
-    let (dw, dh) = (((sw as f64 * k).round() as u32).max(1), ((sh as f64 * k).round() as u32).max(1));
+    Ok(Some((((sw as f64 * k).round() as u32).max(1), ((sh as f64 * k).round() as u32).max(1))))
+}
 
-    let alpha = img.color().has_alpha();
-    let (buf, px) = if alpha { (img.to_rgba8().into_raw(), PixelType::U8x4) } else { (img.to_rgb8().into_raw(), PixelType::U8x3) };
+fn shrink((sw, sh): (u32, u32), (dw, dh): (u32, u32), alpha: bool, buf: Vec<u8>, filter: FilterType) -> Result<DynamicImage, String> {
+    let px = if alpha { PixelType::U8x4 } else { PixelType::U8x3 };
     let src = Image::from_vec_u8(sw, sh, buf, px).map_err(|e| e.to_string())?;
     let mut dst = Image::new(dw, dh, px);
     let opts = ResizeOptions::new().resize_alg(ResizeAlg::Convolution(filter));
@@ -58,6 +76,18 @@ mod tests {
     fn fits_inside_the_box_keeping_aspect() {
         let out = fit(&solid(4000, 3000), 800, 800, FilterType::Lanczos3).unwrap();
         assert_eq!(out.dimensions(), (800, 600));
+    }
+
+    #[test]
+    fn owned_fit_matches_the_borrowed_one_and_keeps_alpha() {
+        let ramp = DynamicImage::ImageRgb8(image::RgbImage::from_fn(400, 300, |x, y| image::Rgb([x as u8, y as u8, (x ^ y) as u8])));
+        let a = fit(&ramp, 100, 100, FilterType::Lanczos3).unwrap();
+        let b = fit_owned(ramp, 100, 100, FilterType::Lanczos3).unwrap();
+        assert_eq!(a.as_bytes(), b.as_bytes());
+        let ga = DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(80, 40, image::Rgba([9, 9, 9, 77])));
+        let out = fit_owned(ga, 40, 40, FilterType::Lanczos3).unwrap();
+        assert_eq!((out.dimensions(), out.color().has_alpha()), ((40, 20), true));
+        assert_eq!(fit_owned(solid(10, 10), 50, 50, FilterType::Lanczos3).unwrap().dimensions(), (10, 10));
     }
 
     #[test]

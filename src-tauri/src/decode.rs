@@ -1,6 +1,6 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::RAW_EXTENSIONS, codecs, exif_info, raw};
+use crate::{album::RAW_EXTENSIONS, codecs, exif_info, jpeg_scaled, raw};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
@@ -138,6 +138,24 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
         1
     };
     Ok(upright(img, orientation))
+}
+
+/// Upright pixels that are enough to be shrunk to fit `max_w` x `max_h` (also upright): for a JPEG that
+/// will shrink by 4x or more, only the fraction of the picture the box needs is decoded.
+/// The result may be larger than the box; callers still run `resize::fit`.
+pub fn load_fit(path: &Path, max_w: u32, max_h: u32) -> Result<DynamicImage, String> {
+    if is_jpeg(&ext(path)) {
+        let orientation = exif_info::read(path).map_or(1, |e| exif_info::orientation(&e));
+        let (bw, bh) = if (5..=8).contains(&orientation) { (max_h, max_w) } else { (max_w, max_h) }; // the box is upright, the raster is not
+        if let Some(img) = jpeg_scaled::decode(path, bw, bh, MAX_PIXELS)? {
+            return Ok(upright(img, orientation));
+        }
+    }
+    load(path)
+}
+
+fn is_jpeg(ext: &str) -> bool {
+    matches!(ext, "jpg" | "jpeg" | "jpe" | "jfif" | "jif" | "jfi" | "pjpeg" | "pjp")
 }
 
 fn is_photo(ext: &str) -> bool {
