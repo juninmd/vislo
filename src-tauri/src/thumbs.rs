@@ -31,7 +31,7 @@ pub fn thumbnail(cache_dir: &Path, src: &Path, size: u32) -> Result<Vec<u8>, Str
     if let Ok(hit) = std::fs::read(&file) {
         return Ok(hit);
     }
-    let small = resize::fit(&decode::load(src)?, size, size, FilterType::CatmullRom)?;
+    let small = resize::fit_owned(decode::load_fit(src, size, size)?, size, size, FilterType::CatmullRom)?;
     let jpeg = resize::to_jpeg(&small, 80)?;
     // The cache is an optimisation: a failed write must not fail the request, but is reported.
     if let Err(e) = write_atomic(&file, &jpeg) {
