@@ -2,10 +2,12 @@
 // Starts the real frontend against mocked Tauri bindings (vite.screens.config.ts) and drives it
 // with headless Chromium. Set CHROME_PATH to use a specific browser binary.
 import { existsSync, mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
 import { createServer } from "vite";
 
-const OUT = new URL("../../assets/screenshots/", import.meta.url).pathname;
+// fileURLToPath, not .pathname: on Windows the latter yields "/D:/..." and mkdir fails.
+const OUT = fileURLToPath(new URL("../../assets/screenshots/", import.meta.url));
 const CANDIDATES = [
   process.env.CHROME_PATH,
   "/opt/pw-browsers/chromium",
@@ -19,7 +21,7 @@ const executablePath = CANDIDATES.find((p) => p && existsSync(p));
 if (!executablePath) throw new Error("No Chromium/Chrome found: set CHROME_PATH");
 
 mkdirSync(OUT, { recursive: true });
-const server = await createServer({ configFile: new URL("../../vite.screens.config.ts", import.meta.url).pathname });
+const server = await createServer({ configFile: fileURLToPath(new URL("../../vite.screens.config.ts", import.meta.url)) });
 await server.listen();
 const base = `http://localhost:${server.config.server.port}/`;
 const browser = await chromium.launch({ executablePath, args: ["--no-sandbox"] });
