@@ -5,19 +5,20 @@ use std::path::{Path, PathBuf};
 /// Keep in sync with `src/formats.ts` (checked by `native_list_matches_frontend`).
 pub const NATIVE_EXTENSIONS: &[&str] = &[
     "jpg", "jpeg", "jpe", "jfif", "jif", "jfi", "pjpeg", "pjp", "png", "apng", "gif", "webp",
-    "bmp", "dib", "avif", "ico",
+    "bmp", "dib", "avif", "avifs", "ico", "cur", "svg",
 ];
 
 /// Formats decoded in Rust and served as JPEG/PNG through the `vislo` protocol.
 pub const CONVERTED_EXTENSIONS: &[&str] = &[
-    "tif", "tiff", "tga", "psd", "pbm", "pgm", "ppm", "pnm", "pam", "hdr", "exr", "dds", "qoi",
-    "ff",
+    "tif", "tiff", "tga", "vda", "icb", "vst", "psd", "pbm", "pgm", "ppm", "pnm", "pam", "hdr",
+    "exr", "dds", "qoi", "ff", "jxl", "jp2", "j2k", "j2c", "jpc",
 ];
 
 /// Camera RAW files: Vislo shows the embedded full-size JPEG preview, never a developed image.
 pub const RAW_EXTENSIONS: &[&str] = &[
     "dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef",
     "srw", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "dcr", "kdc", "erf", "rwl", "raw",
+    "arq", "gpr", "ori", "k25",
 ];
 
 pub fn extensions() -> impl Iterator<Item = &'static str> {

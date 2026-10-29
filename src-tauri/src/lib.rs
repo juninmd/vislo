@@ -5,6 +5,7 @@ mod autostart;
 mod bench;
 mod boot;
 mod clipboard;
+mod codecs;
 mod decode;
 mod exif_info;
 #[cfg(test)]
