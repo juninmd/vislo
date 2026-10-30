@@ -39,7 +39,40 @@ fn download(agent: &ureq::Agent, src: &Source, url: &str, dest: &Path) -> Result
 
 /// Downloads the installer of the latest release and verifies it against `SHA256SUMS.txt`.
 pub fn fetch_installer(current: &str) -> Result<PathBuf, String> {
-    fetch_installer_from(&Source::GITHUB, current, &std::env::temp_dir())
+    fetch_installer_from(&Source::GITHUB, current, &updates_root()?)
+}
+
+/// Per-user and not shared with other programs, unlike the temp folder.
+fn updates_root() -> Result<PathBuf, String> {
+    std::env::var_os("LOCALAPPDATA")
+        .map(|dir| PathBuf::from(dir).join("Vislo").join("updates"))
+        .ok_or_else(|| "LOCALAPPDATA is not set, so the update cannot be staged".into())
+}
+
+/// A new folder with an unguessable name, so nothing can be planted in it ahead of the download.
+fn new_run_dir(root: &Path) -> Result<PathBuf, String> {
+    std::fs::create_dir_all(root).map_err(|e| e.to_string())?;
+    for _ in 0..8 {
+        let dir = root.join(random_name());
+        match std::fs::create_dir(&dir) {
+            Ok(()) => return Ok(dir),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Err("could not create a private update folder".into())
+}
+
+/// 128 bits; std seeds `RandomState` from the OS random source, so the names are not guessable.
+fn random_name() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    (0..2)
+        .map(|_| {
+            let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+            hasher.write_u64(u64::from(std::process::id()));
+            format!("{:016x}", hasher.finish())
+        })
+        .collect()
 }
 
 /// [`fetch_installer`] against any `src`, writing under `dest_root`.
@@ -51,9 +84,7 @@ pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Re
     let expected = expected_hash(&get_text(&agent, src, &c.sums_url)?, &c.installer_name)
         .ok_or("the release has no checksum for its installer")?;
 
-    let dir = dest_root.join(format!("vislo-update-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let file = dir.join(&c.installer_name);
+    let file = new_run_dir(dest_root)?.join(&c.installer_name);
     download(&agent, src, &c.installer_url, &file)?;
     if sha256_hex(&file)? != expected {
         let _ = std::fs::remove_file(&file);

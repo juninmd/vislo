@@ -110,6 +110,16 @@ fn both_sha256sum_spellings_are_accepted() {
 }
 
 #[test]
+fn each_run_gets_its_own_folder_under_the_root() {
+    let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
+    let root = scratch("folders");
+    let first = run(&origin, MAX, &root).expect("first run");
+    let second = run(&origin, MAX, &root).expect("second run");
+    assert_ne!(first.parent(), second.parent(), "two runs must not share a folder");
+    assert_eq!(first.parent().unwrap().parent(), Some(root.as_path()));
+}
+
+#[test]
 fn a_redirect_to_another_plain_http_origin_is_refused() {
     let elsewhere = serve(|_| vec![(format!("/{NAME}"), Reply::Body(INSTALLER.to_vec()))]);
     let origin = serve(|origin| {
