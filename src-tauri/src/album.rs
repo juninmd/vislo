@@ -68,6 +68,16 @@ fn file_name(p: &Path) -> &str {
     p.file_name().and_then(|n| n.to_str()).unwrap_or_default()
 }
 
+/// `file_type` comes with the directory enumeration, so no stat per entry; symlinks still
+/// resolve to their target, as `Path::is_file` did.
+fn is_regular_file(e: &std::fs::DirEntry) -> bool {
+    match e.file_type() {
+        Ok(t) if t.is_symlink() => e.path().is_file(),
+        Ok(t) => t.is_file(),
+        Err(_) => e.path().is_file(),
+    }
+}
+
 /// The frontend's contract: only `NotFound` means the picture was deleted, so only it may move the view.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -126,8 +136,9 @@ pub fn open(path: &Path) -> Result<Album, OpenError> {
             message: format!("cannot list {}: {e}", dir.display()),
         })?
         .filter_map(Result::ok)
+        // Extension first: a folder full of non-images costs no file-type lookup at all.
+        .filter(|e| is_image(Path::new(&e.file_name())) && is_regular_file(e))
         .map(|e| e.path())
-        .filter(|p| p.is_file() && is_image(p))
         .collect();
     files.sort_by(|a, b| natord::compare_ignore_case(file_name(a), file_name(b)));
     let index = files
