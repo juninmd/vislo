@@ -50,7 +50,7 @@ fn run(origin: &str, max_bytes: u64, dest: &Path) -> Result<PathBuf, String> {
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
     let src = Source { api_base: &api, download_prefix: &dl, max_bytes, plain_http_origin: Some(&plain) };
-    fetch_installer_from(&src, "0.1.0", dest)
+    fetch_installer_from(&src, "0.1.0", dest).map(|installer| installer.path().to_path_buf())
 }
 
 fn scratch(name: &str) -> PathBuf {
@@ -107,6 +107,19 @@ fn both_sha256sum_spellings_are_accepted() {
         let path = run(&origin, MAX, &scratch("spelling")).unwrap_or_else(|e| panic!("{sep:?}: {e}"));
         assert_eq!(path.file_name().unwrap(), NAME);
     }
+}
+
+#[cfg(windows)]
+#[test]
+fn a_verified_installer_cannot_be_replaced_until_it_runs() {
+    let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
+    let api = format!("{origin}/api");
+    let dl = format!("{origin}/dl/");
+    let plain = format!("{origin}/");
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain) };
+    let installer = fetch_installer_from(&src, "0.1.0", &scratch("locked")).expect("verified installer");
+    let writer = std::fs::OpenOptions::new().write(true).open(installer.path());
+    assert!(writer.is_err(), "a writer could swap the installer after its checksum was taken");
 }
 
 #[test]

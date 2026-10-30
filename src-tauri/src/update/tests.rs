@@ -101,7 +101,7 @@ fn hashes_files_like_sha256sum() {
     let path = std::env::temp_dir().join(format!("vislo-sha-{}", std::process::id()));
     std::fs::write(&path, b"abc").unwrap();
     assert_eq!(
-        sha256_hex(&path).unwrap(),
+        sha256_hex(&mut std::fs::File::open(&path).unwrap()).unwrap(),
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     );
     let _ = std::fs::remove_file(path);
@@ -125,7 +125,7 @@ fn only_copies_next_to_an_uninstaller_count_as_installed() {
 fn live_release_is_offered_downloaded_and_verified() {
     let update = check("0.0.1").expect("GitHub answers").expect("an old copy is offered the latest release");
     assert!(update.page.starts_with("https://github.com/juninmd/vislo/releases/tag/v"));
-    let setup = fetch_installer("0.0.1").expect("download and checksum");
+    let setup = fetch_installer("0.0.1").expect("download and checksum").path().to_path_buf();
     let name = setup.file_name().unwrap().to_string_lossy().into_owned();
     assert!(name.starts_with("Vislo_") && name.ends_with("_x64-setup.exe"), "{name}");
     assert!(name.contains(&update.version), "{name} is not {}", update.version);

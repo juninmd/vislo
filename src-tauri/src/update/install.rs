@@ -12,8 +12,8 @@ pub fn is_installed(exe: &Path) -> bool {
     exe.parent().is_some_and(|d| d.join("uninstall.exe").is_file())
 }
 
-pub fn sha256_hex(path: &Path) -> Result<String, String> {
-    let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+/// Hashes what `file` holds from its current position; the caller keeps the same handle for the run.
+pub fn sha256_hex(file: &mut std::fs::File) -> Result<String, String> {
     let mut hasher = Sha256::new();
     let mut buf = vec![0u8; 64 * 1024];
     loop {
@@ -24,6 +24,33 @@ pub fn sha256_hex(path: &Path) -> Result<String, String> {
         hasher.update(&buf[..n]);
     }
     Ok(hasher.finalize().iter().map(|b| format!("{b:02x}")).collect())
+}
+
+/// Opened without write or delete sharing (Windows): nothing can change the file while the handle is open.
+#[cfg(windows)]
+fn open_locked(path: &Path) -> std::io::Result<std::fs::File> {
+    use std::os::windows::fs::OpenOptionsExt;
+    const FILE_SHARE_READ: u32 = 0x1;
+    std::fs::OpenOptions::new().read(true).share_mode(FILE_SHARE_READ).open(path)
+}
+
+#[cfg(not(windows))]
+fn open_locked(path: &Path) -> std::io::Result<std::fs::File> {
+    std::fs::File::open(path)
+}
+
+/// A verified installer. The file stays open read-only until this is dropped, so the bytes that passed
+/// the checksum are the bytes that run.
+#[derive(Debug)]
+pub struct Installer {
+    path: PathBuf,
+    _lock: std::fs::File,
+}
+
+impl Installer {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
 }
 
 fn download(agent: &ureq::Agent, src: &Source, url: &str, dest: &Path) -> Result<(), String> {
@@ -38,7 +65,7 @@ fn download(agent: &ureq::Agent, src: &Source, url: &str, dest: &Path) -> Result
 }
 
 /// Downloads the installer of the latest release and verifies it against `SHA256SUMS.txt`.
-pub fn fetch_installer(current: &str) -> Result<PathBuf, String> {
+pub fn fetch_installer(current: &str) -> Result<Installer, String> {
     fetch_installer_from(&Source::GITHUB, current, &updates_root()?)
 }
 
@@ -76,7 +103,7 @@ fn random_name() -> String {
 }
 
 /// [`fetch_installer`] against any `src`, writing under `dest_root`.
-pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Result<PathBuf, String> {
+pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Result<Installer, String> {
     let agent = agent(src);
     let body = get_text(&agent, src, &format!("{}/releases/latest", src.api_base))?;
     let release: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
@@ -86,11 +113,13 @@ pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Re
 
     let file = new_run_dir(dest_root)?.join(&c.installer_name);
     download(&agent, src, &c.installer_url, &file)?;
-    if sha256_hex(&file)? != expected {
+    let mut lock = open_locked(&file).map_err(|e| e.to_string())?;
+    if sha256_hex(&mut lock)? != expected {
+        drop(lock); // Windows cannot delete a file that is still open
         let _ = std::fs::remove_file(&file);
         return Err("the downloaded installer failed its checksum and was discarded".into());
     }
-    Ok(file)
+    Ok(Installer { path: file, _lock: lock })
 }
 
 fn no_candidate_reason(release: &Value, current: &str) -> &'static str {
@@ -102,7 +131,7 @@ fn no_candidate_reason(release: &Value, current: &str) -> &'static str {
 
 /// Runs the installer silently, then starts the new Vislo from the same place.
 #[cfg(windows)]
-pub fn run_installer(setup: &Path) -> Result<(), String> {
+pub fn run_installer(setup: &Installer) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
@@ -110,7 +139,7 @@ pub fn run_installer(setup: &Path) -> Result<(), String> {
     std::process::Command::new("cmd.exe")
         .raw_arg(format!(
             "/C start \"\" /wait \"{}\" /S && start \"\" \"{}\"",
-            setup.display(),
+            setup.path().display(),
             exe.display()
         ))
         .creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS)
@@ -120,6 +149,6 @@ pub fn run_installer(setup: &Path) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-pub fn run_installer(_setup: &Path) -> Result<(), String> {
+pub fn run_installer(_setup: &Installer) -> Result<(), String> {
     Err("installing updates is Windows-only".into())
 }
