@@ -111,21 +111,46 @@ Plataforma suportada: Windows x64 com WebView2.
 
 ## Uso
 
-Abrir uma imagem (a pasta dela vira o álbum). Sem saída no terminal: o app é gráfico.
+Abrir uma imagem (a pasta dela vira o álbum). Caminhos relativos também funcionam, inclusive numa segunda execução
+com o app já aberto: são resolvidos na pasta de quem executou.
 
 ```sh
 vislo.exe "C:\fotos\ferias\praia.jpg"
+vislo.exe ..\ferias\praia.jpg
+```
+
+Ajuda e versão saem no terminal de quem chamou (`src-tauri/src/cli.rs`). Saída real do build de desenvolvimento:
+
+```text
+$ vislo.exe --version
+vislo 0.5.4
+
+$ vislo.exe --help
+Vislo: fast image viewer.
+
+Usage:
+  vislo [FILE]                            open FILE; its folder becomes the album
+  vislo --background                      start parked in the tray (needs Keep ready)
+  vislo --register-associations [GROUPS]  make Vislo the default for GROUPS
+  vislo --unregister-associations         remove that registration
+  vislo --help, -h                        show this help
+  vislo --version, -V                     show the version
+
+Groups (comma-separated, default all): jpeg, png, gif, bmp, tiff, tga, webp, avif, ico, svg, jxl, jp2, psd, pnm, hdr, other, raw
+
+Exit codes: 0 success, 1 failure, 2 bad usage.
 ```
 
 Registrar o Vislo como visualizador padrão por grupos de formato, sem abrir a janela principal, e desfazer depois.
-Alteram só o registro por usuário (`HKCU`); saída não verificada (não executado, para não alterar o registro desta máquina):
+Alteram só o registro por usuário (`HKCU`); a saída de sucesso não foi executada, para não alterar o registro desta máquina:
 
 ```sh
 vislo.exe --register-associations jpeg,png,raw
 vislo.exe --unregister-associations
 ```
 
-Os dois comandos retornam código de saída `0` em sucesso e `1` em falha (`src-tauri/src/lib.rs`). Ao registrar, o Windows
+Os comandos retornam código `0` em sucesso, `1` em falha e `2` em uso incorreto: grupo desconhecido ou opção que começa com
+`--` e não existe. Nesses casos a mensagem e a lista de grupos válidos vão para stderr, e nada é alterado. Ao registrar, o Windows
 abre *Configurações &rarr; Aplicativos padrão* para você confirmar. *Abrir com &rarr; Vislo*
 funciona em qualquer imagem. Para iniciar já estacionado na bandeja (só vale com *Keep ready* ligado; senão o processo encerra):
 

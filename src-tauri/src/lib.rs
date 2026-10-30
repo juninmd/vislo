@@ -4,6 +4,7 @@ mod autostart;
 #[cfg(test)]
 mod bench;
 mod boot;
+mod cli;
 mod clipboard;
 mod codecs;
 mod decode;
@@ -150,25 +151,6 @@ fn open_releases() -> Result<(), String> {
     shell::open_url(&format!("https://github.com/{}/releases/latest", update::REPO))
 }
 
-/// `--register-associations` / `--unregister-associations`: headless, for scripts and portable use.
-fn run_cli_action() -> Option<i32> {
-    let mut args = std::env::args().skip(1);
-    let flag = args.next()?;
-    let result = match flag.as_str() {
-        "--register-associations" => {
-            // Optional comma-separated format groups, e.g. `jpeg,png,raw`.
-            let groups: Vec<String> = args
-                .next()
-                .map(|g| g.split(',').map(str::to_string).collect())
-                .unwrap_or_default();
-            assoc::register(&groups).and_then(|()| assoc::open_settings())
-        }
-        "--unregister-associations" => assoc::unregister(),
-        _ => return None,
-    };
-    Some(if result.is_ok() { 0 } else { 1 })
-}
-
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let cache_dir = app.path().app_cache_dir()?.join("thumbs");
     let workers = std::thread::available_parallelism()
@@ -236,7 +218,7 @@ fn early_splash(launch: &Launch) -> bool {
 }
 
 pub fn run() {
-    if let Some(code) = run_cli_action() {
+    if let Some(code) = cli::run() {
         std::process::exit(code);
     }
     let cwd = std::env::current_dir().unwrap_or_default();
