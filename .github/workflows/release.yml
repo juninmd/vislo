@@ -24,6 +24,7 @@ jobs:
     # the job's own version commit must not release again
     if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
     runs-on: windows-latest
+    timeout-minutes: 45 # recent runs took ~9 min; the limit only stops a hung build from billing for 6 hours
     permissions:
       contents: write
     defaults:
@@ -32,15 +33,18 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # tags and history are needed to plan the version
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      # a branch ref, so the SHA is pinned and the toolchain is passed explicitly
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
 
@@ -55,7 +59,9 @@ jobs:
 
       - name: Stamp the version
         if: steps.plan.outputs.version != ''
-        run: node scripts/release.mjs stamp "${{ steps.plan.outputs.version }}"
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: node scripts/release.mjs stamp "$VERSION"
 
       - name: Build the installer
         if: steps.plan.outputs.version != ''
@@ -65,19 +71,23 @@ jobs:
 
       - name: Collect release assets
         if: steps.plan.outputs.version != ''
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          V="${{ steps.plan.outputs.version }}"
+          V="$VERSION"
           mkdir -p out
           cp src-tauri/target/release/bundle/nsis/*-setup.exe "out/Vislo_${V}_x64-setup.exe"
           cp src-tauri/target/release/vislo.exe "out/Vislo_${V}_x64-portable.exe"
-          (cd out && sha256sum * > ../SHA256SUMS.txt)
+          (cd out && sha256sum -- * > ../SHA256SUMS.txt) # "--" keeps names bare; the updater matches them exactly (update.rs expected_hash)
           mv SHA256SUMS.txt out/
           cat out/SHA256SUMS.txt
 
       - name: Commit the version, tag and publish
         if: steps.plan.outputs.version != ''
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          V="${{ steps.plan.outputs.version }}"
+          V="$VERSION"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json

@@ -1,0 +1,7 @@
+version: 2
+updates:
+  # Keeps the pinned action SHAs and their "# vX.Y.Z" comments current
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
