@@ -316,10 +316,14 @@ O app não lê variáveis de ambiente para configuração; `VISLO_FIXTURES` só 
 
 | Workflow | Quando | O que checa |
 |---|---|---|
-| `ci.yml` (`ci`) | pull request, manual e chamado pelo release | job `commits`: título do PR e cada commit seguem Conventional Commits; job `check` (Windows): `npm ci`, `npm test`, `npm run build`, `cargo test`, `cargo clippy -D warnings` |
+| `ci.yml` (`ci`) | pull request, manual e chamado pelo release | job `commits`: título do PR e cada commit seguem Conventional Commits; job `check` (Windows): `npm ci`, `npm test`, `npm run build`, `cargo test`, `cargo clippy -D warnings`; job `audit` (Ubuntu): `cargo audit` no `Cargo.lock` (reprova vulnerabilidade conhecida; avisos de manutenção não reprovam) e `npm audit --omit=dev --audit-level=high`; job `actionlint` (Ubuntu): lint dos workflows |
 | `release.yml` (`release`) | push em `main` | roda o `ci`, calcula a versão, constrói instalador e exe portátil, escreve `SHA256SUMS.txt`, commita `chore(release)`, tagueia e publica a release |
 | `validate.yml` (`Validate`) | pull request e push em `main` | validação reutilizável de `juninmd/base-actions` (`reusable-validate.yml`) |
 | `security.yml` (`Security Scan`) | push em `main`, manual e semanal (domingo 00:00 UTC) | varredura de segurança reutilizável de `juninmd/base-actions` (`reusable-security-scan.yml`) |
+
+As actions de terceiros estão fixadas por SHA de commit, com a versão em comentário; o Dependabot
+(`.github/dependabot.yml`) atualiza esses SHAs. Os jobs têm `timeout-minutes`, exceto os que chamam workflows
+reutilizáveis, onde o GitHub não aceita o campo e o limite vem do workflow chamado.
 
 ## Contribuindo
 
