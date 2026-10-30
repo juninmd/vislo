@@ -151,11 +151,45 @@ pub fn show_fitted(
         size_to_picture(&window, w, h)?;
     }
     crate::splash::before_show(); // let a native zoom-in finish, or cancel a splash that is not up yet
+    without_open_animation(&window);
     window.show().map_err(|e| e.to_string())?;
     crate::splash::after_show();
     let _ = window.set_focus(); // a revealed parked window must not open behind other apps
     Ok(())
 }
+
+/// Windows zooms a window out of the screen centre when it is shown. Over a native splash (or a transparent
+/// background) that reads as a second window opening, so the animation is off for the show itself and back on
+/// right after, which keeps the system's minimize and restore animations.
+#[cfg(windows)]
+fn without_open_animation(window: &WebviewWindow) {
+    const RESTORE_AFTER: std::time::Duration = std::time::Duration::from_millis(600);
+    set_transitions_disabled(window, true);
+    let window = window.clone(); // an HWND is not Send; the window handle is
+    std::thread::spawn(move || {
+        std::thread::sleep(RESTORE_AFTER);
+        set_transitions_disabled(&window, false);
+    });
+}
+
+#[cfg(windows)]
+fn set_transitions_disabled(window: &WebviewWindow, disabled: bool) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
+    let Ok(hwnd) = window.hwnd() else { return };
+    let value = i32::from(disabled);
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            HWND(hwnd.0),
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            std::ptr::from_ref(&value).cast(),
+            std::mem::size_of::<i32>() as u32,
+        );
+    }
+}
+
+#[cfg(not(windows))]
+fn without_open_animation(_window: &WebviewWindow) {}
 
 /// The page paints its own background dimming from now on: a native splash may fade out its own.
 #[tauri::command]
