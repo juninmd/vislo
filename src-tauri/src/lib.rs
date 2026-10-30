@@ -183,6 +183,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let store = settings::Store::open(app.path().app_config_dir()?.join("settings.json"));
     let current = store.get();
     app.manage(store);
+    std::thread::spawn(update::remove_stale_runs_at_startup);
 
     let launch = app.state::<Launch>();
     if launch.background && !current.keep_ready {

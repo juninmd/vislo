@@ -1,3 +1,4 @@
+mod cleanup;
 mod net;
 
 use super::install::{fetch_installer, is_installed, sha256_hex};

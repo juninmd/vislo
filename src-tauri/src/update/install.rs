@@ -70,7 +70,7 @@ pub fn fetch_installer(current: &str) -> Result<Installer, String> {
 }
 
 /// Per-user and not shared with other programs, unlike the temp folder.
-fn updates_root() -> Result<PathBuf, String> {
+pub(super) fn updates_root() -> Result<PathBuf, String> {
     std::env::var_os("LOCALAPPDATA")
         .map(|dir| PathBuf::from(dir).join("Vislo").join("updates"))
         .ok_or_else(|| "LOCALAPPDATA is not set, so the update cannot be staged".into())
@@ -111,15 +111,22 @@ pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Re
     let expected = expected_hash(&get_text(&agent, src, &c.sums_url)?, &c.installer_name)
         .ok_or("the release has no checksum for its installer")?;
 
-    let file = new_run_dir(dest_root)?.join(&c.installer_name);
-    download(&agent, src, &c.installer_url, &file)?;
-    let mut lock = open_locked(&file).map_err(|e| e.to_string())?;
-    if sha256_hex(&mut lock)? != expected {
-        drop(lock); // Windows cannot delete a file that is still open
-        let _ = std::fs::remove_file(&file);
-        return Err("the downloaded installer failed its checksum and was discarded".into());
+    let dir = new_run_dir(dest_root)?;
+    let result = stage(&agent, src, &c.installer_url, &dir.join(&c.installer_name), &expected);
+    if result.is_err() {
+        let _ = std::fs::remove_dir_all(&dir);
     }
-    Ok(Installer { path: file, _lock: lock })
+    result
+}
+
+/// Downloads to `file` and returns it locked once its checksum matches.
+fn stage(agent: &ureq::Agent, src: &Source, url: &str, file: &Path, expected: &str) -> Result<Installer, String> {
+    download(agent, src, url, file)?;
+    let mut lock = open_locked(file).map_err(|e| e.to_string())?;
+    if sha256_hex(&mut lock)? != expected {
+        return Err("the downloaded installer failed its checksum and was discarded".into()); // `lock` closes here
+    }
+    Ok(Installer { path: file.to_path_buf(), _lock: lock })
 }
 
 fn no_candidate_reason(release: &Value, current: &str) -> &'static str {
@@ -136,11 +143,14 @@ pub fn run_installer(setup: &Installer) -> Result<(), String> {
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let run_dir = setup.path().parent().ok_or("the installer has no folder")?;
+    // the run folder goes after the installer exits, even when it failed: nothing may re-run a stale copy
     std::process::Command::new("cmd.exe")
         .raw_arg(format!(
-            "/C start \"\" /wait \"{}\" /S && start \"\" \"{}\"",
+            "/C start \"\" /wait \"{}\" /S && start \"\" \"{}\" & rmdir /S /Q \"{}\"",
             setup.path().display(),
-            exe.display()
+            exe.display(),
+            run_dir.display()
         ))
         .creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS)
         .spawn()

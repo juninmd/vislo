@@ -5,6 +5,7 @@
 //! checks the digest and runs it silently. Portable copies (no `uninstall.exe` beside the exe)
 //! are only pointed at the release page.
 
+mod cleanup;
 mod install;
 mod release;
 mod transport;
@@ -14,6 +15,7 @@ mod testsupport;
 #[cfg(test)]
 mod tests;
 
+pub use cleanup::remove_stale_runs_at_startup;
 pub use install::{fetch_installer, is_installed, run_installer};
 pub use release::Update;
 
