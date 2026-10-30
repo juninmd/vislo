@@ -1,14 +1,19 @@
-//! A tiny HTTP/1.1 server on 127.0.0.1 for the updater tests: fixed bodies, one request per connection.
+//! A tiny HTTP/1.1 server on 127.0.0.1 for the updater tests: fixed bodies, redirects, slow and stalled sends.
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 
 #[derive(Clone)]
 pub enum Reply {
     Body(Vec<u8>),
     Redirect(String),
+    /// Sends `body` in `chunk`-sized pieces, pausing `every` between them: slow, but never idle for long.
+    Trickle { body: Vec<u8>, chunk: usize, every: Duration },
+    /// Sends the first `head` bytes, then goes silent for `hold` before closing.
+    Stall { body: Vec<u8>, head: usize, hold: Duration },
 }
 
 /// Starts a server on an ephemeral port and returns its origin (`http://127.0.0.1:port`).
@@ -40,13 +45,31 @@ fn handle(mut stream: TcpStream, routes: &[(String, Reply)]) {
         }
     }
     let _ = match routes.iter().find(|(p, _)| *p == path) {
-        Some((_, Reply::Body(body))) => {
-            let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
-            stream.write_all(head.as_bytes()).and_then(|()| stream.write_all(body))
-        }
+        Some((_, Reply::Body(body))) => send_ok(&mut stream, body.len(), |s| s.write_all(body)),
         Some((_, Reply::Redirect(to))) => stream.write_all(
             format!("HTTP/1.1 302 Found\r\nLocation: {to}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes(),
         ),
+        Some((_, Reply::Trickle { body, chunk, every })) => send_ok(&mut stream, body.len(), |s| {
+            body.chunks(*chunk).try_for_each(|part| {
+                thread::sleep(*every);
+                s.write_all(part)
+            })
+        }),
+        Some((_, Reply::Stall { body, head, hold })) => send_ok(&mut stream, body.len(), |s| {
+            s.write_all(&body[..(*head).min(body.len())])?;
+            thread::sleep(*hold);
+            Ok(())
+        }),
         None => stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"),
     };
+}
+
+/// Status line and headers for a `length`-byte 200 response, then whatever `body` writes.
+fn send_ok(
+    stream: &mut TcpStream,
+    length: usize,
+    body: impl FnOnce(&mut TcpStream) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {length}\r\nConnection: close\r\n\r\n").as_bytes())?;
+    body(stream)
 }

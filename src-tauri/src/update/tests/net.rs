@@ -2,13 +2,19 @@
 
 use crate::update::install::fetch_installer_from;
 use crate::update::testsupport::{serve, Reply};
-use crate::update::transport::Source;
+use crate::update::transport::{Source, Timeouts};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 const INSTALLER: &[u8] = b"MZ synthetic installer bytes, not an executable";
 const NAME: &str = "Vislo_0.2.0_x64-setup.exe";
 const MAX: u64 = 1 << 20;
+const FAST: Timeouts = Timeouts {
+    api: Duration::from_secs(5),
+    connect: Duration::from_secs(5),
+    inactivity: Duration::from_millis(300),
+};
 
 fn hex(bytes: &[u8]) -> String {
     Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
@@ -49,7 +55,7 @@ fn run(origin: &str, max_bytes: u64, dest: &Path) -> Result<PathBuf, String> {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes, plain_http_origin: Some(&plain) };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes, plain_http_origin: Some(&plain), timeouts: FAST };
     fetch_installer_from(&src, "0.1.0", dest).map(|installer| installer.path().to_path_buf())
 }
 
@@ -116,7 +122,7 @@ fn a_verified_installer_cannot_be_replaced_until_it_runs() {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain) };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain), timeouts: FAST };
     let installer = fetch_installer_from(&src, "0.1.0", &scratch("locked")).expect("verified installer");
     let writer = std::fs::OpenOptions::new().write(true).open(installer.path());
     assert!(writer.is_err(), "a writer could swap the installer after its checksum was taken");
@@ -167,7 +173,7 @@ fn production_refuses_plain_http_even_when_the_server_answers() {
     let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: None };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: None, timeouts: FAST };
     let err = fetch_installer_from(&src, "0.1.0", &scratch("https-only")).unwrap_err();
     assert!(err.contains("https"), "{err}");
 }
@@ -180,4 +186,37 @@ fn an_installer_url_outside_the_download_prefix_is_refused() {
     });
     let err = run(&origin, MAX, &scratch("prefix")).unwrap_err();
     assert!(err.contains("from this repository"), "{err}");
+}
+
+/// A GitHub stand-in whose installer is `body`, served through `reply`, with a checksum file matching `body`.
+fn server_serving(body: &'static [u8], reply: impl FnOnce(&[u8]) -> Reply) -> String {
+    serve(|origin| {
+        let dl = format!("{origin}/dl/");
+        vec![
+            ("/api/releases/latest".into(), Reply::Body(release_json(&format!("{dl}{NAME}"), &format!("{dl}SHA256SUMS.txt")).into_bytes())),
+            (format!("/dl/{NAME}"), reply(body)),
+            ("/dl/SHA256SUMS.txt".into(), Reply::Body(format!("{}  {NAME}\n", hex(body)).into_bytes())),
+        ]
+    })
+}
+
+#[test]
+fn a_slow_download_that_keeps_moving_completes_past_the_inactivity_window() {
+    // 16 pieces 50 ms apart: about 800 ms in all, well past the 300 ms window, yet never idle for long
+    static BODY: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| INSTALLER.repeat(1500));
+    let origin = server_serving(&BODY, |b| Reply::Trickle { body: b.to_vec(), chunk: b.len() / 16 + 1, every: Duration::from_millis(50) });
+    let started = Instant::now();
+    let path = run(&origin, u64::MAX, &scratch("slow")).expect("a steady trickle is not a stall");
+    assert!(started.elapsed() > FAST.inactivity * 2, "the test must outlast the window");
+    assert_eq!(std::fs::read(&path).unwrap(), *BODY);
+}
+
+#[test]
+fn a_stalled_download_fails_after_the_inactivity_window_not_at_the_end_of_the_stall() {
+    static BODY: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| INSTALLER.repeat(1500));
+    let origin = server_serving(&BODY, |b| Reply::Stall { body: b.to_vec(), head: 4096, hold: Duration::from_secs(3) });
+    let started = Instant::now();
+    let err = run(&origin, u64::MAX, &scratch("stall")).unwrap_err();
+    assert!(started.elapsed() < Duration::from_secs(2), "gave up after {:?}", started.elapsed());
+    assert!(err.contains("stalled"), "{err}");
 }

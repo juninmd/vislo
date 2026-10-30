@@ -13,6 +13,18 @@ pub struct Source<'a> {
     pub max_bytes: u64,
     /// Tests only: the one `http://` origin (with its trailing slash) allowed in place of https. `None` in production.
     pub plain_http_origin: Option<&'a str>,
+    pub timeouts: Timeouts,
+}
+
+/// Time limits. The installer has no total limit: a slow link that keeps delivering bytes is allowed to finish.
+#[derive(Clone, Copy)]
+pub struct Timeouts {
+    /// The whole small JSON request.
+    pub api: Duration,
+    /// Opening the connection, TLS included.
+    pub connect: Duration,
+    /// Longest silence while the installer streams in.
+    pub inactivity: Duration,
 }
 
 impl Source<'static> {
@@ -21,20 +33,42 @@ impl Source<'static> {
         download_prefix: "https://github.com/juninmd/vislo/releases/download/",
         max_bytes: 300 * 1024 * 1024,
         plain_http_origin: None,
+        timeouts: Timeouts {
+            api: Duration::from_secs(15),
+            connect: Duration::from_secs(10),
+            inactivity: Duration::from_secs(30),
+        },
     };
 }
 
 /// Redirects followed before giving up; GitHub's download hop is one, so this leaves room.
 const MAX_REDIRECTS: usize = 5;
 
-/// The agent never follows redirects itself: [`send`] does, checking every hop.
-pub(super) fn agent(src: &Source) -> ureq::Agent {
+/// Ends a download whose connection never closes; stalls are caught earlier by the inactivity window.
+const BODY_BACKSTOP: Duration = Duration::from_secs(60 * 60);
+const USER_AGENT: &str = concat!("vislo/", env!("CARGO_PKG_VERSION"));
+
+/// Agents never follow redirects themselves: [`send`] does, checking every hop.
+pub(super) fn api_agent(src: &Source) -> ureq::Agent {
     ureq::Agent::config_builder()
         .https_only(src.plain_http_origin.is_none())
         .max_redirects(0)
         .max_redirects_will_error(false)
-        .timeout_global(Some(Duration::from_secs(60)))
-        .user_agent(concat!("vislo/", env!("CARGO_PKG_VERSION")))
+        .timeout_global(Some(src.timeouts.api))
+        .user_agent(USER_AGENT)
+        .build()
+        .into()
+}
+
+pub(super) fn download_agent(src: &Source) -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .https_only(src.plain_http_origin.is_none())
+        .max_redirects(0)
+        .max_redirects_will_error(false)
+        .timeout_connect(Some(src.timeouts.connect))
+        .timeout_recv_response(Some(src.timeouts.inactivity))
+        .timeout_recv_body(Some(BODY_BACKSTOP))
+        .user_agent(USER_AGENT)
         .build()
         .into()
 }

@@ -1,10 +1,11 @@
 //! Downloading the installer, checking its digest and starting it.
 
 use super::release::{expected_hash, is_newer, pick};
-use super::transport::{agent, get_text, send, Source};
+use super::download::download;
+use super::transport::{api_agent, download_agent, get_text, Source};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 /// Installed copies sit beside the `uninstall.exe` the NSIS installer writes.
@@ -53,17 +54,6 @@ impl Installer {
     }
 }
 
-fn download(agent: &ureq::Agent, src: &Source, url: &str, dest: &Path) -> Result<(), String> {
-    let mut response = send(agent, src, url, "application/octet-stream")?;
-    if response.body().content_length().is_some_and(|n| n > src.max_bytes) {
-        return Err(format!("the installer is larger than the {}-byte size limit", src.max_bytes));
-    }
-    let mut reader = response.body_mut().with_config().limit(src.max_bytes).reader();
-    let mut out = std::fs::File::create(dest).map_err(|e| e.to_string())?;
-    std::io::copy(&mut reader, &mut out).map_err(|e| format!("download failed: {e}"))?;
-    out.flush().map_err(|e| e.to_string())
-}
-
 /// Downloads the installer of the latest release and verifies it against `SHA256SUMS.txt`.
 pub fn fetch_installer(current: &str) -> Result<Installer, String> {
     fetch_installer_from(&Source::GITHUB, current, &updates_root()?)
@@ -104,15 +94,15 @@ fn random_name() -> String {
 
 /// [`fetch_installer`] against any `src`, writing under `dest_root`.
 pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Result<Installer, String> {
-    let agent = agent(src);
-    let body = get_text(&agent, src, &format!("{}/releases/latest", src.api_base))?;
+    let api = api_agent(src);
+    let body = get_text(&api, src, &format!("{}/releases/latest", src.api_base))?;
     let release: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
     let c = pick(&release, current, src.download_prefix).ok_or_else(|| no_candidate_reason(&release, current))?;
-    let expected = expected_hash(&get_text(&agent, src, &c.sums_url)?, &c.installer_name)
+    let expected = expected_hash(&get_text(&api, src, &c.sums_url)?, &c.installer_name)
         .ok_or("the release has no checksum for its installer")?;
 
     let dir = new_run_dir(dest_root)?;
-    let result = stage(&agent, src, &c.installer_url, &dir.join(&c.installer_name), &expected);
+    let result = stage(&download_agent(src), src, &c.installer_url, &dir.join(&c.installer_name), &expected);
     if result.is_err() {
         let _ = std::fs::remove_dir_all(&dir);
     }
