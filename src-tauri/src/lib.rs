@@ -67,6 +67,15 @@ async fn open_path(
     Ok(album)
 }
 
+/// Sync check for the folder on screen: `null` while nothing was added, removed or renamed in it.
+#[tauri::command]
+async fn list_changed(
+    path: String,
+    stamp: Option<String>,
+) -> Result<Option<album::Album>, album::OpenError> {
+    album::list_changed(Path::new(&path), stamp.as_deref())
+}
+
 #[tauri::command]
 async fn file_info(svc: State<'_, Arc<Services>>, path: String) -> Result<exif_info::Info, String> {
     let file = svc.allowed.resolve(&path)?;
@@ -309,6 +318,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             initial_path,
             open_path,
+            list_changed,
             file_info,
             get_settings,
             set_settings,

@@ -44,6 +44,9 @@ pub struct Album {
     pub dir: String,
     pub files: Vec<String>,
     pub index: usize,
+    /// Folder modification stamp in ns, as text (JSON numbers cannot hold it exactly); `None` when
+    /// the platform gives none, which makes every sync check relist in full.
+    pub stamp: Option<String>,
     /// Upright pixel size of the opened file when cheap to know (sizes the window up front).
     pub size: Option<(u32, u32)>,
 }
@@ -114,8 +117,8 @@ fn missing_or_io(path: &Path, e: &std::io::Error) -> OpenError {
     }
 }
 
-/// Lists the images beside `path` in Explorer-like natural order and locates `path` in it.
-pub fn open(path: &Path) -> Result<Album, OpenError> {
+/// Resolves `path` to the image file it names.
+fn resolve(path: &Path) -> Result<PathBuf, OpenError> {
     let file = dunce::canonicalize(path).map_err(|e| missing_or_io(path, &e))?;
     if !file.is_file() || !is_image(&file) {
         return Err(OpenError {
@@ -123,6 +126,33 @@ pub fn open(path: &Path) -> Result<Album, OpenError> {
             message: format!("\"{}\" is not a supported image file", display_name(&file)),
         });
     }
+    Ok(file)
+}
+
+/// Modification time of a folder. Adding, removing or renaming an entry moves it; overwriting a
+/// file in place does not, which the re-list does not need either.
+fn dir_stamp(dir: &Path) -> Option<String> {
+    let modified = std::fs::metadata(dir).ok()?.modified().ok()?;
+    let since_epoch = modified.duration_since(std::time::UNIX_EPOCH).ok()?;
+    Some(since_epoch.as_nanos().to_string())
+}
+
+/// Lists the images beside `path` in Explorer-like natural order and locates `path` in it.
+pub fn open(path: &Path) -> Result<Album, OpenError> {
+    build(&resolve(path)?, true)
+}
+
+/// Sync check for a folder already on screen: `None` while its stamp still equals `stamp`, otherwise
+/// the fresh listing. A missing stamp, on either side, always relists.
+pub fn list_changed(path: &Path, stamp: Option<&str>) -> Result<Option<Album>, OpenError> {
+    let file = resolve(path)?;
+    if stamp.is_some() && file.parent().and_then(dir_stamp).as_deref() == stamp {
+        return Ok(None);
+    }
+    build(&file, false).map(Some)
+}
+
+fn build(file: &Path, with_size: bool) -> Result<Album, OpenError> {
     let dir = file
         .parent()
         .ok_or_else(|| OpenError {
@@ -130,6 +160,8 @@ pub fn open(path: &Path) -> Result<Album, OpenError> {
             message: "file has no parent directory".into(),
         })?
         .to_path_buf();
+    // Read before listing: a change made during the listing then shows up as a stamp mismatch.
+    let stamp = dir_stamp(&dir);
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .map_err(|e| OpenError {
             kind: OpenErrorKind::Io,
@@ -143,19 +175,20 @@ pub fn open(path: &Path) -> Result<Album, OpenError> {
     files.sort_by(|a, b| natord::compare_ignore_case(file_name(a), file_name(b)));
     let index = files
         .iter()
-        .position(|p| p == &file)
+        .position(|p| p.as_path() == file)
         .ok_or_else(|| OpenError {
             kind: OpenErrorKind::NotFound,
             message: "opened file missing from its directory listing".into(),
         })?;
     Ok(Album {
-        size: crate::decode::dimensions(&file),
+        size: with_size.then(|| crate::decode::dimensions(file)).flatten(),
         dir: dir.to_string_lossy().into_owned(),
         files: files
             .iter()
             .map(|p| p.to_string_lossy().into_owned())
             .collect(),
         index,
+        stamp,
     })
 }
 
@@ -298,6 +331,76 @@ mod tests {
             assert_eq!(album.files.len(), FILES);
         }
         eprintln!("album_bench: {FILES} files, best of 5 open(): {best:.1} ms");
+        let stamp = open(&shown).unwrap().stamp;
+        let mut best_sync = f64::MAX;
+        for _ in 0..5 {
+            let t = std::time::Instant::now();
+            assert!(list_changed(&shown, stamp.as_deref()).unwrap().is_none());
+            best_sync = best_sync.min(t.elapsed().as_secs_f64() * 1e3);
+        }
+        eprintln!(
+            "album_bench: {FILES} files, best of 5 list_changed() unchanged: {best_sync:.2} ms"
+        );
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// Folder times have coarse resolution on some systems; a pause keeps consecutive changes apart.
+    fn tick() {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+
+    #[test]
+    fn list_changed_is_none_until_the_folder_changes() {
+        let d = temp_dir("sync");
+        std::fs::write(d.join("a.jpg"), b"x").unwrap();
+        std::fs::write(d.join("b.jpg"), b"x").unwrap();
+        let shown = d.join("a.jpg");
+        let album = open(&shown).unwrap();
+        let stamp = album.stamp.clone().expect("Windows reports folder times");
+        assert_eq!(list_changed(&shown, Some(&stamp)).unwrap(), None);
+
+        tick();
+        std::fs::write(d.join("c.jpg"), b"x").unwrap();
+        let added = list_changed(&shown, Some(&stamp)).unwrap().expect("added");
+        assert_eq!(added.files.len(), 3);
+        let stamp = added.stamp.expect("stamp");
+        assert_eq!(list_changed(&shown, Some(&stamp)).unwrap(), None);
+
+        tick();
+        std::fs::remove_file(d.join("b.jpg")).unwrap();
+        let removed = list_changed(&shown, Some(&stamp))
+            .unwrap()
+            .expect("removed");
+        assert_eq!(removed.files.len(), 2);
+        let stamp = removed.stamp.expect("stamp");
+
+        tick();
+        std::fs::rename(d.join("c.jpg"), d.join("d.jpg")).unwrap();
+        let renamed = list_changed(&shown, Some(&stamp))
+            .unwrap()
+            .expect("renamed");
+        assert!(renamed.files.iter().any(|f| f.ends_with("d.jpg")));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn list_changed_relists_when_no_stamp_is_known() {
+        let d = temp_dir("nostamp");
+        std::fs::write(d.join("a.jpg"), b"x").unwrap();
+        let shown = d.join("a.jpg");
+        assert!(list_changed(&shown, None).unwrap().is_some());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn list_changed_reports_a_deleted_shown_file_as_not_found() {
+        let d = temp_dir("sync-gone");
+        std::fs::write(d.join("a.jpg"), b"x").unwrap();
+        let shown = d.join("a.jpg");
+        let stamp = open(&shown).unwrap().stamp;
+        std::fs::remove_file(&shown).unwrap();
+        let e = list_changed(&shown, stamp.as_deref()).unwrap_err();
+        assert_eq!(e.kind, OpenErrorKind::NotFound);
         let _ = std::fs::remove_dir_all(&d);
     }
 

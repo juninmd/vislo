@@ -6,6 +6,8 @@ export interface Album {
   files: string[];
   index: number;
   size: [number, number] | null;
+  /** Folder modification stamp (ns, as text) read before listing; null when unavailable. */
+  stamp: string | null;
 }
 
 /** Rejected by `open_path`: only `not_found` means the picture was deleted. */
@@ -75,6 +77,9 @@ export interface Update {
 }
 
 export const openPath = (path: string) => invoke<Album>("open_path", { path });
+/** `null` while the folder still has `stamp` (nothing to re-list); otherwise the fresh album. */
+export const listChanged = (path: string, stamp: string | null) =>
+  invoke<Album | null>("list_changed", { path, stamp });
 export const fileInfo = (path: string) => invoke<Info>("file_info", { path });
 export const getSettings = () => invoke<Settings>("get_settings");
 export const setSettings = (settings: Settings) => invoke<Settings>("set_settings", { settings });

@@ -1,4 +1,4 @@
-import { type Album, openPath } from "./api";
+import { type Album, listChanged } from "./api";
 
 interface Synced {
   files(): readonly string[];
@@ -23,25 +23,46 @@ export function neighbourIfGone(err: unknown, files: readonly string[], index: n
   return gone ? neighbour(files, index) : null;
 }
 
+/** Asks the backend for the folder of `path`: `null` when the folder still has `stamp`. */
+export type ListChanged = (path: string, stamp: string | null) => Promise<Album | null>;
+
+/**
+ * One focus check. The stamp it keeps is the folder's last-seen modification stamp, so an
+ * unchanged folder costs one cheap call and no re-listing.
+ */
+export function createFocusCheck(
+  viewer: Synced,
+  open: (path: string) => Promise<void>,
+  check: ListChanged,
+): () => Promise<void> {
+  let busy = false;
+  // null means unknown: the first check lists the folder in full and learns the stamp.
+  let stamp: string | null = null;
+  return async () => {
+    const files = viewer.files();
+    const index = viewer.position();
+    const shown = files[index];
+    if (!shown || busy) return;
+    busy = true;
+    try {
+      const album = await check(shown, stamp);
+      if (album) {
+        stamp = album.stamp;
+        if (!sameList(album.files, files)) viewer.refresh(album);
+      }
+    } catch (err) {
+      const next = neighbourIfGone(err, files, index);
+      if (next) await open(next);
+    } finally {
+      busy = false;
+    }
+  };
+}
+
 /**
  * Re-lists the folder whenever the window regains focus, so files added or deleted in Explorer
  * show up without reopening. If the picture on screen was deleted, its neighbour is opened.
  */
 export function bindFolderSync(viewer: Synced, open: (path: string) => Promise<void>): void {
-  let busy = false;
-  window.addEventListener("focus", async () => {
-    const files = viewer.files();
-    const shown = files[viewer.position()];
-    if (!shown || busy) return;
-    busy = true;
-    try {
-      const album = await openPath(shown);
-      if (!sameList(album.files, files)) viewer.refresh(album);
-    } catch (err) {
-      const next = neighbourIfGone(err, files, viewer.position());
-      if (next) await open(next);
-    } finally {
-      busy = false;
-    }
-  });
+  window.addEventListener("focus", createFocusCheck(viewer, open, listChanged));
 }
