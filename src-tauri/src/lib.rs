@@ -55,11 +55,14 @@ async fn open_path(
     app: AppHandle,
     svc: State<'_, Arc<Services>>,
     path: String,
-) -> Result<album::Album, String> {
+) -> Result<album::Album, album::OpenError> {
     let album = album::open(Path::new(&path))?;
     app.asset_protocol_scope()
         .allow_directory(&album.dir, false)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| album::OpenError {
+            kind: album::OpenErrorKind::Io,
+            message: e.to_string(),
+        })?;
     svc.allowed.allow_dir(Path::new(&album.dir));
     Ok(album)
 }

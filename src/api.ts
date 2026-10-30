@@ -8,6 +8,18 @@ export interface Album {
   size: [number, number] | null;
 }
 
+/** Rejected by `open_path`: only `not_found` means the picture was deleted. */
+export interface OpenError {
+  kind: "not_found" | "not_image" | "io";
+  message: string;
+}
+
+/** Text to show for a failed command: a structured `OpenError` carries it in `message`. */
+export const errorMessage = (err: unknown): string =>
+  typeof err === "object" && err !== null && "kind" in err && "message" in err
+    ? String(err.message)
+    : String(err);
+
 export interface Info {
   name: string;
   folder: string;

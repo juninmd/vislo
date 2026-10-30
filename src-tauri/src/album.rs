@@ -68,22 +68,63 @@ fn file_name(p: &Path) -> &str {
     p.file_name().and_then(|n| n.to_str()).unwrap_or_default()
 }
 
+/// The frontend's contract: only `NotFound` means the picture was deleted, so only it may move the view.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum OpenErrorKind {
+    NotFound,
+    NotImage,
+    Io,
+}
+
+#[derive(Debug, Serialize, PartialEq)]
+pub struct OpenError {
+    pub kind: OpenErrorKind,
+    /// File name only: error text must not leak full paths into the UI.
+    pub message: String,
+}
+
+/// A missing file means "deleted" only while its folder is reachable: a share that dropped out
+/// reports the same not-found error, and must not move the view to a neighbour.
+fn missing_or_io(path: &Path, e: &std::io::Error) -> OpenError {
+    let folder_reachable = path
+        .parent()
+        .and_then(|d| std::fs::metadata(d).ok())
+        .is_some_and(|m| m.is_dir());
+    if e.kind() == std::io::ErrorKind::NotFound && folder_reachable {
+        OpenError {
+            kind: OpenErrorKind::NotFound,
+            message: format!("\"{}\" could not be found", display_name(path)),
+        }
+    } else {
+        OpenError {
+            kind: OpenErrorKind::Io,
+            message: format!("\"{}\" cannot be read: {e}", display_name(path)),
+        }
+    }
+}
+
 /// Lists the images beside `path` in Explorer-like natural order and locates `path` in it.
-pub fn open(path: &Path) -> Result<Album, String> {
-    let file = dunce::canonicalize(path)
-        .map_err(|_| format!("\"{}\" could not be found", display_name(path)))?;
+pub fn open(path: &Path) -> Result<Album, OpenError> {
+    let file = dunce::canonicalize(path).map_err(|e| missing_or_io(path, &e))?;
     if !file.is_file() || !is_image(&file) {
-        return Err(format!(
-            "\"{}\" is not a supported image file",
-            display_name(&file)
-        ));
+        return Err(OpenError {
+            kind: OpenErrorKind::NotImage,
+            message: format!("\"{}\" is not a supported image file", display_name(&file)),
+        });
     }
     let dir = file
         .parent()
-        .ok_or("file has no parent directory")?
+        .ok_or_else(|| OpenError {
+            kind: OpenErrorKind::Io,
+            message: "file has no parent directory".into(),
+        })?
         .to_path_buf();
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
-        .map_err(|e| format!("cannot list {}: {e}", dir.display()))?
+        .map_err(|e| OpenError {
+            kind: OpenErrorKind::Io,
+            message: format!("cannot list {}: {e}", dir.display()),
+        })?
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| p.is_file() && is_image(p))
@@ -92,7 +133,10 @@ pub fn open(path: &Path) -> Result<Album, String> {
     let index = files
         .iter()
         .position(|p| p == &file)
-        .ok_or("opened file missing from its directory listing")?;
+        .ok_or_else(|| OpenError {
+            kind: OpenErrorKind::NotFound,
+            message: "opened file missing from its directory listing".into(),
+        })?;
     Ok(Album {
         size: crate::decode::dimensions(&file),
         dir: dir.to_string_lossy().into_owned(),
@@ -162,9 +206,27 @@ mod tests {
         let d = temp_dir("friendly");
         std::fs::write(d.join("a.txt"), b"x").unwrap();
         let e = open(&d.join("a.txt")).unwrap_err();
-        assert_eq!(e, "\"a.txt\" is not a supported image file");
+        assert_eq!(e.message, "\"a.txt\" is not a supported image file");
         let e = open(&d.join("gone.jpg")).unwrap_err();
-        assert_eq!(e, "\"gone.jpg\" could not be found");
+        assert_eq!(e.message, "\"gone.jpg\" could not be found");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn errors_say_whether_the_picture_was_deleted() {
+        let d = temp_dir("kinds");
+        std::fs::write(d.join("a.txt"), b"x").unwrap();
+        assert_eq!(
+            open(&d.join("a.txt")).unwrap_err().kind,
+            OpenErrorKind::NotImage
+        );
+        assert_eq!(
+            open(&d.join("gone.jpg")).unwrap_err().kind,
+            OpenErrorKind::NotFound
+        );
+        // A folder that cannot be reached is a transient failure, not a deleted file.
+        let e = open(&d.join("unplugged").join("gone.jpg")).unwrap_err();
+        assert_eq!(e.kind, OpenErrorKind::Io);
         let _ = std::fs::remove_dir_all(&d);
     }
 
