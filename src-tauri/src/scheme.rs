@@ -1,10 +1,3 @@
-//! `vislo://` protocol: images the webview cannot (or should not) decode itself.
-//!   /t?p=<path>&s=<px>        cached thumbnail (JPEG)
-//!   /v?p=<path>               EXIF-embedded preview, upright (JPEG), 404 when absent
-//!   /f?p=<path>&w=<px>&h=<px> sharp (Lanczos3) downscale to fit a box
-//!   /c?p=<path>               full-resolution conversion of TIFF/PSD/RAW (JPEG, or PNG with alpha)
-//!   /o?p=<path>               the file itself, for formats the webview decodes (read off the UI thread)
-
 use crate::{decode, original, paths::Allowed, pool::Pool, resize, thumbs};
 use fast_image_resize::FilterType;
 use image::{DynamicImage, ImageFormat};

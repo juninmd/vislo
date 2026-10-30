@@ -4,6 +4,7 @@ mod autostart;
 #[cfg(test)]
 mod bench;
 mod boot;
+mod cli;
 mod clipboard;
 mod codecs;
 mod decode;
@@ -49,18 +50,11 @@ fn initial_path(launch: State<Launch>) -> Option<String> {
     launch.path.clone()
 }
 
-/// Lists the folder of `path`, grants the asset protocol read access to that folder only, and
-/// remembers it as opened so the `vislo` protocol and `file_info` accept paths inside it.
+/// Lists the folder of `path` and remembers it as opened so the `vislo` protocol and `file_info`
+/// accept paths inside it.
 #[tauri::command]
-async fn open_path(
-    app: AppHandle,
-    svc: State<'_, Arc<Services>>,
-    path: String,
-) -> Result<album::Album, String> {
+async fn open_path(svc: State<'_, Arc<Services>>, path: String) -> Result<album::Album, String> {
     let album = album::open(Path::new(&path))?;
-    app.asset_protocol_scope()
-        .allow_directory(&album.dir, false)
-        .map_err(|e| e.to_string())?;
     svc.allowed.allow_dir(Path::new(&album.dir));
     Ok(album)
 }
@@ -112,7 +106,7 @@ async fn pick_image(app: AppHandle, window: tauri::WebviewWindow) -> Option<Stri
 }
 
 #[tauri::command]
-async fn copy_image(svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+async fn copy_image(svc: State<'_, Arc<Services>>, path: String) -> Result<Option<(u32, u32)>, String> {
     clipboard::copy_image(&svc.allowed.resolve(&path)?)
 }
 
@@ -137,37 +131,30 @@ async fn check_update() -> Result<Option<update::Update>, String> {
 /// Downloads and verifies the latest installer, starts it and quits so it can replace the files.
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
-    let setup = tauri::async_runtime::spawn_blocking(|| update::fetch_installer(env!("CARGO_PKG_VERSION")))
-        .await
-        .map_err(|e| e.to_string())??;
-    update::run_installer(&setup)?;
+    let _session = update::InstallSession::start()?;
+    let reporter = app.clone();
+    let setup = tauri::async_runtime::spawn_blocking(move || {
+        update::fetch_installer(env!("CARGO_PKG_VERSION"), &mut |p| {
+            let _ = reporter.emit("update-progress", p);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    update::run_installer(setup)?;
     app.exit(0);
     Ok(())
+}
+
+/// Stops a download that `install_update` is running; the partial file is discarded.
+#[tauri::command]
+fn cancel_update() {
+    update::cancel_install();
 }
 
 /// Portable copies cannot replace themselves: send the user to the releases page.
 #[tauri::command]
 fn open_releases() -> Result<(), String> {
     shell::open_url(&format!("https://github.com/{}/releases/latest", update::REPO))
-}
-
-/// `--register-associations` / `--unregister-associations`: headless, for scripts and portable use.
-fn run_cli_action() -> Option<i32> {
-    let mut args = std::env::args().skip(1);
-    let flag = args.next()?;
-    let result = match flag.as_str() {
-        "--register-associations" => {
-            // Optional comma-separated format groups, e.g. `jpeg,png,raw`.
-            let groups: Vec<String> = args
-                .next()
-                .map(|g| g.split(',').map(str::to_string).collect())
-                .unwrap_or_default();
-            assoc::register(&groups).and_then(|()| assoc::open_settings())
-        }
-        "--unregister-associations" => assoc::unregister(),
-        _ => return None,
-    };
-    Some(if result.is_ok() { 0 } else { 1 })
 }
 
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -184,6 +171,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let store = settings::Store::open(app.path().app_config_dir()?.join("settings.json"));
     let current = store.get();
     app.manage(store);
+    std::thread::spawn(update::remove_stale_runs_at_startup);
 
     let launch = app.state::<Launch>();
     if launch.background && !current.keep_ready {
@@ -199,7 +187,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     );
     if let Some(dir) = launch_dir {
         // Authorised now so the page can start loading the picture before any IPC round trip.
-        app.asset_protocol_scope().allow_directory(&dir, false)?;
         app.state::<Arc<Services>>().allowed.allow_dir(&dir);
     }
     // Neither may stop the viewer from starting (policy-blocked Run key, tray not ready at sign-in).
@@ -237,28 +224,32 @@ fn early_splash(launch: &Launch) -> bool {
 }
 
 pub fn run() {
-    if let Some(code) = run_cli_action() {
+    if let Some(code) = cli::run() {
         std::process::exit(code);
     }
+    let cwd = std::env::current_dir().unwrap_or_default();
     let mut launch = Launch {
-        path: album::path_from_args(std::env::args()),
+        path: album::path_from_args(std::env::args())
+            .map(|p| album::absolutize(&p, &cwd).to_string_lossy().into_owned()),
         background: std::env::args().any(|a| a == "--background"),
         splash: false,
     };
     launch.splash = early_splash(&launch);
     tauri::Builder::default()
         // Must be first: a second launch forwards its file to the running window.
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             let Some(w) = app.get_webview_window("main") else {
                 return;
             };
+            // A relative argument names a file in the second process's folder, not this one's.
+            let path = album::path_from_args(argv).map(|p| album::resolve_arg(&p, Path::new(&cwd)));
             if w.is_visible().unwrap_or(false) {
-                if let Some(path) = album::path_from_args(argv) {
+                if let Some(path) = path {
                     let _ = app.emit("open-path", path);
                 }
                 let _ = w.unminimize();
                 let _ = w.set_focus();
-            } else if let Some(path) = album::path_from_args(argv) {
+            } else if let Some(path) = path {
                 // Parked: the page reveals the window once the new picture is decoded.
                 let _ = app.emit("open-path", path);
             } else {
@@ -318,6 +309,7 @@ pub fn run() {
             open_with,
             check_update,
             install_update,
+            cancel_update,
             open_releases,
             window::show_fitted,
             window::splash_release,
