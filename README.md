@@ -109,6 +109,40 @@ Plataforma suportada: Windows x64 com WebView2.
 > O instalador não é assinado digitalmente (o workflow de release não assina binários), então o Windows pode mostrar
 > um aviso de editor desconhecido antes de executar.
 
+### Verificar o download
+
+Cada release traz um `SHA256SUMS.txt` com a soma SHA-256 de cada arquivo. Antes de executar o instalador, confira-o no
+PowerShell, na pasta em que baixou os arquivos:
+
+```powershell
+Get-FileHash .\Vislo_<versão>_x64-setup.exe -Algorithm SHA256
+```
+
+Saída real para a v0.5.4:
+
+```
+Algorithm : SHA256
+Hash      : D57BE8DBE813AB3EB9C2FC63C852D315CC25C8F19B9C428B5751A2644FA0D487
+```
+
+O `Hash` tem de ser igual ao da linha `<hash> *Vislo_<versão>_x64-setup.exe` do `SHA256SUMS.txt` (maiúsculas e minúsculas
+não importam). Para comparar sem copiar nada:
+
+```powershell
+$esperado = (Select-String -Path SHA256SUMS.txt -Pattern 'x64-setup.exe').Line.Split(' ')[0]
+(Get-FileHash .\Vislo_<versão>_x64-setup.exe -Algorithm SHA256).Hash -eq $esperado   # True: o arquivo é o publicado
+```
+
+### Aviso do SmartScreen
+
+Como o instalador não é assinado, o SmartScreen do Windows pode bloquear a execução com a mensagem
+*O Windows protegeu o computador*. Depois de conferir o hash, clique em *Mais informações* e em *Executar mesmo assim*.
+
+### Desinstalar
+
+Em *Configurações &rarr; Aplicativos &rarr; Aplicativos instalados* (ou *Aplicativos e recursos*, em versões antigas do
+Windows), escolha **Vislo** e clique em *Desinstalar*. A versão portátil não instala nada: basta apagar o `.exe`.
+
 ## Uso
 
 Abrir uma imagem (a pasta dela vira o álbum). Sem saída no terminal: o app é gráfico.
@@ -212,6 +246,10 @@ início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ─�
   desligar em *Settings &rarr; Updates*; *Check for updates* verifica sob demanda.
 * O instalador é baixado por HTTPS apenas deste repositório e comparado com o `SHA256SUMS.txt` da release; se não
   bater, é descartado.
+* O download mostra o progresso e pode ser cancelado. Uma conexão sem dados por 30 s é tratada como falha; um download
+  que continua chegando não tem limite de tempo total.
+* O instalador fica numa pasta própria em `%LOCALAPPDATA%\Vislo\updates`, apagada após a instalação ou se o download
+  falhar; pastas com mais de 24 h são removidas ao iniciar o Vislo.
 * Cópias portáteis não conseguem se substituir, então o banner oferece o botão *Download* para a página da release.
 
 ### Todo commit em `main` vira uma release
