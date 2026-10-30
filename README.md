@@ -168,7 +168,8 @@ flowchart LR
         lib --> settings["settings.rs: settings.json"]
         lib --> assoc["assoc.rs: associações HKCU"]
         lib --> update["update.rs: releases e SHA256"]
-        scheme["scheme.rs: protocolo vislo://"] --> pool["pool.rs: workers LIFO"]
+        scheme["scheme.rs: rotas vislo:// (/o, /c, /t, /v, /f)"] --> paths["paths.rs: Allowed::resolve"]
+        scheme --> pool["pool.rs: workers LIFO"]
         pool --> decode["decode.rs, raw.rs, resize.rs"]
         decode --> codecs["codecs.rs: JPEG XL, JPEG 2000, SVG"]
         decode --> jpegs["jpeg_scaled.rs: JPEG em 1/2, 1/4, 1/8"]
@@ -178,8 +179,8 @@ flowchart LR
     end
     api -- "invoke (IPC)" --> lib
     filmstrip -- "vislo://" --> scheme
-    viewer -- "asset protocol" --> disk[("Pasta da imagem")]
-    scheme --> disk
+    viewer -- "vislo://" --> scheme
+    paths --> disk[("Pasta da imagem")]
     update -- "HTTPS" --> gh[("GitHub Releases")]
 ```
 
@@ -267,7 +268,7 @@ node scripts/release.mjs plan                       # a versão que o próximo p
 
 ## Por que é rápido
 
-* As imagens carregam direto do disco pelo protocolo de assets do Tauri, sem base64 via IPC.
+* As imagens carregam direto do disco pelo protocolo `vislo://` (rota `/o`, o arquivo original), sem base64 via IPC.
 * A decodificação ocorre fora da thread principal (`img.decode()`); as próximas 4 e as 2 anteriores ficam decodificadas,
   com viés para a direção do movimento.
 * Miniaturas e prévias de JPEG grandes são decodificadas já reduzidas (1/2, 1/4 ou 1/8 no domínio da DCT) quando a
@@ -329,9 +330,10 @@ CI e o planejador de release dependem disso. As regras, as regras de release e a
 
 ## Segurança
 
-* O escopo do asset protocol começa vazio e é ampliado em runtime para o **diretório único** da imagem aberta (sem recursão).
-* O protocolo `vislo://` de miniaturas e conversões só serve arquivos de imagem dentro de uma pasta aberta; todo caminho
-  é canonicalizado antes (path traversal e arquivos que não são imagem recebem 403).
+* Todas as rotas do `vislo://` (`/o`, `/c`, `/t`, `/v`, `/f`) passam por `Allowed::resolve`: o caminho é canonicalizado, tem
+  de ser um arquivo de imagem suportado e a **pasta exata** dele precisa ter sido aberta no app (sem recursão). Caminhos
+  fora disso, path traversal e arquivos que não são imagem recebem 403.
+* O protocolo de assets do Tauri está desligado e fora da CSP; um teste em `album.rs` impede que volte.
 * CSP estrita; só as permissões de tamanho da janela, tela cheia, título e fechar são concedidas ao webview.
 * As alterações de registro para associações de arquivo são apenas por usuário (`HKCU`).
 * As atualizações vêm apenas das releases do GitHub deste repositório, por HTTPS, e o instalador é conferido contra o

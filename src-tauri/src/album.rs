@@ -158,6 +158,18 @@ mod tests {
     }
 
     #[test]
+    fn asset_protocol_stays_disabled() {
+        // The webview reads images only through `vislo://`, which checks each path; the Tauri
+        // asset protocol serves whole folders unchecked, so turning it back on must be deliberate.
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let security = &conf["app"]["security"];
+        assert_ne!(security["assetProtocol"]["enable"].as_bool(), Some(true));
+        let csp = security["csp"].as_str().expect("csp string");
+        assert!(!csp.contains("asset:") && !csp.contains("asset.localhost"), "{csp}");
+    }
+
+    #[test]
     fn friendly_errors_name_the_file_but_never_the_folder() {
         let d = temp_dir("friendly");
         std::fs::write(d.join("a.txt"), b"x").unwrap();

@@ -62,4 +62,4 @@ const handlers: Record<string, (args: any) => unknown> = {
 };
 
 export const invoke = async (cmd: string, args: unknown = {}) => handlers[cmd]?.(args);
-export const convertFileSrc = (name: string, _protocol = "asset") => `/mock/${name}`;
+export const convertFileSrc = (name: string, _protocol = "vislo") => `/mock/${name}`;
