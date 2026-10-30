@@ -10,12 +10,15 @@ export interface Loaded {
 export class ImageCache {
   private entries = new Map<number, Loaded>();
 
-  constructor(private readonly pathOf: (index: number) => string) {}
+  constructor(
+    private readonly pathOf: (index: number) => string,
+    private readonly stampOf: (index: number) => string | undefined = () => undefined,
+  ) {}
 
   get(index: number): Loaded {
     let entry = this.entries.get(index);
     if (!entry) {
-      const src = srcFor(this.pathOf(index));
+      const src = srcFor(this.pathOf(index), this.stampOf(index));
       const early = takePreloaded(src);
       if (early) {
         entry = { img: early.img, ready: early.ready };

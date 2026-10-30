@@ -20,6 +20,8 @@ pub fn script(
         "path": arg,
         // canonical form: identical to the album's own file names, so the page can reuse its prefetch
         "file": canon.as_ref().map(|p| p.to_string_lossy().into_owned()),
+        // same stamp the album will carry, so the launch prefetch URL matches the viewer's
+        "file_stamp": canon.as_ref().and_then(|p| std::fs::metadata(p).ok()).map(|m| album::stamp(&m)),
         "native": canon.as_deref().is_some_and(album::is_native),
         "background": background,
         // a native splash plays the zoom-in, so the page must not play it again
@@ -44,6 +46,7 @@ mod tests {
         let (js, folder) = script(&Settings::default(), file.to_str(), false, false);
         assert!(js.starts_with("window.__VISLO__={") && js.ends_with(";"));
         assert!(js.contains("\"native\":true") && js.contains("\"background\":false"));
+        assert!(js.contains("\"file_stamp\":\"1") && js.contains("-1\""));
         assert_eq!(folder, Some(dunce::canonicalize(&dir).unwrap()));
         let _ = std::fs::remove_dir_all(dir);
     }

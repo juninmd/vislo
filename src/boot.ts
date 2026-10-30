@@ -7,6 +7,8 @@ export interface Boot {
   settings: Settings;
   path: string | null;
   file: string | null;
+  /** The launch file's stamp (see `Album.file_stamps`); absent from older backends. */
+  file_stamp?: string | null;
   native: boolean;
   background: boolean;
   /** A native splash already played the opening zoom-in. */
@@ -43,7 +45,7 @@ function start(src: string): Preloaded {
 export function prefetchLaunchImage(): void {
   const file = boot?.file;
   if (!boot || !file) return;
-  picture = start(srcFor(file));
+  picture = start(srcFor(file, boot.file_stamp ?? undefined));
   if (boot.settings.embedded_preview && (isJpeg(file) || !isNative(file))) preview = start(previewSrc(file));
 }
 

@@ -2,6 +2,7 @@ import { type Album, openPath } from "./api";
 
 interface Synced {
   files(): readonly string[];
+  stamps(): readonly string[];
   position(): number;
   refresh(album: Album): void;
 }
@@ -22,12 +23,14 @@ export function bindFolderSync(viewer: Synced, open: (path: string) => Promise<v
   let busy = false;
   window.addEventListener("focus", async () => {
     const files = viewer.files();
+    const stamps = viewer.stamps();
     const shown = files[viewer.position()];
     if (!shown || busy) return;
     busy = true;
     try {
       const album = await openPath(shown);
-      if (!sameList(album.files, files)) viewer.refresh(album);
+      // a rewritten file keeps its name: the stamps catch it, so its cached pixels are dropped too
+      if (!sameList(album.files, files) || !sameList(album.file_stamps ?? [], stamps)) viewer.refresh(album);
     } catch {
       const next = neighbour(files, viewer.position());
       if (next) await open(next);
