@@ -17,8 +17,9 @@
       </div>
       <div id="msg" role="status"></div>
       <div id="update" role="status" hidden>
-        <span id="update-text"></span>
+        <span id="update-text" aria-live="polite"></span>
         <button id="update-go" type="button" data-i18n="update.install">Update &amp; restart</button>
+        <button id="update-cancel" type="button" data-i18n="update.cancel" hidden>Cancel</button>
         <button id="update-later" type="button" data-i18n-aria="hud.dismiss" data-i18n-tip="hud.later" aria-label="Dismiss" title="Later">✕</button>
       </div>
       <div id="zoomtip" role="status" aria-live="polite"></div>

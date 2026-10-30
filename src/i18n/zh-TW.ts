@@ -71,6 +71,9 @@ export default {
   "update.install": "更新並重新啟動",
   "update.download": "下載",
   "update.downloading": "正在下載…",
+  "update.progress": "正在下載… {percent}%",
+  "update.progressBytes": "正在下載… {megabytes} MB",
+  "update.cancel": "取消",
 
   "info.file": "檔案",
   "info.folder": "資料夾",

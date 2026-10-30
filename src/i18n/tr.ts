@@ -71,6 +71,9 @@ export default {
   "update.install": "Güncelle ve yeniden başlat",
   "update.download": "İndir",
   "update.downloading": "İndiriliyor…",
+  "update.progress": "İndiriliyor… %{percent}",
+  "update.progressBytes": "İndiriliyor… {megabytes} MB",
+  "update.cancel": "İptal",
 
   "info.file": "Dosya",
   "info.folder": "Klasör",

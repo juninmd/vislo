@@ -71,6 +71,9 @@ export default {
   "update.install": "업데이트 후 다시 시작",
   "update.download": "다운로드",
   "update.downloading": "다운로드하는 중…",
+  "update.progress": "다운로드하는 중… {percent}%",
+  "update.progressBytes": "다운로드하는 중… {megabytes} MB",
+  "update.cancel": "취소",
 
   "info.file": "파일",
   "info.folder": "폴더",

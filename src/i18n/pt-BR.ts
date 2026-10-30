@@ -71,6 +71,9 @@ export default {
   "update.install": "Atualizar e reiniciar",
   "update.download": "Baixar",
   "update.downloading": "Baixando…",
+  "update.progress": "Baixando… {percent}%",
+  "update.progressBytes": "Baixando… {megabytes} MB",
+  "update.cancel": "Cancelar",
 
   "info.file": "Arquivo",
   "info.folder": "Pasta",

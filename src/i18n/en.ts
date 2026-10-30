@@ -70,6 +70,9 @@ export const en = {
   "update.install": "Update & restart",
   "update.download": "Download",
   "update.downloading": "Downloading…",
+  "update.progress": "Downloading… {percent}%",
+  "update.progressBytes": "Downloading… {megabytes} MB",
+  "update.cancel": "Cancel",
 
   "info.file": "File",
   "info.folder": "Folder",

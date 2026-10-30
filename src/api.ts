@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./formats";
 
 export interface Album {
@@ -83,6 +84,15 @@ export const openWith = (path: string) => invoke<void>("open_with", { path });
 export const checkUpdate = () => invoke<Update | null>("check_update");
 /** Downloads, verifies and runs the installer; the app quits and comes back updated. */
 export const installUpdate = () => invoke<void>("install_update");
+/** Stops the download `installUpdate` is running; the partial file is discarded. */
+export const cancelUpdate = () => invoke<void>("cancel_update");
+/** Bytes of the installer download so far; `total` is null when the server did not say. */
+export interface UpdateProgress {
+  received: number;
+  total: number | null;
+}
+export const onUpdateProgress = (fn: (p: UpdateProgress) => void) =>
+  listen<UpdateProgress>("update-progress", (e) => fn(e.payload));
 export const openReleases = () => invoke<void>("open_releases");
 
 export const query = (params: Record<string, string | number>): string =>

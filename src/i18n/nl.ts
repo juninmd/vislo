@@ -71,6 +71,9 @@ export default {
   "update.install": "Bijwerken en opnieuw starten",
   "update.download": "Downloaden",
   "update.downloading": "Downloaden…",
+  "update.progress": "Downloaden… {percent}%",
+  "update.progressBytes": "Downloaden… {megabytes} MB",
+  "update.cancel": "Annuleren",
 
   "info.file": "Bestand",
   "info.folder": "Map",

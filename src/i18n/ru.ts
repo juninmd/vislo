@@ -71,6 +71,9 @@ export default {
   "update.install": "Обновить и перезапустить",
   "update.download": "Скачать",
   "update.downloading": "Загрузка…",
+  "update.progress": "Загрузка… {percent}%",
+  "update.progressBytes": "Загрузка… {megabytes} МБ",
+  "update.cancel": "Отмена",
 
   "info.file": "Файл",
   "info.folder": "Папка",
