@@ -239,25 +239,29 @@ pub fn run() {
     if let Some(code) = run_cli_action() {
         std::process::exit(code);
     }
+    let cwd = std::env::current_dir().unwrap_or_default();
     let mut launch = Launch {
-        path: album::path_from_args(std::env::args()),
+        path: album::path_from_args(std::env::args())
+            .map(|p| album::absolutize(&p, &cwd).to_string_lossy().into_owned()),
         background: std::env::args().any(|a| a == "--background"),
         splash: false,
     };
     launch.splash = early_splash(&launch);
     tauri::Builder::default()
         // Must be first: a second launch forwards its file to the running window.
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             let Some(w) = app.get_webview_window("main") else {
                 return;
             };
+            // A relative argument names a file in the second process's folder, not this one's.
+            let path = album::path_from_args(argv).map(|p| album::resolve_arg(&p, Path::new(&cwd)));
             if w.is_visible().unwrap_or(false) {
-                if let Some(path) = album::path_from_args(argv) {
+                if let Some(path) = path {
                     let _ = app.emit("open-path", path);
                 }
                 let _ = w.unminimize();
                 let _ = w.set_focus();
-            } else if let Some(path) = album::path_from_args(argv) {
+            } else if let Some(path) = path {
                 // Parked: the page reveals the window once the new picture is decoded.
                 let _ = app.emit("open-path", path);
             } else {
