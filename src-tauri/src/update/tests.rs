@@ -1,7 +1,14 @@
+mod net;
+
 use super::install::{fetch_installer, is_installed, sha256_hex};
-use super::release::{expected_hash, is_newer, parse_version, pick};
+use super::release::{expected_hash, is_newer, parse_version, Candidate};
+use super::transport::Source;
 use super::{check, REPO};
 use serde_json::{json, Value};
+
+fn pick(release: &Value, current: &str) -> Option<Candidate> {
+    super::release::pick(release, current, Source::GITHUB.download_prefix)
+}
 
 fn release(tag: &str) -> Value {
     let base = format!("https://github.com/{REPO}/releases/download/{tag}");

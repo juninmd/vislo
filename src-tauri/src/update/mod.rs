@@ -10,21 +10,24 @@ mod release;
 mod transport;
 
 #[cfg(test)]
+mod testsupport;
+#[cfg(test)]
 mod tests;
 
 pub use install::{fetch_installer, is_installed, run_installer};
 pub use release::Update;
 
-use transport::{agent, get_text};
+use transport::{agent, get_text, Source};
 
 pub const REPO: &str = "juninmd/vislo";
 
 /// Asks GitHub for the latest release; `None` when already up to date.
 pub fn check(current: &str) -> Result<Option<Update>, String> {
-    let body = get_text(&agent(), &format!("https://api.github.com/repos/{REPO}/releases/latest"))?;
+    let src = Source::GITHUB;
+    let body = get_text(&agent(), &format!("{}/releases/latest", src.api_base))?;
     let release: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
     let installed = std::env::current_exe().is_ok_and(|exe| is_installed(&exe));
-    Ok(release::pick(&release, current).map(|mut c| {
+    Ok(release::pick(&release, current, src.download_prefix).map(|mut c| {
         c.update.installable = installed;
         c.update
     }))

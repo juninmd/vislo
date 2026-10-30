@@ -1,6 +1,5 @@
 //! Reading the GitHub release JSON and the `SHA256SUMS.txt` format; no I/O here.
 
-use super::REPO;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -39,19 +38,19 @@ pub fn is_newer(current: &str, candidate: &str) -> bool {
     }
 }
 
-fn download_url(release: &Value, name: &str) -> Option<String> {
-    let prefix = format!("https://github.com/{REPO}/releases/download/");
+fn download_url(release: &Value, name: &str, prefix: &str) -> Option<String> {
     release["assets"]
         .as_array()?
         .iter()
         .find(|a| a["name"].as_str() == Some(name))
         .and_then(|a| a["browser_download_url"].as_str())
-        .filter(|u| u.starts_with(&prefix)) // never follow a URL outside this repository's releases
+        .filter(|u| u.starts_with(prefix)) // never follow a URL outside this repository's releases
         .map(str::to_string)
 }
 
-/// The newest stable release, if it is newer than `current` and ships an installer and checksums.
-pub fn pick(release: &Value, current: &str) -> Option<Candidate> {
+/// The newest stable release, if it is newer than `current` and ships an installer and checksums
+/// whose download URLs start with `download_prefix`.
+pub fn pick(release: &Value, current: &str, download_prefix: &str) -> Option<Candidate> {
     if release["draft"].as_bool() == Some(true) || release["prerelease"].as_bool() == Some(true) {
         return None;
     }
@@ -73,8 +72,8 @@ pub fn pick(release: &Value, current: &str) -> Option<Candidate> {
             page: release["html_url"].as_str().unwrap_or_default().to_string(),
             installable: false,
         },
-        installer_url: download_url(release, &installer_name)?,
-        sums_url: download_url(release, SUMS_ASSET)?,
+        installer_url: download_url(release, &installer_name, download_prefix)?,
+        sums_url: download_url(release, SUMS_ASSET, download_prefix)?,
         installer_name,
     })
 }

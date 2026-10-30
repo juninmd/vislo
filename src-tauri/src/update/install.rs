@@ -1,15 +1,11 @@
 //! Downloading the installer, checking its digest and starting it.
 
-use super::release::{expected_hash, pick};
-use super::transport::{agent, get_text};
+use super::release::{expected_hash, is_newer, pick};
+use super::transport::{agent, get_text, Source};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-
-use super::REPO;
-
-const MAX_INSTALLER_BYTES: u64 = 300 * 1024 * 1024;
 
 /// Installed copies sit beside the `uninstall.exe` the NSIS installer writes.
 pub fn is_installed(exe: &Path) -> bool {
@@ -30,13 +26,12 @@ pub fn sha256_hex(path: &Path) -> Result<String, String> {
     Ok(hasher.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
 
-fn download(agent: &ureq::Agent, url: &str, dest: &Path) -> Result<(), String> {
+fn download(agent: &ureq::Agent, url: &str, dest: &Path, max_bytes: u64) -> Result<(), String> {
     let mut response = agent.get(url).call().map_err(|e| format!("download failed: {e}"))?;
-    let mut reader = response
-        .body_mut()
-        .with_config()
-        .limit(MAX_INSTALLER_BYTES)
-        .reader();
+    if response.body().content_length().is_some_and(|n| n > max_bytes) {
+        return Err(format!("the installer is larger than the {max_bytes}-byte size limit"));
+    }
+    let mut reader = response.body_mut().with_config().limit(max_bytes).reader();
     let mut out = std::fs::File::create(dest).map_err(|e| e.to_string())?;
     std::io::copy(&mut reader, &mut out).map_err(|e| format!("download failed: {e}"))?;
     out.flush().map_err(|e| e.to_string())
@@ -44,22 +39,34 @@ fn download(agent: &ureq::Agent, url: &str, dest: &Path) -> Result<(), String> {
 
 /// Downloads the installer of the latest release and verifies it against `SHA256SUMS.txt`.
 pub fn fetch_installer(current: &str) -> Result<PathBuf, String> {
+    fetch_installer_from(&Source::GITHUB, current, &std::env::temp_dir())
+}
+
+/// [`fetch_installer`] against any `src`, writing under `dest_root`.
+pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Result<PathBuf, String> {
     let agent = agent();
-    let body = get_text(&agent, &format!("https://api.github.com/repos/{REPO}/releases/latest"))?;
+    let body = get_text(&agent, &format!("{}/releases/latest", src.api_base))?;
     let release: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
-    let c = pick(&release, current).ok_or("already up to date")?;
+    let c = pick(&release, current, src.download_prefix).ok_or_else(|| no_candidate_reason(&release, current))?;
     let expected = expected_hash(&get_text(&agent, &c.sums_url)?, &c.installer_name)
         .ok_or("the release has no checksum for its installer")?;
 
-    let dir = std::env::temp_dir().join(format!("vislo-update-{}", std::process::id()));
+    let dir = dest_root.join(format!("vislo-update-{}", std::process::id()));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let file = dir.join(&c.installer_name);
-    download(&agent, &c.installer_url, &file)?;
+    download(&agent, &c.installer_url, &file, src.max_bytes)?;
     if sha256_hex(&file)? != expected {
         let _ = std::fs::remove_file(&file);
         return Err("the downloaded installer failed its checksum and was discarded".into());
     }
     Ok(file)
+}
+
+fn no_candidate_reason(release: &Value, current: &str) -> &'static str {
+    match release["tag_name"].as_str() {
+        Some(tag) if is_newer(current, tag) => "the latest release has no installer or checksums from this repository",
+        _ => "already up to date",
+    }
 }
 
 /// Runs the installer silently, then starts the new Vislo from the same place.
