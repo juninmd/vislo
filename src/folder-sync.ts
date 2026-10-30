@@ -15,6 +15,15 @@ export function neighbour(files: readonly string[], index: number): string | nul
 }
 
 /**
+ * Only a file that is really gone moves the view. Any other failure (a share that is briefly
+ * unreachable, a locked file) keeps the picture; the next focus simply tries again.
+ */
+export function neighbourIfGone(err: unknown, files: readonly string[], index: number): string | null {
+  const gone = typeof err === "object" && err !== null && (err as { kind?: unknown }).kind === "not_found";
+  return gone ? neighbour(files, index) : null;
+}
+
+/**
  * Re-lists the folder whenever the window regains focus, so files added or deleted in Explorer
  * show up without reopening. If the picture on screen was deleted, its neighbour is opened.
  */
@@ -28,8 +37,8 @@ export function bindFolderSync(viewer: Synced, open: (path: string) => Promise<v
     try {
       const album = await openPath(shown);
       if (!sameList(album.files, files)) viewer.refresh(album);
-    } catch {
-      const next = neighbour(files, viewer.position());
+    } catch (err) {
+      const next = neighbourIfGone(err, files, viewer.position());
       if (next) await open(next);
     } finally {
       busy = false;
