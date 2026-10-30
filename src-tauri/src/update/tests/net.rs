@@ -249,6 +249,26 @@ fn progress_reports_the_bytes_so_far_and_ends_at_the_full_size() {
 }
 
 #[test]
+fn a_cancel_pressed_as_the_download_ends_still_stops_the_install() {
+    static BODY: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| INSTALLER.repeat(40_000));
+    let origin = server_serving(&BODY, |b| Reply::Body(b.to_vec()));
+    let api = format!("{origin}/api");
+    let dl = format!("{origin}/dl/");
+    let plain = format!("{origin}/");
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: u64::MAX, plain_http_origin: Some(&plain), timeouts: FAST };
+    let cancel = AtomicBool::new(false);
+    // the cancel arrives with the last progress report, while the checksum is still to be taken
+    let mut progress = |p: Progress| {
+        if Some(p.received) == p.total {
+            cancel.store(true, Ordering::SeqCst);
+        }
+    };
+    let mut ctl = Control { cancel: &cancel, progress: &mut progress };
+    let err = fetch_installer_from(&src, "0.1.0", &scratch("late-cancel"), &mut ctl).unwrap_err();
+    assert!(err.contains("cancelled"), "{err}");
+}
+
+#[test]
 fn cancelling_stops_the_download_and_discards_the_partial_file() {
     static BODY: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| INSTALLER.repeat(1500));
     let origin = server_serving(&BODY, |b| Reply::Trickle { body: b.to_vec(), chunk: b.len() / 16 + 1, every: Duration::from_millis(50) });

@@ -6,6 +6,7 @@ use super::transport::{api_agent, download_agent, get_text, Source};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::io::Read;
+use std::sync::atomic::Ordering;
 use std::path::{Path, PathBuf};
 
 /// Installed copies sit beside the `uninstall.exe` the NSIS installer writes.
@@ -116,6 +117,10 @@ fn stage(agent: &ureq::Agent, src: &Source, url: &str, file: &Path, expected: &s
     let mut lock = open_locked(file).map_err(|e| e.to_string())?;
     if sha256_hex(&mut lock)? != expected {
         return Err("the downloaded installer failed its checksum and was discarded".into()); // `lock` closes here
+    }
+    // hashing a large file takes a while: a cancel pressed meanwhile must still stop the launch
+    if ctl.cancel.load(Ordering::SeqCst) {
+        return Err("the update was cancelled".into());
     }
     Ok(Installer { path: file.to_path_buf(), _lock: lock })
 }
