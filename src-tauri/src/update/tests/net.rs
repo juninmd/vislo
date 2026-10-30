@@ -44,10 +44,12 @@ fn release_server(installer: &'static [u8], sums: impl Fn(&str) -> String) -> St
     })
 }
 
+/// Runs against `origin` as the test stand-in for GitHub; plain http is allowed on that origin only.
 fn run(origin: &str, max_bytes: u64, dest: &Path) -> Result<PathBuf, String> {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes };
+    let plain = format!("{origin}/");
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes, plain_http_origin: Some(&plain) };
     fetch_installer_from(&src, "0.1.0", dest)
 }
 
@@ -105,6 +107,46 @@ fn both_sha256sum_spellings_are_accepted() {
         let path = run(&origin, MAX, &scratch("spelling")).unwrap_or_else(|e| panic!("{sep:?}: {e}"));
         assert_eq!(path.file_name().unwrap(), NAME);
     }
+}
+
+#[test]
+fn a_redirect_to_another_plain_http_origin_is_refused() {
+    let elsewhere = serve(|_| vec![(format!("/{NAME}"), Reply::Body(INSTALLER.to_vec()))]);
+    let origin = serve(|origin| {
+        let dl = format!("{origin}/dl/");
+        vec![
+            ("/api/releases/latest".into(), Reply::Body(release_json(&format!("{dl}{NAME}"), &format!("{dl}SHA256SUMS.txt")).into_bytes())),
+            (format!("/dl/{NAME}"), Reply::Redirect(format!("{elsewhere}/{NAME}"))),
+            ("/dl/SHA256SUMS.txt".into(), Reply::Body(format!("{}  {NAME}\n", hex(INSTALLER)).into_bytes())),
+        ]
+    });
+    let err = run(&origin, MAX, &scratch("redirect")).unwrap_err();
+    assert!(err.contains("redirect"), "{err}");
+}
+
+#[test]
+fn a_redirect_that_stays_on_the_same_origin_is_followed() {
+    let origin = serve(|origin| {
+        let dl = format!("{origin}/dl/");
+        vec![
+            ("/api/releases/latest".into(), Reply::Body(release_json(&format!("{dl}{NAME}"), &format!("{dl}SHA256SUMS.txt")).into_bytes())),
+            (format!("/dl/{NAME}"), Reply::Redirect(format!("{origin}/moved/{NAME}"))),
+            (format!("/moved/{NAME}"), Reply::Body(INSTALLER.to_vec())),
+            ("/dl/SHA256SUMS.txt".into(), Reply::Body(format!("{}  {NAME}\n", hex(INSTALLER)).into_bytes())),
+        ]
+    });
+    let path = run(&origin, MAX, &scratch("moved")).expect("same-origin redirect");
+    assert_eq!(std::fs::read(&path).unwrap(), INSTALLER);
+}
+
+#[test]
+fn production_refuses_plain_http_even_when_the_server_answers() {
+    let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
+    let api = format!("{origin}/api");
+    let dl = format!("{origin}/dl/");
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: None };
+    let err = fetch_installer_from(&src, "0.1.0", &scratch("https-only")).unwrap_err();
+    assert!(err.contains("https"), "{err}");
 }
 
 #[test]

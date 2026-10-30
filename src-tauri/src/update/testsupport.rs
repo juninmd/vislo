@@ -8,6 +8,7 @@ use std::thread;
 #[derive(Clone)]
 pub enum Reply {
     Body(Vec<u8>),
+    Redirect(String),
 }
 
 /// Starts a server on an ephemeral port and returns its origin (`http://127.0.0.1:port`).
@@ -43,6 +44,9 @@ fn handle(mut stream: TcpStream, routes: &[(String, Reply)]) {
             let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
             stream.write_all(head.as_bytes()).and_then(|()| stream.write_all(body))
         }
+        Some((_, Reply::Redirect(to))) => stream.write_all(
+            format!("HTTP/1.1 302 Found\r\nLocation: {to}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes(),
+        ),
         None => stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"),
     };
 }

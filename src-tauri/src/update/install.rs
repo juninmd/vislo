@@ -1,7 +1,7 @@
 //! Downloading the installer, checking its digest and starting it.
 
 use super::release::{expected_hash, is_newer, pick};
-use super::transport::{agent, get_text, Source};
+use super::transport::{agent, get_text, send, Source};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
@@ -26,12 +26,12 @@ pub fn sha256_hex(path: &Path) -> Result<String, String> {
     Ok(hasher.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
 
-fn download(agent: &ureq::Agent, url: &str, dest: &Path, max_bytes: u64) -> Result<(), String> {
-    let mut response = agent.get(url).call().map_err(|e| format!("download failed: {e}"))?;
-    if response.body().content_length().is_some_and(|n| n > max_bytes) {
-        return Err(format!("the installer is larger than the {max_bytes}-byte size limit"));
+fn download(agent: &ureq::Agent, src: &Source, url: &str, dest: &Path) -> Result<(), String> {
+    let mut response = send(agent, src, url, "application/octet-stream")?;
+    if response.body().content_length().is_some_and(|n| n > src.max_bytes) {
+        return Err(format!("the installer is larger than the {}-byte size limit", src.max_bytes));
     }
-    let mut reader = response.body_mut().with_config().limit(max_bytes).reader();
+    let mut reader = response.body_mut().with_config().limit(src.max_bytes).reader();
     let mut out = std::fs::File::create(dest).map_err(|e| e.to_string())?;
     std::io::copy(&mut reader, &mut out).map_err(|e| format!("download failed: {e}"))?;
     out.flush().map_err(|e| e.to_string())
@@ -44,17 +44,17 @@ pub fn fetch_installer(current: &str) -> Result<PathBuf, String> {
 
 /// [`fetch_installer`] against any `src`, writing under `dest_root`.
 pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Result<PathBuf, String> {
-    let agent = agent();
-    let body = get_text(&agent, &format!("{}/releases/latest", src.api_base))?;
+    let agent = agent(src);
+    let body = get_text(&agent, src, &format!("{}/releases/latest", src.api_base))?;
     let release: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
     let c = pick(&release, current, src.download_prefix).ok_or_else(|| no_candidate_reason(&release, current))?;
-    let expected = expected_hash(&get_text(&agent, &c.sums_url)?, &c.installer_name)
+    let expected = expected_hash(&get_text(&agent, src, &c.sums_url)?, &c.installer_name)
         .ok_or("the release has no checksum for its installer")?;
 
     let dir = dest_root.join(format!("vislo-update-{}", std::process::id()));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let file = dir.join(&c.installer_name);
-    download(&agent, &c.installer_url, &file, src.max_bytes)?;
+    download(&agent, src, &c.installer_url, &file)?;
     if sha256_hex(&file)? != expected {
         let _ = std::fs::remove_file(&file);
         return Err("the downloaded installer failed its checksum and was discarded".into());
