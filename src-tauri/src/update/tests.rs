@@ -52,6 +52,14 @@ fn picks_a_newer_stable_release_with_installer_and_checksums() {
 }
 
 #[test]
+fn a_second_install_is_refused_while_one_is_running() {
+    let first = super::InstallSession::start().expect("the first install starts");
+    assert!(super::InstallSession::start().is_err(), "two installers must never run at once");
+    drop(first);
+    assert!(super::InstallSession::start().is_ok(), "the guard is released when the install ends");
+}
+
+#[test]
 fn only_the_installer_named_for_the_release_version_is_picked() {
     // a stray `*-setup.exe` listed first must not win over the installer the release workflow names
     let mut r = release("v0.2.0");

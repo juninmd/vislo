@@ -136,6 +136,7 @@ async fn check_update() -> Result<Option<update::Update>, String> {
 /// Downloads and verifies the latest installer, starts it and quits so it can replace the files.
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
+    let _session = update::InstallSession::start()?;
     let setup = tauri::async_runtime::spawn_blocking(|| update::fetch_installer(env!("CARGO_PKG_VERSION")))
         .await
         .map_err(|e| e.to_string())??;

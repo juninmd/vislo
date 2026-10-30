@@ -20,9 +20,31 @@ pub use cleanup::remove_stale_runs_at_startup;
 pub use install::{fetch_installer, is_installed, run_installer};
 pub use release::Update;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use transport::{api_agent, get_text, Source};
 
 pub const REPO: &str = "juninmd/vislo";
+
+static IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+
+/// Held from the download to the launch of the installer. Two runs would race for the same folder and
+/// could start two silent installers, so a second start is refused while this exists.
+pub struct InstallSession(());
+
+impl InstallSession {
+    pub fn start() -> Result<Self, String> {
+        if IN_FLIGHT.swap(true, Ordering::SeqCst) {
+            return Err("an update is already in progress".into());
+        }
+        Ok(Self(()))
+    }
+}
+
+impl Drop for InstallSession {
+    fn drop(&mut self) {
+        IN_FLIGHT.store(false, Ordering::SeqCst);
+    }
+}
 
 /// Asks GitHub for the latest release; `None` when already up to date.
 pub fn check(current: &str) -> Result<Option<Update>, String> {
