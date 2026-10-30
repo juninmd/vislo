@@ -207,6 +207,27 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
     }
 
+    /// Benchmark, not a gate: `cargo test --release album_bench -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "benchmark: run with --release --ignored --nocapture"]
+    fn album_bench() {
+        const FILES: usize = 50_000;
+        let d = temp_dir("bench");
+        for i in 0..FILES {
+            std::fs::write(d.join(format!("img{i:05}.jpg")), b"").unwrap();
+        }
+        let shown = d.join("img00000.jpg");
+        let mut best = f64::MAX;
+        for _ in 0..5 {
+            let t = std::time::Instant::now();
+            let album = open(&shown).unwrap();
+            best = best.min(t.elapsed().as_secs_f64() * 1e3);
+            assert_eq!(album.files.len(), FILES);
+        }
+        eprintln!("album_bench: {FILES} files, best of 5 open(): {best:.1} ms");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
     #[test]
     fn open_rejects_non_images_and_missing_files() {
         let d = temp_dir("reject");
