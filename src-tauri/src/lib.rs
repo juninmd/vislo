@@ -105,7 +105,7 @@ async fn pick_image(app: AppHandle, window: tauri::WebviewWindow) -> Option<Stri
 }
 
 #[tauri::command]
-async fn copy_image(svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+async fn copy_image(svc: State<'_, Arc<Services>>, path: String) -> Result<Option<(u32, u32)>, String> {
     clipboard::copy_image(&svc.allowed.resolve(&path)?)
 }
 

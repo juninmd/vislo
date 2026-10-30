@@ -59,6 +59,10 @@ export const en = {
   "menu.openWith": "Open with…",
 
   "msg.copied": "Copied to clipboard",
+  "msg.copiedDownscaled": "Copied, downscaled to {w}×{h} for the clipboard",
+  "msg.copyDenied": "Clipboard access was denied",
+  "msg.copyTooLarge": "The image is too large to copy from the page",
+  "msg.copyFailed": "Could not copy the image",
   "msg.registered": "Registered. Pick Vislo for your image types in Settings > Default apps.",
   "msg.tickFormat": "Tick at least one format first",
   "msg.invalidImage": "{name} is not a valid image file",

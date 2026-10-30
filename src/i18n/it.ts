@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Apri con…",
 
   "msg.copied": "Copiato negli appunti",
+  "msg.copiedDownscaled": "Copiato, ridotto a {w}×{h} per gli appunti",
+  "msg.copyDenied": "Accesso agli appunti negato",
+  "msg.copyTooLarge": "Immagine troppo grande per copiarla dalla pagina",
+  "msg.copyFailed": "Impossibile copiare l’immagine",
   "msg.registered": "Registrato. Scegli Vislo per i tuoi tipi di immagine in Impostazioni > App predefinite.",
   "msg.tickFormat": "Seleziona prima almeno un formato",
   "msg.invalidImage": "{name} non è un file immagine valido",

@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Otwórz za pomocą…",
 
   "msg.copied": "Skopiowano do schowka",
+  "msg.copiedDownscaled": "Skopiowano, zmniejszono do {w}×{h} dla schowka",
+  "msg.copyDenied": "Odmowa dostępu do schowka",
+  "msg.copyTooLarge": "Obraz jest za duży, aby skopiować go ze strony",
+  "msg.copyFailed": "Nie udało się skopiować obrazu",
   "msg.registered": "Zarejestrowano. Wybierz Vislo dla swoich typów obrazów w Ustawienia > Aplikacje domyślne.",
   "msg.tickFormat": "Najpierw zaznacz co najmniej jeden format",
   "msg.invalidImage": "{name} nie jest prawidłowym plikiem obrazu",

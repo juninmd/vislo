@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Birlikte aç…",
 
   "msg.copied": "Panoya kopyalandı",
+  "msg.copiedDownscaled": "Panoya kopyalandı, {w}×{h} boyutuna küçültüldü",
+  "msg.copyDenied": "Panoya erişim reddedildi",
+  "msg.copyTooLarge": "Görüntü, sayfadan kopyalamak için çok büyük",
+  "msg.copyFailed": "Görüntü kopyalanamadı",
   "msg.registered": "Kaydedildi. Görüntü türleriniz için Vislo’yu Ayarlar > Varsayılan uygulamalar bölümünden seçin.",
   "msg.tickFormat": "Önce en az bir biçim işaretleyin",
   "msg.invalidImage": "{name} geçerli bir görüntü dosyası değil",

@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Öffnen mit…",
 
   "msg.copied": "In die Zwischenablage kopiert",
+  "msg.copiedDownscaled": "In die Zwischenablage kopiert, auf {w}×{h} verkleinert",
+  "msg.copyDenied": "Zugriff auf die Zwischenablage verweigert",
+  "msg.copyTooLarge": "Das Bild ist zu groß, um es von der Seite zu kopieren",
+  "msg.copyFailed": "Bild konnte nicht kopiert werden",
   "msg.registered": "Registriert. Wähle Vislo für deine Bildtypen unter Einstellungen > Standard-Apps.",
   "msg.tickFormat": "Wähle zuerst mindestens ein Format aus",
   "msg.invalidImage": "{name} ist keine gültige Bilddatei",

@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Openen met…",
 
   "msg.copied": "Gekopieerd naar klembord",
+  "msg.copiedDownscaled": "Gekopieerd, verkleind naar {w}×{h} voor het klembord",
+  "msg.copyDenied": "Toegang tot het klembord is geweigerd",
+  "msg.copyTooLarge": "De afbeelding is te groot om vanaf de pagina te kopiëren",
+  "msg.copyFailed": "Kon de afbeelding niet kopiëren",
   "msg.registered": "Geregistreerd. Kies Vislo voor je afbeeldingstypen in Instellingen > Standaard-apps.",
   "msg.tickFormat": "Vink eerst minstens één indeling aan",
   "msg.invalidImage": "{name} is geen geldig afbeeldingsbestand",

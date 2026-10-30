@@ -281,7 +281,7 @@ node scripts/release.mjs plan                       # a versão que o próximo p
 | `0` | ajustar à janela |
 | Arrastar | move a imagem em qualquer zoom |
 | Arrastar / duplo clique na barra superior | mover a janela / maximizar ↔ janela |
-| `Ctrl+C` | copia a imagem para a área de transferência |
+| `Ctrl+C` | copia a imagem para a área de transferência (AVIF e SVG pela página; imagens acima de 8192 px de lado ou 256 MiB de RGBA são reduzidas antes) |
 | `O`, `Ctrl+O` | abrir uma imagem (diálogo de arquivo) |
 | Botão direito | menu: copiar, abrir, mostrar na pasta, abrir com, info, apresentação, … |
 | `R` / `Shift+R` | gira a visualização no sentido horário / anti-horário |
