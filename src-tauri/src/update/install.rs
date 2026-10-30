@@ -1,7 +1,7 @@
 //! Downloading the installer, checking its digest and starting it.
 
 use super::release::{expected_hash, is_newer, pick};
-use super::download::download;
+use super::download::{download, Control, Progress};
 use super::transport::{api_agent, download_agent, get_text, Source};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -55,8 +55,9 @@ impl Installer {
 }
 
 /// Downloads the installer of the latest release and verifies it against `SHA256SUMS.txt`.
-pub fn fetch_installer(current: &str) -> Result<Installer, String> {
-    fetch_installer_from(&Source::GITHUB, current, &updates_root()?)
+pub fn fetch_installer(current: &str, progress: &mut dyn FnMut(Progress)) -> Result<Installer, String> {
+    let mut ctl = Control { cancel: &super::CANCEL, progress };
+    fetch_installer_from(&Source::GITHUB, current, &updates_root()?, &mut ctl)
 }
 
 /// Per-user and not shared with other programs, unlike the temp folder.
@@ -93,7 +94,7 @@ fn random_name() -> String {
 }
 
 /// [`fetch_installer`] against any `src`, writing under `dest_root`.
-pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Result<Installer, String> {
+pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path, ctl: &mut Control) -> Result<Installer, String> {
     let api = api_agent(src);
     let body = get_text(&api, src, &format!("{}/releases/latest", src.api_base))?;
     let release: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
@@ -102,7 +103,7 @@ pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Re
         .ok_or("the release has no checksum for its installer")?;
 
     let dir = new_run_dir(dest_root)?;
-    let result = stage(&download_agent(src), src, &c.installer_url, &dir.join(&c.installer_name), &expected);
+    let result = stage(&download_agent(src), src, &c.installer_url, &dir.join(&c.installer_name), &expected, ctl);
     if result.is_err() {
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -110,8 +111,8 @@ pub fn fetch_installer_from(src: &Source, current: &str, dest_root: &Path) -> Re
 }
 
 /// Downloads to `file` and returns it locked once its checksum matches.
-fn stage(agent: &ureq::Agent, src: &Source, url: &str, file: &Path, expected: &str) -> Result<Installer, String> {
-    download(agent, src, url, file)?;
+fn stage(agent: &ureq::Agent, src: &Source, url: &str, file: &Path, expected: &str, ctl: &mut Control) -> Result<Installer, String> {
+    download(agent, src, url, file, ctl)?;
     let mut lock = open_locked(file).map_err(|e| e.to_string())?;
     if sha256_hex(&mut lock)? != expected {
         return Err("the downloaded installer failed its checksum and was discarded".into()); // `lock` closes here

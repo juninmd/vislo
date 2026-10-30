@@ -134,12 +134,12 @@ fn only_copies_next_to_an_uninstaller_count_as_installed() {
 fn live_release_is_offered_downloaded_and_verified() {
     let update = check("0.0.1").expect("GitHub answers").expect("an old copy is offered the latest release");
     assert!(update.page.starts_with("https://github.com/juninmd/vislo/releases/tag/v"));
-    let setup = fetch_installer("0.0.1").expect("download and checksum").path().to_path_buf();
+    let setup = fetch_installer("0.0.1", &mut |_| {}).expect("download and checksum").path().to_path_buf();
     let name = setup.file_name().unwrap().to_string_lossy().into_owned();
     assert!(name.starts_with("Vislo_") && name.ends_with("_x64-setup.exe"), "{name}");
     assert!(name.contains(&update.version), "{name} is not {}", update.version);
     assert_eq!(std::fs::read(&setup).unwrap()[..2], *b"MZ", "an installer is a Windows executable");
-    assert!(fetch_installer(&update.version).is_err(), "the latest copy has nothing to update to");
+    assert!(fetch_installer(&update.version, &mut |_| {}).is_err(), "the latest copy has nothing to update to");
     println!("verified {name} ({} bytes)", std::fs::metadata(&setup).unwrap().len());
     let _ = std::fs::remove_dir_all(setup.parent().unwrap());
 }

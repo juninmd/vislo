@@ -17,6 +17,7 @@ mod testsupport;
 mod tests;
 
 pub use cleanup::remove_stale_runs_at_startup;
+pub use download::Progress;
 pub use install::{fetch_installer, is_installed, run_installer};
 pub use release::Update;
 
@@ -26,6 +27,8 @@ use transport::{api_agent, get_text, Source};
 pub const REPO: &str = "juninmd/vislo";
 
 static IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+/// Set by [`cancel_install`]; read by the download loop.
+static CANCEL: AtomicBool = AtomicBool::new(false);
 
 /// Held from the download to the launch of the installer. Two runs would race for the same folder and
 /// could start two silent installers, so a second start is refused while this exists.
@@ -36,8 +39,14 @@ impl InstallSession {
         if IN_FLIGHT.swap(true, Ordering::SeqCst) {
             return Err("an update is already in progress".into());
         }
+        CANCEL.store(false, Ordering::SeqCst);
         Ok(Self(()))
     }
+}
+
+/// Asks the running install to stop; its partial download is discarded.
+pub fn cancel_install() {
+    CANCEL.store(true, Ordering::SeqCst);
 }
 
 impl Drop for InstallSession {

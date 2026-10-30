@@ -137,12 +137,23 @@ async fn check_update() -> Result<Option<update::Update>, String> {
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
     let _session = update::InstallSession::start()?;
-    let setup = tauri::async_runtime::spawn_blocking(|| update::fetch_installer(env!("CARGO_PKG_VERSION")))
-        .await
-        .map_err(|e| e.to_string())??;
+    let reporter = app.clone();
+    let setup = tauri::async_runtime::spawn_blocking(move || {
+        update::fetch_installer(env!("CARGO_PKG_VERSION"), &mut |p| {
+            let _ = reporter.emit("update-progress", p);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     update::run_installer(&setup)?;
     app.exit(0);
     Ok(())
+}
+
+/// Stops a download that `install_update` is running; the partial file is discarded.
+#[tauri::command]
+fn cancel_update() {
+    update::cancel_install();
 }
 
 /// Portable copies cannot replace themselves: send the user to the releases page.
@@ -318,6 +329,7 @@ pub fn run() {
             open_with,
             check_update,
             install_update,
+            cancel_update,
             open_releases,
             window::show_fitted,
             window::splash_release,

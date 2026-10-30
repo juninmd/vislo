@@ -1,10 +1,12 @@
 //! The download path end to end, against a loopback server that stands in for GitHub.
 
+use crate::update::download::{Control, Progress};
 use crate::update::install::fetch_installer_from;
 use crate::update::testsupport::{serve, Reply};
 use crate::update::transport::{Source, Timeouts};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 const INSTALLER: &[u8] = b"MZ synthetic installer bytes, not an executable";
@@ -50,13 +52,21 @@ fn release_server(installer: &'static [u8], sums: impl Fn(&str) -> String) -> St
     })
 }
 
+/// A fetch with nothing watching it: no cancel, progress discarded.
+fn fetch_from(src: &Source, dest: &Path) -> Result<crate::update::install::Installer, String> {
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_: Progress| {};
+    let mut ctl = Control { cancel: &cancel, progress: &mut progress };
+    fetch_installer_from(src, "0.1.0", dest, &mut ctl)
+}
+
 /// Runs against `origin` as the test stand-in for GitHub; plain http is allowed on that origin only.
 fn run(origin: &str, max_bytes: u64, dest: &Path) -> Result<PathBuf, String> {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
     let src = Source { api_base: &api, download_prefix: &dl, max_bytes, plain_http_origin: Some(&plain), timeouts: FAST };
-    fetch_installer_from(&src, "0.1.0", dest).map(|installer| installer.path().to_path_buf())
+    fetch_from(&src, dest).map(|installer| installer.path().to_path_buf())
 }
 
 fn scratch(name: &str) -> PathBuf {
@@ -123,7 +133,7 @@ fn a_verified_installer_cannot_be_replaced_until_it_runs() {
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
     let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain), timeouts: FAST };
-    let installer = fetch_installer_from(&src, "0.1.0", &scratch("locked")).expect("verified installer");
+    let installer = fetch_from(&src, &scratch("locked")).expect("verified installer");
     let writer = std::fs::OpenOptions::new().write(true).open(installer.path());
     assert!(writer.is_err(), "a writer could swap the installer after its checksum was taken");
 }
@@ -174,7 +184,7 @@ fn production_refuses_plain_http_even_when_the_server_answers() {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: None, timeouts: FAST };
-    let err = fetch_installer_from(&src, "0.1.0", &scratch("https-only")).unwrap_err();
+    let err = fetch_from(&src, &scratch("https-only")).unwrap_err();
     assert!(err.contains("https"), "{err}");
 }
 
@@ -219,4 +229,47 @@ fn a_stalled_download_fails_after_the_inactivity_window_not_at_the_end_of_the_st
     let err = run(&origin, u64::MAX, &scratch("stall")).unwrap_err();
     assert!(started.elapsed() < Duration::from_secs(2), "gave up after {:?}", started.elapsed());
     assert!(err.contains("stalled"), "{err}");
+}
+
+#[test]
+fn progress_reports_the_bytes_so_far_and_ends_at_the_full_size() {
+    let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
+    let api = format!("{origin}/api");
+    let dl = format!("{origin}/dl/");
+    let plain = format!("{origin}/");
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain), timeouts: FAST };
+    let cancel = AtomicBool::new(false);
+    let mut seen = Vec::new();
+    let mut progress = |p: Progress| seen.push(p);
+    let mut ctl = Control { cancel: &cancel, progress: &mut progress };
+    fetch_installer_from(&src, "0.1.0", &scratch("progress"), &mut ctl).expect("verified installer");
+    let last = *seen.last().expect("at least one report");
+    assert_eq!(last, Progress { received: INSTALLER.len() as u64, total: Some(INSTALLER.len() as u64) });
+    assert!(seen.windows(2).all(|w| w[0].received <= w[1].received), "progress never goes backwards");
+}
+
+#[test]
+fn cancelling_stops_the_download_and_discards_the_partial_file() {
+    static BODY: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| INSTALLER.repeat(1500));
+    let origin = server_serving(&BODY, |b| Reply::Trickle { body: b.to_vec(), chunk: b.len() / 16 + 1, every: Duration::from_millis(50) });
+    let api = format!("{origin}/api");
+    let dl = format!("{origin}/dl/");
+    let plain = format!("{origin}/");
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: u64::MAX, plain_http_origin: Some(&plain), timeouts: FAST };
+    let dest = scratch("cancel");
+    let cancel = AtomicBool::new(false);
+    let mut progress = |_: Progress| {};
+    let mut ctl = Control { cancel: &cancel, progress: &mut progress };
+    let started = Instant::now();
+    let flag = &cancel;
+    let err = std::thread::scope(|s| {
+        s.spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            flag.store(true, Ordering::SeqCst);
+        });
+        fetch_installer_from(&src, "0.1.0", &dest, &mut ctl).unwrap_err()
+    });
+    assert!(err.contains("cancelled"), "{err}");
+    assert!(started.elapsed() < Duration::from_millis(700), "a cancel must not wait for the whole download");
+    assert_eq!(files_named(&dest, NAME), 0, "the partial installer must be removed");
 }
