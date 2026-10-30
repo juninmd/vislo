@@ -66,11 +66,21 @@ Running copies of Vislo find the release through the built-in updater (`src-taur
   npm ci && npm test && npm run build
   cargo test --manifest-path src-tauri/Cargo.toml
   cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings   # on Windows, as in CI
+  cargo audit --file src-tauri/Cargo.lock                           # the `audit` job, with cargo-audit 0.22.2
+  npm audit --omit=dev --audit-level=high                           # the `audit` job
   ```
 
-* CI gates: `ci` (`commits` + `check` above) and `Validate` run on PRs; `Security Scan` runs on `main` and weekly
-  (`Validate` and `Security Scan` are reusable workflows from `juninmd/base-actions`).
+* CI gates: `ci` (`commits`, `check`, `audit`, `actionlint`) and `Validate` run on PRs; `Security Scan` runs on `main`
+  and weekly (`Validate` and `Security Scan` are reusable workflows from `juninmd/base-actions`).
   `pwsh scripts/ci-local.ps1` runs the `check` steps locally.
+* The `ci` workflow is also called by `release.yml`, so the `audit` gate blocks a release too. A new advisory in a
+  dependency stops the next release until the dependency is upgraded, or until a reviewed ignore is added to
+  `.cargo/audit.toml` (repo root, read by `cargo audit` from there) with the reason and an expiry; never delete the gate to ship.
+* Third-party actions are pinned by commit SHA with a `# vX.Y.Z` comment; Dependabot (`.github/dependabot.yml`)
+  bumps them. `dtolnay/rust-toolchain` is pinned to a branch-head SHA, which Dependabot does not track: refresh it by
+  hand. Workflow files are checked with `actionlint` (pinned 1.7.12) in the `actionlint` job.
+* Every job sets `timeout-minutes`. Jobs that call a reusable workflow cannot set it (GitHub rejects the key), so the
+  limit lives in the called workflow.
 * UI changes: regenerate the README screenshots with `npm run screenshots` and commit the PNGs in
   `assets/screenshots/` when the look changes.
 

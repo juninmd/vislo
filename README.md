@@ -109,23 +109,82 @@ Plataforma suportada: Windows x64 com WebView2.
 > O instalador não é assinado digitalmente (o workflow de release não assina binários), então o Windows pode mostrar
 > um aviso de editor desconhecido antes de executar.
 
+### Verificar o download
+
+Cada release traz um `SHA256SUMS.txt` com a soma SHA-256 de cada arquivo. Antes de executar o instalador, confira-o no
+PowerShell, na pasta em que baixou os arquivos:
+
+```powershell
+Get-FileHash .\Vislo_<versão>_x64-setup.exe -Algorithm SHA256
+```
+
+Saída real para a v0.5.4:
+
+```
+Algorithm : SHA256
+Hash      : D57BE8DBE813AB3EB9C2FC63C852D315CC25C8F19B9C428B5751A2644FA0D487
+```
+
+O `Hash` tem de ser igual ao da linha `<hash> *Vislo_<versão>_x64-setup.exe` do `SHA256SUMS.txt` (maiúsculas e minúsculas
+não importam). Para comparar sem copiar nada:
+
+```powershell
+$esperado = (Select-String -Path SHA256SUMS.txt -Pattern 'x64-setup.exe').Line.Split(' ')[0]
+(Get-FileHash .\Vislo_<versão>_x64-setup.exe -Algorithm SHA256).Hash -eq $esperado   # True: o arquivo é o publicado
+```
+
+### Aviso do SmartScreen
+
+Como o instalador não é assinado, o SmartScreen do Windows pode bloquear a execução com a mensagem
+*O Windows protegeu o computador*. Depois de conferir o hash, clique em *Mais informações* e em *Executar mesmo assim*.
+
+### Desinstalar
+
+Em *Configurações &rarr; Aplicativos &rarr; Aplicativos instalados* (ou *Aplicativos e recursos*, em versões antigas do
+Windows), escolha **Vislo** e clique em *Desinstalar*. A versão portátil não instala nada: basta apagar o `.exe`.
+
 ## Uso
 
-Abrir uma imagem (a pasta dela vira o álbum). Sem saída no terminal: o app é gráfico.
+Abrir uma imagem (a pasta dela vira o álbum). Caminhos relativos também funcionam, inclusive numa segunda execução
+com o app já aberto: são resolvidos na pasta de quem executou.
 
 ```sh
 vislo.exe "C:\fotos\ferias\praia.jpg"
+vislo.exe ..\ferias\praia.jpg
+```
+
+Ajuda e versão saem no terminal de quem chamou (`src-tauri/src/cli.rs`). Saída real do build de desenvolvimento:
+
+```text
+$ vislo.exe --version
+vislo 0.5.4
+
+$ vislo.exe --help
+Vislo: fast image viewer.
+
+Usage:
+  vislo [FILE]                            open FILE; its folder becomes the album
+  vislo --background                      start parked in the tray (needs Keep ready)
+  vislo --register-associations [GROUPS]  make Vislo the default for GROUPS
+  vislo --unregister-associations         remove that registration
+  vislo --help, -h                        show this help
+  vislo --version, -V                     show the version
+
+Groups (comma-separated, default all): jpeg, png, gif, bmp, tiff, tga, webp, avif, ico, svg, jxl, jp2, psd, pnm, hdr, other, raw
+
+Exit codes: 0 success, 1 failure, 2 bad usage.
 ```
 
 Registrar o Vislo como visualizador padrão por grupos de formato, sem abrir a janela principal, e desfazer depois.
-Alteram só o registro por usuário (`HKCU`); saída não verificada (não executado, para não alterar o registro desta máquina):
+Alteram só o registro por usuário (`HKCU`); a saída de sucesso não foi executada, para não alterar o registro desta máquina:
 
 ```sh
 vislo.exe --register-associations jpeg,png,raw
 vislo.exe --unregister-associations
 ```
 
-Os dois comandos retornam código de saída `0` em sucesso e `1` em falha (`src-tauri/src/lib.rs`). Ao registrar, o Windows
+Os comandos retornam código `0` em sucesso, `1` em falha e `2` em uso incorreto: grupo desconhecido ou opção que começa com
+`--` e não existe. Nesses casos a mensagem e a lista de grupos válidos vão para stderr, e nada é alterado. Ao registrar, o Windows
 abre *Configurações &rarr; Aplicativos padrão* para você confirmar. *Abrir com &rarr; Vislo*
 funciona em qualquer imagem. Para iniciar já estacionado na bandeja (só vale com *Keep ready* ligado; senão o processo encerra):
 
@@ -168,7 +227,8 @@ flowchart LR
         lib --> settings["settings.rs: settings.json"]
         lib --> assoc["assoc.rs: associações HKCU"]
         lib --> update["update.rs: releases e SHA256"]
-        scheme["scheme.rs: protocolo vislo://"] --> pool["pool.rs: workers LIFO"]
+        scheme["scheme.rs: rotas vislo:// (/o, /c, /t, /v, /f)"] --> paths["paths.rs: Allowed::resolve"]
+        scheme --> pool["pool.rs: workers LIFO"]
         pool --> decode["decode.rs, raw.rs, resize.rs"]
         decode --> codecs["codecs.rs: JPEG XL, JPEG 2000, SVG"]
         decode --> jpegs["jpeg_scaled.rs: JPEG em 1/2, 1/4, 1/8"]
@@ -178,8 +238,8 @@ flowchart LR
     end
     api -- "invoke (IPC)" --> lib
     filmstrip -- "vislo://" --> scheme
-    viewer -- "asset protocol" --> disk[("Pasta da imagem")]
-    scheme --> disk
+    viewer -- "vislo://" --> scheme
+    paths --> disk[("Pasta da imagem")]
     update -- "HTTPS" --> gh[("GitHub Releases")]
 ```
 
@@ -212,6 +272,10 @@ início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ─�
   desligar em *Settings &rarr; Updates*; *Check for updates* verifica sob demanda.
 * O instalador é baixado por HTTPS apenas deste repositório e comparado com o `SHA256SUMS.txt` da release; se não
   bater, é descartado.
+* O download mostra o progresso e pode ser cancelado. Uma conexão sem dados por 30 s é tratada como falha; enquanto os
+  dados continuam chegando, o download não é cortado por um prazo curto (há um teto de 1 h para o corpo).
+* O instalador fica numa pasta própria em `%LOCALAPPDATA%\Vislo\updates`, apagada após a instalação ou se o download
+  falhar; pastas com mais de 24 h são removidas ao iniciar o Vislo.
 * Cópias portáteis não conseguem se substituir, então o banner oferece o botão *Download* para a página da release.
 
 ### Todo commit em `main` vira uma release
@@ -255,7 +319,7 @@ node scripts/release.mjs plan                       # a versão que o próximo p
 | `0` | ajustar à janela |
 | Arrastar | move a imagem em qualquer zoom |
 | Arrastar / duplo clique na barra superior | mover a janela / maximizar ↔ janela |
-| `Ctrl+C` | copia a imagem para a área de transferência |
+| `Ctrl+C` | copia a imagem para a área de transferência (AVIF e SVG pela página; imagens acima de 8192 px de lado ou 256 MiB de RGBA são reduzidas antes) |
 | `O`, `Ctrl+O` | abrir uma imagem (diálogo de arquivo) |
 | Botão direito | menu: copiar, abrir, mostrar na pasta, abrir com, info, apresentação, … |
 | `R` / `Shift+R` | gira a visualização no sentido horário / anti-horário |
@@ -267,7 +331,7 @@ node scripts/release.mjs plan                       # a versão que o próximo p
 
 ## Por que é rápido
 
-* As imagens carregam direto do disco pelo protocolo de assets do Tauri, sem base64 via IPC.
+* As imagens carregam direto do disco pelo protocolo `vislo://` (rota `/o`, o arquivo original), sem base64 via IPC.
 * A decodificação ocorre fora da thread principal (`img.decode()`); as próximas 4 e as 2 anteriores ficam decodificadas,
   com viés para a direção do movimento.
 * Miniaturas e prévias de JPEG grandes são decodificadas já reduzidas (1/2, 1/4 ou 1/8 no domínio da DCT) quando a
@@ -316,10 +380,14 @@ O app não lê variáveis de ambiente para configuração; `VISLO_FIXTURES` só 
 
 | Workflow | Quando | O que checa |
 |---|---|---|
-| `ci.yml` (`ci`) | pull request, manual e chamado pelo release | job `commits`: título do PR e cada commit seguem Conventional Commits; job `check` (Windows): `npm ci`, `npm test`, `npm run build`, `cargo test`, `cargo clippy -D warnings` |
+| `ci.yml` (`ci`) | pull request, manual e chamado pelo release | job `commits`: título do PR e cada commit seguem Conventional Commits; job `check` (Windows): `npm ci`, `npm test`, `npm run build`, `cargo test`, `cargo clippy -D warnings`; job `audit` (Ubuntu): `cargo audit` no `Cargo.lock` (reprova vulnerabilidade conhecida; avisos de manutenção não reprovam) e `npm audit --omit=dev --audit-level=high`; job `actionlint` (Ubuntu): lint dos workflows |
 | `release.yml` (`release`) | push em `main` | roda o `ci`, calcula a versão, constrói instalador e exe portátil, escreve `SHA256SUMS.txt`, commita `chore(release)`, tagueia e publica a release |
 | `validate.yml` (`Validate`) | pull request e push em `main` | validação reutilizável de `juninmd/base-actions` (`reusable-validate.yml`) |
 | `security.yml` (`Security Scan`) | push em `main`, manual e semanal (domingo 00:00 UTC) | varredura de segurança reutilizável de `juninmd/base-actions` (`reusable-security-scan.yml`) |
+
+As actions de terceiros estão fixadas por SHA de commit, com a versão em comentário; o Dependabot
+(`.github/dependabot.yml`) atualiza esses SHAs. Os jobs têm `timeout-minutes`, exceto os que chamam workflows
+reutilizáveis, onde o GitHub não aceita o campo e o limite vem do workflow chamado.
 
 ## Contribuindo
 
@@ -329,9 +397,10 @@ CI e o planejador de release dependem disso. As regras, as regras de release e a
 
 ## Segurança
 
-* O escopo do asset protocol começa vazio e é ampliado em runtime para o **diretório único** da imagem aberta (sem recursão).
-* O protocolo `vislo://` de miniaturas e conversões só serve arquivos de imagem dentro de uma pasta aberta; todo caminho
-  é canonicalizado antes (path traversal e arquivos que não são imagem recebem 403).
+* Todas as rotas do `vislo://` (`/o`, `/c`, `/t`, `/v`, `/f`) passam por `Allowed::resolve`: o caminho é canonicalizado, tem
+  de ser um arquivo de imagem suportado e a **pasta exata** dele precisa ter sido aberta no app (sem recursão). Caminhos
+  fora disso, path traversal e arquivos que não são imagem recebem 403.
+* O protocolo de assets do Tauri está desligado e fora da CSP; um teste em `album.rs` impede que volte.
 * CSP estrita; só as permissões de tamanho da janela, tela cheia, título e fechar são concedidas ao webview.
 * As alterações de registro para associações de arquivo são apenas por usuário (`HKCU`).
 * As atualizações vêm apenas das releases do GitHub deste repositório, por HTTPS, e o instalador é conferido contra o

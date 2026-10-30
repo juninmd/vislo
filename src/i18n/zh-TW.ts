@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "開啟方式…",
 
   "msg.copied": "已複製到剪貼簿",
+  "msg.copiedDownscaled": "已複製到剪貼簿（已縮小為 {w}×{h}）",
+  "msg.copyDenied": "剪貼簿存取被拒絕",
+  "msg.copyTooLarge": "圖片太大，無法從頁面複製",
+  "msg.copyFailed": "無法複製圖片",
   "msg.registered": "已註冊。請在「設定 > 預設應用程式」中為你的圖片類型選擇 Vislo。",
   "msg.tickFormat": "請先至少勾選一種格式",
   "msg.invalidImage": "{name} 不是有效的圖片檔案",
@@ -71,6 +75,9 @@ export default {
   "update.install": "更新並重新啟動",
   "update.download": "下載",
   "update.downloading": "正在下載…",
+  "update.progress": "正在下載… {percent}%",
+  "update.progressBytes": "正在下載… {megabytes} MB",
+  "update.cancel": "取消",
 
   "info.file": "檔案",
   "info.folder": "資料夾",

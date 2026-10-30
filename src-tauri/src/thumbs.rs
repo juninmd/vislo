@@ -3,6 +3,7 @@
 use crate::{decode, resize};
 use fast_image_resize::FilterType;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::UNIX_EPOCH;
 
 pub const MIN_SIZE: u32 = 64;
@@ -24,11 +25,16 @@ fn cache_file(dir: &Path, src: &Path, size: u32) -> Result<PathBuf, String> {
     Ok(dir.join(format!("{}.jpg", cache_key(src, meta.len(), mtime, size))))
 }
 
+/// A cache entry is trusted only if it is a whole JPEG: a crash or full disk can leave a truncated file.
+fn is_complete_jpeg(bytes: &[u8]) -> bool {
+    bytes.len() >= 4 && bytes.starts_with(&[0xFF, 0xD8, 0xFF]) && bytes.ends_with(&[0xFF, 0xD9])
+}
+
 /// JPEG thumbnail whose longest side is at most `size`, generated on first use.
 pub fn thumbnail(cache_dir: &Path, src: &Path, size: u32) -> Result<Vec<u8>, String> {
     let size = size.clamp(MIN_SIZE, MAX_SIZE);
     let file = cache_file(cache_dir, src, size)?;
-    if let Ok(hit) = std::fs::read(&file) {
+    if let Some(hit) = std::fs::read(&file).ok().filter(|b| is_complete_jpeg(b)) {
         return Ok(hit);
     }
     let small = resize::fit_owned(decode::load_fit(src, size, size)?, size, size, FilterType::CatmullRom)?;
@@ -40,13 +46,23 @@ pub fn thumbnail(cache_dir: &Path, src: &Path, size: u32) -> Result<Vec<u8>, Str
     Ok(jpeg)
 }
 
+/// Process-wide sequence: worker threads writing the same thumbnail must not share a temp file.
+static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+fn tmp_path(file: &Path) -> PathBuf {
+    file.with_extension(format!("tmp{}-{}", std::process::id(), TMP_SEQ.fetch_add(1, Ordering::Relaxed)))
+}
+
 fn write_atomic(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
     if let Some(dir) = file.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let tmp = file.with_extension(format!("tmp{}", std::process::id()));
-    std::fs::write(&tmp, bytes)?;
-    std::fs::rename(&tmp, file)
+    let tmp = tmp_path(file);
+    let result = std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, file));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
 }
 
 /// Deletes the oldest cached files until the directory is back under 80% of `max_bytes`.
@@ -115,6 +131,56 @@ mod tests {
         assert_eq!(std::fs::read_dir(&cache).unwrap().count(), 1);
         std::fs::remove_file(&img).unwrap(); // a hit must not need the source any more... but keys need metadata
         assert!(thumbnail(&cache, &img, 256).is_err(), "missing source is an error, not a stale hit");
+        let _ = std::fs::remove_dir_all(src);
+        let _ = std::fs::remove_dir_all(cache);
+    }
+
+    #[test]
+    fn corrupt_cache_entries_are_regenerated_not_served() {
+        let (src, cache) = (temp("corrupt-src"), temp("corrupt-cache"));
+        let img = src.join("photo.jpg");
+        image::RgbImage::from_pixel(320, 240, image::Rgb([10, 200, 90])).save(&img).unwrap();
+        let good = thumbnail(&cache, &img, 256).unwrap();
+        let file = cache_file(&cache, &img, 256).unwrap();
+        // Empty (crash after create), garbage, and truncated (SOI present, EOI missing) entries.
+        for bad in [Vec::new(), b"not a jpeg".to_vec(), good[..good.len() / 2].to_vec()] {
+            std::fs::write(&file, &bad).unwrap();
+            assert_eq!(thumbnail(&cache, &img, 256).unwrap(), good, "a {}-byte entry must not be served", bad.len());
+            assert_eq!(std::fs::read(&file).unwrap(), good, "the bad entry is overwritten on disk");
+        }
+        let _ = std::fs::remove_dir_all(src);
+        let _ = std::fs::remove_dir_all(cache);
+    }
+
+    #[test]
+    fn temp_files_never_share_a_name() {
+        // Shared temp names let two workers truncate each other's partial write.
+        let file = Path::new("cache/abc.jpg");
+        assert_ne!(tmp_path(file), tmp_path(file));
+    }
+
+    #[test]
+    fn concurrent_misses_leave_a_decodable_cache_file() {
+        let (src, cache) = (temp("race-src"), temp("race-cache"));
+        let img = src.join("photo.jpg");
+        let pixels = image::RgbImage::from_fn(320, 240, |x, y| image::Rgb([x as u8, y as u8, ((x ^ y) & 0xff) as u8]));
+        pixels.save(&img).unwrap();
+        for round in 0..50 {
+            let _ = std::fs::remove_dir_all(&cache);
+            std::fs::create_dir_all(&cache).unwrap();
+            let barrier = std::sync::Barrier::new(16);
+            std::thread::scope(|s| {
+                for _ in 0..16 {
+                    s.spawn(|| {
+                        barrier.wait();
+                        thumbnail(&cache, &img, 256).unwrap();
+                    });
+                }
+            });
+            let file = cache_file(&cache, &img, 256).unwrap();
+            let bytes = std::fs::read(&file).unwrap_or_default();
+            assert!(image::load_from_memory(&bytes).is_ok(), "round {round}: cache file is {} bytes and not a JPEG", bytes.len());
+        }
         let _ = std::fs::remove_dir_all(src);
         let _ = std::fs::remove_dir_all(cache);
     }

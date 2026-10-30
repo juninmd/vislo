@@ -11,6 +11,9 @@ export function extOf(path: string): string {
 }
 
 export const isNative = (path: string): boolean => native.has(extOf(path));
+// Native formats the backend has no decoder for (its image crate lacks AVIF and SVG): Copy draws them from the page.
+const PAGE_COPY = new Set(["avif", "avifs", "svg"]);
+export const isPageCopy = (path: string): boolean => PAGE_COPY.has(extOf(path));
 // Animated formats keep their own frames (a re-rendered still would freeze them) and vectors are already
 // rendered sharply at any size, so neither is handed to the sharp downscaler.
 const ANIMATED = new Set(["gif", "webp", "avif", "avifs", "ico", "cur", "apng", "svg"]);

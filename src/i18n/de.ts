@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Öffnen mit…",
 
   "msg.copied": "In die Zwischenablage kopiert",
+  "msg.copiedDownscaled": "In die Zwischenablage kopiert, auf {w}×{h} verkleinert",
+  "msg.copyDenied": "Zugriff auf die Zwischenablage verweigert",
+  "msg.copyTooLarge": "Das Bild ist zu groß, um es von der Seite zu kopieren",
+  "msg.copyFailed": "Bild konnte nicht kopiert werden",
   "msg.registered": "Registriert. Wähle Vislo für deine Bildtypen unter Einstellungen > Standard-Apps.",
   "msg.tickFormat": "Wähle zuerst mindestens ein Format aus",
   "msg.invalidImage": "{name} ist keine gültige Bilddatei",
@@ -71,6 +75,9 @@ export default {
   "update.install": "Aktualisieren und neu starten",
   "update.download": "Herunterladen",
   "update.downloading": "Wird heruntergeladen…",
+  "update.progress": "Wird heruntergeladen… {percent} %",
+  "update.progressBytes": "Wird heruntergeladen… {megabytes} MB",
+  "update.cancel": "Abbrechen",
 
   "info.file": "Datei",
   "info.folder": "Ordner",

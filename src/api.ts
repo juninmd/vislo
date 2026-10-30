@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { isNative } from "./formats";
 
 export interface Album {
@@ -93,13 +94,26 @@ export const setFullscreen = (on: boolean) => invoke<void>("set_fullscreen", { o
 /** Maximized <-> windowed (windowed sizes the window to the picture); resolves to the new maximized state. */
 export const toggleMaximized = (width: number | null, height: number | null) =>
   invoke<boolean>("toggle_maximized", { width, height });
-export const copyImage = (path: string) => invoke<void>("copy_image", { path });
+/** Resolves to the size the picture was shrunk to for the clipboard, or null when it went over whole. */
+export const copyImage = async (path: string): Promise<{ w: number; h: number } | null> => {
+  const shrunk = await invoke<[number, number] | null>("copy_image", { path });
+  return shrunk && { w: shrunk[0], h: shrunk[1] };
+};
 export const pickImage = () => invoke<string | null>("pick_image");
 export const revealInFolder = (path: string) => invoke<void>("reveal_in_folder", { path });
 export const openWith = (path: string) => invoke<void>("open_with", { path });
 export const checkUpdate = () => invoke<Update | null>("check_update");
 /** Downloads, verifies and runs the installer; the app quits and comes back updated. */
 export const installUpdate = () => invoke<void>("install_update");
+/** Stops the download `installUpdate` is running; the partial file is discarded. */
+export const cancelUpdate = () => invoke<void>("cancel_update");
+/** Bytes of the installer download so far; `total` is null when the server did not say. */
+export interface UpdateProgress {
+  received: number;
+  total: number | null;
+}
+export const onUpdateProgress = (fn: (p: UpdateProgress) => void) =>
+  listen<UpdateProgress>("update-progress", (e) => fn(e.payload));
 export const openReleases = () => invoke<void>("open_releases");
 
 export const query = (params: Record<string, string | number>): string =>

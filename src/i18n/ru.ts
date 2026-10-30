@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Открыть с помощью…",
 
   "msg.copied": "Скопировано в буфер обмена",
+  "msg.copiedDownscaled": "Скопировано, уменьшено до {w}×{h} для буфера обмена",
+  "msg.copyDenied": "Доступ к буферу обмена запрещён",
+  "msg.copyTooLarge": "Изображение слишком большое для копирования со страницы",
+  "msg.copyFailed": "Не удалось скопировать изображение",
   "msg.registered": "Зарегистрировано. Выберите Vislo для нужных типов изображений в Параметры > Приложения по умолчанию.",
   "msg.tickFormat": "Сначала отметьте хотя бы один формат",
   "msg.invalidImage": "{name} — недопустимый файл изображения",
@@ -71,6 +75,9 @@ export default {
   "update.install": "Обновить и перезапустить",
   "update.download": "Скачать",
   "update.downloading": "Загрузка…",
+  "update.progress": "Загрузка… {percent}%",
+  "update.progressBytes": "Загрузка… {megabytes} МБ",
+  "update.cancel": "Отмена",
 
   "info.file": "Файл",
   "info.folder": "Папка",

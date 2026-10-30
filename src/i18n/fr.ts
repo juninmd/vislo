@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Ouvrir avec…",
 
   "msg.copied": "Copié dans le presse-papiers",
+  "msg.copiedDownscaled": "Copié, réduit à {w}×{h} pour le presse-papiers",
+  "msg.copyDenied": "L’accès au presse-papiers a été refusé",
+  "msg.copyTooLarge": "L’image est trop grande pour être copiée depuis la page",
+  "msg.copyFailed": "Impossible de copier l’image",
   "msg.registered": "Enregistré. Choisissez Vislo pour vos types d’images dans Paramètres > Applications par défaut.",
   "msg.tickFormat": "Cochez d’abord au moins un format",
   "msg.invalidImage": "{name} n’est pas un fichier image valide",
@@ -71,6 +75,9 @@ export default {
   "update.install": "Mettre à jour et redémarrer",
   "update.download": "Télécharger",
   "update.downloading": "Téléchargement…",
+  "update.progress": "Téléchargement… {percent} %",
+  "update.progressBytes": "Téléchargement… {megabytes} Mo",
+  "update.cancel": "Annuler",
 
   "info.file": "Fichier",
   "info.folder": "Dossier",

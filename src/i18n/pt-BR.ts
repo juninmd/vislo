@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Abrir com…",
 
   "msg.copied": "Copiado para a área de transferência",
+  "msg.copiedDownscaled": "Copiado, reduzido para {w}×{h} para a área de transferência",
+  "msg.copyDenied": "Acesso à área de transferência negado",
+  "msg.copyTooLarge": "Imagem grande demais para copiar pela página",
+  "msg.copyFailed": "Não foi possível copiar a imagem",
   "msg.registered": "Registrado. Escolha o Vislo para seus tipos de imagem em Configurações > Aplicativos padrão.",
   "msg.tickFormat": "Marque ao menos um formato primeiro",
   "msg.invalidImage": "{name} não é um arquivo de imagem válido",
@@ -71,6 +75,9 @@ export default {
   "update.install": "Atualizar e reiniciar",
   "update.download": "Baixar",
   "update.downloading": "Baixando…",
+  "update.progress": "Baixando… {percent}%",
+  "update.progressBytes": "Baixando… {megabytes} MB",
+  "update.cancel": "Cancelar",
 
   "info.file": "Arquivo",
   "info.folder": "Pasta",

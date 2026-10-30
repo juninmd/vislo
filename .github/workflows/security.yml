@@ -9,4 +9,7 @@ on:
 
 jobs:
   scan:
+    # the reusable job needs only contents: read; a called workflow cannot exceed this ceiling
+    permissions:
+      contents: read
     uses: juninmd/base-actions/.github/workflows/reusable-security-scan.yml@main

@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "Abrir con…",
 
   "msg.copied": "Copiado al portapapeles",
+  "msg.copiedDownscaled": "Copiado, reducido a {w}×{h} para el portapapeles",
+  "msg.copyDenied": "Se denegó el acceso al portapapeles",
+  "msg.copyTooLarge": "La imagen es demasiado grande para copiarla desde la página",
+  "msg.copyFailed": "No se pudo copiar la imagen",
   "msg.registered": "Registrado. Elige Vislo para tus tipos de imagen en Configuración > Aplicaciones predeterminadas.",
   "msg.tickFormat": "Marca al menos un formato primero",
   "msg.invalidImage": "{name} no es un archivo de imagen válido",
@@ -71,6 +75,9 @@ export default {
   "update.install": "Actualizar y reiniciar",
   "update.download": "Descargar",
   "update.downloading": "Descargando…",
+  "update.progress": "Descargando… {percent} %",
+  "update.progressBytes": "Descargando… {megabytes} MB",
+  "update.cancel": "Cancelar",
 
   "info.file": "Archivo",
   "info.folder": "Carpeta",
