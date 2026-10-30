@@ -51,6 +51,19 @@ fn picks_a_newer_stable_release_with_installer_and_checksums() {
 }
 
 #[test]
+fn only_the_installer_named_for_the_release_version_is_picked() {
+    // a stray `*-setup.exe` listed first must not win over the installer the release workflow names
+    let mut r = release("v0.2.0");
+    r["assets"].as_array_mut().unwrap().insert(0, json!({ "name": "other-setup.exe", "browser_download_url": "https://github.com/juninmd/vislo/releases/download/v0.2.0/other-setup.exe" }));
+    assert_eq!(pick(&r, "0.1.0").unwrap().installer_name, "Vislo_0.2.0_x64-setup.exe");
+    for name in ["..\\evil-setup.exe", "Vislo_9.9.9_x64-setup.exe", "Vislo_0.2.0_x64-setup.exe.bak", "Vislo_0.2.0-setup.exe"] {
+        let mut r = release("v0.2.0");
+        r["assets"][0]["name"] = json!(name);
+        assert!(pick(&r, "0.1.0").is_none(), "{name} must not be installed");
+    }
+}
+
+#[test]
 fn skips_drafts_prereleases_and_incomplete_releases() {
     let mut r = release("v0.2.0");
     r["prerelease"] = json!(true);

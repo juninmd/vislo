@@ -59,12 +59,8 @@ pub fn pick(release: &Value, current: &str, download_prefix: &str) -> Option<Can
         return None;
     }
     let version = tag.trim_start_matches('v').to_string();
-    let installer_name = release["assets"]
-        .as_array()?
-        .iter()
-        .filter_map(|a| a["name"].as_str())
-        .find(|n| n.ends_with("-setup.exe"))?
-        .to_string();
+    // the name the release workflow publishes; anything else (a stray or hostile asset) is not offered
+    let installer_name = format!("Vislo_{version}_x64-setup.exe");
     Some(Candidate {
         update: Update {
             version,
