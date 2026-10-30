@@ -16,7 +16,8 @@ pub struct Source<'a> {
     pub timeouts: Timeouts,
 }
 
-/// Time limits. The installer has no total limit: a slow link that keeps delivering bytes is allowed to finish.
+/// Time limits. The installer has no short total limit: a slow link that keeps delivering bytes may take up to
+/// `BODY_BACKSTOP`, and a stall is caught by the inactivity window long before that.
 #[derive(Clone, Copy)]
 pub struct Timeouts {
     /// The whole small JSON request.

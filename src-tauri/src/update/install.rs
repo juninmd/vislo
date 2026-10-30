@@ -41,8 +41,9 @@ fn open_locked(path: &Path) -> std::io::Result<std::fs::File> {
     std::fs::File::open(path)
 }
 
-/// A verified installer. The file stays open read-only until this is dropped, so the bytes that passed
-/// the checksum are the bytes that run.
+/// A verified installer, held read-only until the launch, so nothing can replace the bytes that passed the
+/// checksum before cmd.exe opens them. The gap between releasing this handle and cmd.exe opening the file
+/// is not closed; a ShellExecuteEx launch would close it.
 #[derive(Debug)]
 pub struct Installer {
     path: PathBuf,

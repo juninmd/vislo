@@ -246,8 +246,8 @@ início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ─�
   desligar em *Settings &rarr; Updates*; *Check for updates* verifica sob demanda.
 * O instalador é baixado por HTTPS apenas deste repositório e comparado com o `SHA256SUMS.txt` da release; se não
   bater, é descartado.
-* O download mostra o progresso e pode ser cancelado. Uma conexão sem dados por 30 s é tratada como falha; um download
-  que continua chegando não tem limite de tempo total.
+* O download mostra o progresso e pode ser cancelado. Uma conexão sem dados por 30 s é tratada como falha; enquanto os
+  dados continuam chegando, o download não é cortado por um prazo curto (há um teto de 1 h para o corpo).
 * O instalador fica numa pasta própria em `%LOCALAPPDATA%\Vislo\updates`, apagada após a instalação ou se o download
   falhar; pastas com mais de 24 h são removidas ao iniciar o Vislo.
 * Cópias portáteis não conseguem se substituir, então o banner oferece o botão *Download* para a página da release.
