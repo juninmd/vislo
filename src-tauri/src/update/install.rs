@@ -132,9 +132,23 @@ fn no_candidate_reason(release: &Value, current: &str) -> &'static str {
     }
 }
 
-/// Runs the installer silently, then starts the new Vislo from the same place.
+/// Runs the installer silently, then starts the new Vislo from the same place. Takes the verified file
+/// so that its folder can be removed here when the launch itself fails.
 #[cfg(windows)]
-pub fn run_installer(setup: &Installer) -> Result<(), String> {
+pub fn run_installer(setup: Installer) -> Result<(), String> {
+    let launched = launch(&setup);
+    let run_dir = setup.path().parent().map(Path::to_path_buf);
+    drop(setup); // Windows cannot delete the folder while the verified file is still open
+    if launched.is_err() {
+        if let Some(dir) = run_dir {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+    launched
+}
+
+#[cfg(windows)]
+fn launch(setup: &Installer) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
@@ -155,6 +169,6 @@ pub fn run_installer(setup: &Installer) -> Result<(), String> {
 }
 
 #[cfg(not(windows))]
-pub fn run_installer(_setup: &Installer) -> Result<(), String> {
+pub fn run_installer(_setup: Installer) -> Result<(), String> {
     Err("installing updates is Windows-only".into())
 }

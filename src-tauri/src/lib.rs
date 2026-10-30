@@ -145,7 +145,7 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     })
     .await
     .map_err(|e| e.to_string())??;
-    update::run_installer(&setup)?;
+    update::run_installer(setup)?;
     app.exit(0);
     Ok(())
 }
