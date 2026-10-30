@@ -78,7 +78,7 @@ jobs:
           mkdir -p out
           cp src-tauri/target/release/bundle/nsis/*-setup.exe "out/Vislo_${V}_x64-setup.exe"
           cp src-tauri/target/release/vislo.exe "out/Vislo_${V}_x64-portable.exe"
-          (cd out && sha256sum -- * > ../SHA256SUMS.txt) # "--" keeps names bare; the updater matches them exactly (update.rs expected_hash)
+          (cd out && sha256sum * > ../SHA256SUMS.txt) # `sha256sum *` prints `<hex>  <name>` per file, in glob (sorted) order
           mv SHA256SUMS.txt out/
           cat out/SHA256SUMS.txt
 
