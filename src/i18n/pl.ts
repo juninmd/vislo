@@ -75,6 +75,9 @@ export default {
   "update.install": "Zaktualizuj i uruchom ponownie",
   "update.download": "Pobierz",
   "update.downloading": "Pobieranie…",
+  "update.progress": "Pobieranie… {percent}%",
+  "update.progressBytes": "Pobieranie… {megabytes} MB",
+  "update.cancel": "Anuluj",
 
   "info.file": "Plik",
   "info.folder": "Folder",

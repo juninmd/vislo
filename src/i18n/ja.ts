@@ -75,6 +75,9 @@ export default {
   "update.install": "更新して再起動",
   "update.download": "ダウンロード",
   "update.downloading": "ダウンロード中…",
+  "update.progress": "ダウンロード中… {percent}%",
+  "update.progressBytes": "ダウンロード中… {megabytes} MB",
+  "update.cancel": "キャンセル",
 
   "info.file": "ファイル",
   "info.folder": "フォルダー",

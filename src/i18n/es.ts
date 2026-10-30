@@ -75,6 +75,9 @@ export default {
   "update.install": "Actualizar y reiniciar",
   "update.download": "Descargar",
   "update.downloading": "Descargando…",
+  "update.progress": "Descargando… {percent} %",
+  "update.progressBytes": "Descargando… {megabytes} MB",
+  "update.cancel": "Cancelar",
 
   "info.file": "Archivo",
   "info.folder": "Carpeta",

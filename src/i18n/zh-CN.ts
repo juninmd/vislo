@@ -75,6 +75,9 @@ export default {
   "update.install": "更新并重启",
   "update.download": "下载",
   "update.downloading": "正在下载…",
+  "update.progress": "正在下载… {percent}%",
+  "update.progressBytes": "正在下载… {megabytes} MB",
+  "update.cancel": "取消",
 
   "info.file": "文件",
   "info.folder": "文件夹",

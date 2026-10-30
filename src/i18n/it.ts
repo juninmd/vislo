@@ -75,6 +75,9 @@ export default {
   "update.install": "Aggiorna e riavvia",
   "update.download": "Scarica",
   "update.downloading": "Download in corso…",
+  "update.progress": "Download in corso… {percent}%",
+  "update.progressBytes": "Download in corso… {megabytes} MB",
+  "update.cancel": "Annulla",
 
   "info.file": "File",
   "info.folder": "Cartella",

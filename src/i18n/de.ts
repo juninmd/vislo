@@ -75,6 +75,9 @@ export default {
   "update.install": "Aktualisieren und neu starten",
   "update.download": "Herunterladen",
   "update.downloading": "Wird heruntergeladen…",
+  "update.progress": "Wird heruntergeladen… {percent} %",
+  "update.progressBytes": "Wird heruntergeladen… {megabytes} MB",
+  "update.cancel": "Abbrechen",
 
   "info.file": "Datei",
   "info.folder": "Ordner",

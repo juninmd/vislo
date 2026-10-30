@@ -75,6 +75,9 @@ export default {
   "update.install": "Mettre à jour et redémarrer",
   "update.download": "Télécharger",
   "update.downloading": "Téléchargement…",
+  "update.progress": "Téléchargement… {percent} %",
+  "update.progressBytes": "Téléchargement… {megabytes} Mo",
+  "update.cancel": "Annuler",
 
   "info.file": "Fichier",
   "info.folder": "Dossier",
