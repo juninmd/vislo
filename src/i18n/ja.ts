@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "プログラムから開く…",
 
   "msg.copied": "クリップボードにコピーしました",
+  "msg.copiedDownscaled": "クリップボードにコピーしました（{w}×{h} に縮小）",
+  "msg.copyDenied": "クリップボードへのアクセスが拒否されました",
+  "msg.copyTooLarge": "画像が大きすぎて、ページからコピーできません",
+  "msg.copyFailed": "画像をコピーできませんでした",
   "msg.registered": "登録しました。設定 > 既定のアプリ で、画像の種類に Vislo を選んでください。",
   "msg.tickFormat": "先に形式を 1 つ以上選んでください",
   "msg.invalidImage": "{name} は有効な画像ファイルではありません",

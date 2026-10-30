@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "打开方式…",
 
   "msg.copied": "已复制到剪贴板",
+  "msg.copiedDownscaled": "已复制到剪贴板（已缩小为 {w}×{h}）",
+  "msg.copyDenied": "剪贴板访问被拒绝",
+  "msg.copyTooLarge": "图片过大，无法从页面复制",
+  "msg.copyFailed": "无法复制图片",
   "msg.registered": "已注册。请在“设置 > 默认应用”中为你的图片类型选择 Vislo。",
   "msg.tickFormat": "请先至少勾选一种格式",
   "msg.invalidImage": "{name} 不是有效的图片文件",

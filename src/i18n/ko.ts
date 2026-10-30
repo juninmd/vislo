@@ -60,6 +60,10 @@ export default {
   "menu.openWith": "연결 프로그램…",
 
   "msg.copied": "클립보드에 복사했습니다",
+  "msg.copiedDownscaled": "클립보드에 복사했습니다 ({w}×{h}로 축소)",
+  "msg.copyDenied": "클립보드 접근이 거부되었습니다",
+  "msg.copyTooLarge": "이미지가 너무 커서 페이지에서 복사할 수 없습니다",
+  "msg.copyFailed": "이미지를 복사할 수 없습니다",
   "msg.registered": "등록했습니다. 설정 > 기본 앱에서 이미지 형식에 Vislo를 선택하세요.",
   "msg.tickFormat": "먼저 형식을 하나 이상 선택하세요",
   "msg.invalidImage": "{name}은(는) 올바른 이미지 파일이 아닙니다",
