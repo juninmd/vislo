@@ -48,18 +48,11 @@ fn initial_path(launch: State<Launch>) -> Option<String> {
     launch.path.clone()
 }
 
-/// Lists the folder of `path`, grants the asset protocol read access to that folder only, and
-/// remembers it as opened so the `vislo` protocol and `file_info` accept paths inside it.
+/// Lists the folder of `path` and remembers it as opened so the `vislo` protocol and `file_info`
+/// accept paths inside it.
 #[tauri::command]
-async fn open_path(
-    app: AppHandle,
-    svc: State<'_, Arc<Services>>,
-    path: String,
-) -> Result<album::Album, String> {
+async fn open_path(svc: State<'_, Arc<Services>>, path: String) -> Result<album::Album, String> {
     let album = album::open(Path::new(&path))?;
-    app.asset_protocol_scope()
-        .allow_directory(&album.dir, false)
-        .map_err(|e| e.to_string())?;
     svc.allowed.allow_dir(Path::new(&album.dir));
     Ok(album)
 }
@@ -198,7 +191,6 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     );
     if let Some(dir) = launch_dir {
         // Authorised now so the page can start loading the picture before any IPC round trip.
-        app.asset_protocol_scope().allow_directory(&dir, false)?;
         app.state::<Arc<Services>>().allowed.allow_dir(&dir);
     }
     // Neither may stop the viewer from starting (policy-blocked Run key, tray not ready at sign-in).

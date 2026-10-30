@@ -101,8 +101,8 @@ fn mime_of(path: &std::path::Path) -> &'static str {
     }
 }
 
-/// The file as it is on disk. Read on a pool thread: the built-in asset protocol reads on the UI
-/// thread, which stalls IPC (window sizing, album listing) while a big photo loads.
+/// The file as it is on disk. Read on a pool thread: a read on the UI thread would stall IPC
+/// (window sizing, album listing) while a big photo loads.
 fn original(file: &std::path::Path) -> Response<Cow<'static, [u8]>> {
     match std::fs::read(file) {
         Ok(bytes) => Response::builder()
