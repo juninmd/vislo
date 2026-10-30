@@ -17,7 +17,6 @@ mod testsupport;
 mod tests;
 
 pub use cleanup::remove_stale_runs_at_startup;
-pub use download::Progress;
 pub use install::{fetch_installer, is_installed, run_installer};
 pub use release::Update;
 
