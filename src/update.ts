@@ -26,11 +26,18 @@ export function progressText(p: UpdateProgress): string {
   return t("update.progressBytes", { megabytes: (p.received / (1024 * 1024)).toFixed(1) });
 }
 
+/** Redraws every 10%: the banner is a live region and must not be rewritten four times a second. */
+export function progressStep(p: UpdateProgress): number {
+  if (p.total && p.total > 0) return Math.floor((Math.min(p.received, p.total) * 10) / p.total);
+  return Math.floor(p.received / (10 * 1024 * 1024));
+}
+
 /** Looks for new releases of this very repository and offers a one-click update. */
 export class Updater {
   private offered: string | null = null; // version already shown, so a re-check does not nag
   private offeredText = ""; // the banner line for that version, restored when an install fails
   private busy = false;
+  private installing = false; // a download owns the banner until it ends
 
   constructor(
     private readonly banner: HTMLElement,
@@ -53,7 +60,7 @@ export class Updater {
 
   /** `manual` checks always answer, even when up to date or offline. */
   async check(manual: boolean): Promise<void> {
-    if (this.busy || (!manual && !this.enabled())) return;
+    if (this.busy || this.installing || (!manual && !this.enabled())) return;
     this.busy = true;
     try {
       const update = await checkUpdate();
@@ -85,9 +92,17 @@ export class Updater {
     go.disabled = true;
     go.textContent = t("update.downloading");
     cancel.hidden = false;
+    this.installing = true;
     let stop: (() => void) | undefined;
+    let shown = -1;
     try {
-      stop = await onUpdateProgress((p) => (text.textContent = progressText(p)));
+      stop = await onUpdateProgress((p) => {
+        const step = progressStep(p);
+        if (step !== shown) {
+          shown = step;
+          text.textContent = progressText(p);
+        }
+      });
       await installUpdate(); // the app quits once the installer is running
     } catch (err) {
       this.notify(String(err)); // includes "the update was cancelled"
@@ -97,6 +112,7 @@ export class Updater {
     } finally {
       stop?.();
       cancel.hidden = true;
+      this.installing = false;
     }
   }
 }
