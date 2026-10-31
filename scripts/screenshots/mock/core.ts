@@ -48,11 +48,15 @@ const info = {
   ],
 };
 
+/** A folder longer than the viewer's preload window, so `perf:motion` can step to a picture that is cold. */
+const PERF_FILES = Array.from({ length: 30 }, (_, i) => `${FOLDER}\\Photo ${String(i + 1).padStart(2, "0")}.jpg`);
+const album = () => ({ dir: FOLDER, files: scene === "perf" ? PERF_FILES : files(), index: 0, size });
+
 const handlers: Record<string, (args: any) => unknown> = {
   get_settings: () => settings,
   set_settings: (a) => a.settings,
-  initial_path: () => (scene === "empty" ? null : files()[0]),
-  open_path: () => ({ dir: FOLDER, files: files(), index: 0, size }),
+  initial_path: () => (scene === "empty" ? null : album().files[0]),
+  open_path: () => album(),
   file_info: () => info,
   check_update: () =>
     scene === "update"

@@ -44,7 +44,7 @@ describe("SHA256SUMS.txt contract", () => {
 
   it("keeps the workflow command and installer name the updater depends on", () => {
     const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
-    expect(workflow).toContain("(cd out && sha256sum * > ../SHA256SUMS.txt)");
+    expect(workflow).toContain("(cd out && sha256sum -- * > ../SHA256SUMS.txt)");
     expect(workflow).toContain('"out/Vislo_${V}_x64-setup.exe"');
   });
 });

@@ -11,6 +11,13 @@ export interface StripEvents {
   hover(index: number | null, rect?: DOMRect): void;
 }
 
+/** What a cell is currently painted with, so a frame only touches the properties that move. */
+interface Painted {
+  transform: string;
+  opacity: number;
+  z: number;
+}
+
 /**
  * Bottom thumbnail strip. Its position is a continuous float that eases toward the active
  * image (constant-time easing), only on-screen cells exist in the DOM, and cells are laid out in 3D.
@@ -18,6 +25,7 @@ export interface StripEvents {
 export class Filmstrip {
   private files: string[] = [];
   private cells = new Map<number, HTMLButtonElement>();
+  private painted = new WeakMap<HTMLButtonElement, Painted>();
   private pos = 0;
   private target = 0;
   private raf = 0;
@@ -51,6 +59,11 @@ export class Filmstrip {
     new ResizeObserver(() => this.render()).observe(root);
   }
 
+  /** A closed strip has no width: nothing of it is on screen, so its position does not need easing. */
+  private get visible(): boolean {
+    return this.root.clientWidth > 0;
+  }
+
   private indexOf(t: EventTarget | null): number | null {
     const cell = (t as HTMLElement | null)?.closest<HTMLElement>(".cell");
     return cell ? Number(cell.dataset.i) : null;
@@ -58,6 +71,7 @@ export class Filmstrip {
 
   build(files: string[], active: number): void {
     this.files = files;
+    this.stop();
     for (const c of this.cells.values()) c.remove();
     this.cells.clear();
     this.pos = this.target = active;
@@ -71,12 +85,20 @@ export class Filmstrip {
 
   setActive(index: number, animate: boolean): void {
     this.target = index;
-    if (!animate) this.pos = index;
+    if (!animate || !this.visible) {
+      this.stop();
+      this.pos = index;
+    }
     this.render();
     if (this.pos !== this.target && !this.raf) {
       this.last = performance.now();
       this.raf = requestAnimationFrame((t) => this.tick(t));
     }
+  }
+
+  private stop(): void {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
   }
 
   private tick(now: number): void {
@@ -129,9 +151,14 @@ export class Filmstrip {
       const d = i - this.pos;
       const l = this.lane(d);
       const cell = this.cell(i);
-      cell.style.transform = `translate3d(${l.x - PITCH / 2 + 4}px, 0, 0) rotateY(${l.rotateY}deg) scale(${l.scale})`;
-      cell.style.opacity = String(l.opacity);
-      cell.style.zIndex = String(1000 - Math.round(Math.abs(d) * 10));
+      const transform = `translate3d(${l.x - PITCH / 2 + 4}px, 0, 0) rotateY(${l.rotateY}deg) scale(${l.scale})`;
+      // Depth order follows the active cell, not the float position: it changes once per step, not per frame.
+      const z = 1000 - Math.round(Math.abs(i - this.target) * 10);
+      const seen = this.painted.get(cell);
+      if (!seen || seen.transform !== transform) cell.style.transform = transform;
+      if (!seen || seen.opacity !== l.opacity) cell.style.opacity = String(l.opacity);
+      if (!seen || seen.z !== z) cell.style.zIndex = String(z);
+      this.painted.set(cell, { transform, opacity: l.opacity, z });
       cell.classList.toggle("active", i === this.target);
     }
   }

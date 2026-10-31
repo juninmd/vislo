@@ -1,6 +1,6 @@
 import { appear, bump, settle } from "./anim";
-import type { Album, Settings, WheelMode } from "./api";
-import { boot as bootData } from "./boot";
+import { previewSrc, type Album, type Settings, type WheelMode } from "./api";
+import { boot as bootData, prefetchPreview, takeReadyPreview } from "./boot";
 import { ImageCache, type Loaded } from "./cache";
 import { type Command, Commands } from "./commands";
 import { ContextMenu } from "./context-menu";
@@ -189,13 +189,16 @@ export class Viewer implements Controller {
     this.dir = dir;
     const path = album.files[index];
     const loaded = this.cache.get(index);
-    const quick = await Promise.race([loaded.ready, sleep(this.firstShow ? 0 : PREVIEW_DELAY_MS).then(() => false)]);
+    const wantsPreview = this.settings.embedded_preview && (isJpeg(path) || !isNative(path));
+    // A stand-in that is already decoded goes up at once; otherwise its request starts now, in
+    // parallel with the wait below, so its own latency never adds to the wait for the picture.
+    const ready = wantsPreview && !loaded.settled ? takeReadyPreview(previewSrc(path)) : null;
+    const fetching = !ready && wantsPreview && !loaded.settled ? loadPreview(path) : null;
+    const quick = await Promise.race([loaded.ready, sleep(this.firstShow || ready ? 0 : PREVIEW_DELAY_MS).then(() => false)]);
     if (seq !== this.seq) return; // a newer request superseded this one while decoding
 
-    const placeholder =
-      !quick && this.settings.embedded_preview && (isJpeg(path) || !isNative(path))
-        ? await Promise.race([loadPreview(path), loaded.ready.then(() => null)])
-        : null;
+    let placeholder = ready;
+    if (!quick && fetching) placeholder = await Promise.race([fetching, loaded.ready.then(() => null)]);
     if (seq !== this.seq) return;
 
     const slide = new Slide();
@@ -256,7 +259,15 @@ export class Viewer implements Controller {
   }
 
   private warm(index: number): void {
-    for (const i of preloadWindow(index, this.album?.files.length ?? 0, this.dir)) this.cache.prefetch(i);
+    const files = this.album?.files ?? [];
+    for (const i of preloadWindow(index, files.length, this.dir)) this.cache.prefetch(i);
+    if (!this.settings.embedded_preview) return;
+    // The stand-ins of the next and previous pictures are cheap to prepare and save the wait a step
+    // otherwise has while the full picture decodes.
+    for (const i of [index + 1, index - 1]) {
+      const path = files[i];
+      if (path && (isJpeg(path) || !isNative(path))) prefetchPreview(path);
+    }
   }
 
   private updateHud(album: Album, index: number): void {
