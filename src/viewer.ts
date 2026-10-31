@@ -127,11 +127,12 @@ export class Viewer implements Controller {
   }
 
   files = (): readonly string[] => this.album?.files ?? [];
+  stamps = (): readonly string[] => this.album?.file_stamps ?? [];
   position = (): number => this.index;
 
   private adopt(album: Album): void {
     this.album = album;
-    this.cache = new ImageCache((i) => album.files[i]);
+    this.cache = new ImageCache((i) => album.files[i], (i) => album.file_stamps?.[i]);
     this.index = this.target = album.index;
     this.app.classList.remove("empty");
     this.app.classList.toggle("single", album.files.length < 2);

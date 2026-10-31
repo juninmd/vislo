@@ -1,11 +1,4 @@
-//! `vislo://` protocol: images the webview cannot (or should not) decode itself.
-//!   /t?p=<path>&s=<px>        cached thumbnail (JPEG)
-//!   /v?p=<path>               EXIF-embedded preview, upright (JPEG), 404 when absent
-//!   /f?p=<path>&w=<px>&h=<px> sharp (Lanczos3) downscale to fit a box
-//!   /c?p=<path>               full-resolution conversion of TIFF/PSD/RAW (JPEG, or PNG with alpha)
-//!   /o?p=<path>               the file itself, for formats the webview decodes (read off the UI thread)
-
-use crate::{decode, paths::Allowed, pool::Pool, resize, thumbs};
+use crate::{decode, original, paths::Allowed, pool::Pool, resize, thumbs};
 use fast_image_resize::FilterType;
 use image::{DynamicImage, ImageFormat};
 use percent_encoding::percent_decode_str;
@@ -64,17 +57,17 @@ pub fn parse(path: &str, q: &str) -> Option<Route> {
     }
 }
 
+// No CORS header: every consumer loads these as `<img src>`, which needs none (no canvas, fetch or copy from the page).
 fn reply(status: StatusCode, mime: &str, body: Vec<u8>) -> Response<Cow<'static, [u8]>> {
     Response::builder()
         .status(status)
         .header("Content-Type", mime)
         .header("Cache-Control", "private, max-age=300")
-        .header("Access-Control-Allow-Origin", "*")
         .body(Cow::Owned(body))
         .expect("static response parts are valid")
 }
 
-fn error(status: StatusCode, message: &str) -> Response<Cow<'static, [u8]>> {
+pub(crate) fn error(status: StatusCode, message: &str) -> Response<Cow<'static, [u8]>> {
     reply(
         status,
         "text/plain; charset=utf-8",
@@ -82,7 +75,7 @@ fn error(status: StatusCode, message: &str) -> Response<Cow<'static, [u8]>> {
     )
 }
 
-fn mime_of(path: &std::path::Path) -> &'static str {
+pub(crate) fn mime_of(path: &std::path::Path) -> &'static str {
     match path
         .extension()
         .and_then(|e| e.to_str())
@@ -101,21 +94,6 @@ fn mime_of(path: &std::path::Path) -> &'static str {
     }
 }
 
-/// The file as it is on disk. Read on a pool thread: a read on the UI thread would stall IPC
-/// (window sizing, album listing) while a big photo loads.
-fn original(file: &std::path::Path) -> Response<Cow<'static, [u8]>> {
-    match std::fs::read(file) {
-        Ok(bytes) => Response::builder()
-            .status(StatusCode::OK)
-            .header("Content-Type", mime_of(file))
-            .header("Cache-Control", "private, max-age=5")
-            .header("Access-Control-Allow-Origin", "*")
-            .body(Cow::Owned(bytes))
-            .expect("static response parts are valid"),
-        Err(e) => error(StatusCode::NOT_FOUND, &e.to_string()),
-    }
-}
-
 fn png(img: &DynamicImage) -> Result<Vec<u8>, String> {
     let mut out = Cursor::new(Vec::new());
     img.write_to(&mut out, ImageFormat::Png)
@@ -123,7 +101,8 @@ fn png(img: &DynamicImage) -> Result<Vec<u8>, String> {
     Ok(out.into_inner())
 }
 
-pub fn serve(svc: &Services, route: Route) -> Response<Cow<'static, [u8]>> {
+/// `range` is the request's `Range` header, honoured by the `/o` route only.
+pub fn serve(svc: &Services, route: Route, range: Option<&str>) -> Response<Cow<'static, [u8]>> {
     let raw = match &route {
         Route::Thumb { path, .. }
         | Route::Preview { path }
@@ -140,7 +119,7 @@ pub fn serve(svc: &Services, route: Route) -> Response<Cow<'static, [u8]>> {
         Err(m) => error(StatusCode::UNPROCESSABLE_ENTITY, &m),
     };
     match route {
-        Route::Original { .. } => original(&file),
+        Route::Original { .. } => original::respond(&file, range, original::MAX_BYTES),
         Route::Thumb { size, .. } => jpeg(thumbs::thumbnail(&svc.cache_dir, &file, size)),
         Route::Preview { .. } => match decode::embedded_preview(&file) {
             Some(b) => reply(StatusCode::OK, "image/jpeg", b),
@@ -246,7 +225,7 @@ mod tests {
             parse("/o", &format!("p={slashed}")),
             Some(Route::Original { path: slashed })
         );
-        let r = serve(&svc, Route::Original { path });
+        let r = serve(&svc, Route::Original { path }, None);
         assert_eq!(
             (r.status(), r.headers()["Content-Type"].to_str().unwrap()),
             (StatusCode::OK, "image/jpeg")
@@ -257,7 +236,8 @@ mod tests {
                 &svc,
                 Route::Original {
                     path: "Z:/nope/x.png".into()
-                }
+                },
+                None
             )
             .status(),
             StatusCode::FORBIDDEN
@@ -283,6 +263,7 @@ mod tests {
             Route::Convert {
                 path: "Z:\\nowhere\\x.tif".into(),
             },
+            None,
         );
         assert_eq!(r.status(), StatusCode::FORBIDDEN);
     }

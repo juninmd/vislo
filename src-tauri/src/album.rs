@@ -49,6 +49,18 @@ pub struct Album {
     pub stamp: Option<String>,
     /// Upright pixel size of the opened file when cheap to know (sizes the window up front).
     pub size: Option<(u32, u32)>,
+    /// One `mtime_ns-len` stamp per entry of `files`, so the page's URLs change when a file is rewritten.
+    pub file_stamps: Vec<String>,
+}
+
+/// `mtime_ns-len`: changes whenever the file is rewritten, and lets the WebView cache key on it.
+pub fn stamp(meta: &std::fs::Metadata) -> String {
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |d| d.as_nanos());
+    format!("{mtime}-{}", meta.len())
 }
 
 pub fn is_image(path: &Path) -> bool {
@@ -226,8 +238,8 @@ fn build(file: &Path, with_size: bool) -> Result<Album, OpenError> {
         })?
         .to_path_buf();
     // Read before listing: a change made during the listing then shows up as a stamp mismatch.
-    let stamp = dir_stamp(&dir);
-    let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+    let folder_stamp = dir_stamp(&dir);
+    let mut files: Vec<(PathBuf, String)> = std::fs::read_dir(&dir)
         .map_err(|e| OpenError {
             kind: OpenErrorKind::Io,
             message: format!("cannot list {}: {e}", dir.display()),
@@ -236,11 +248,16 @@ fn build(file: &Path, with_size: bool) -> Result<Album, OpenError> {
         // Extension first: a folder full of non-images costs no file-type lookup at all.
         .filter(|e| is_image(Path::new(&e.file_name())) && is_regular_file(e))
         .map(|e| e.path())
+        .filter_map(|p| {
+            // follows symlinks, as `is_file` did before
+            let meta = std::fs::metadata(&p).ok().filter(std::fs::Metadata::is_file)?;
+            Some((p, stamp(&meta)))
+        })
         .collect();
-    files.sort_by(|a, b| natord::compare_ignore_case(file_name(a), file_name(b)));
+    files.sort_by(|a, b| natord::compare_ignore_case(file_name(&a.0), file_name(&b.0)));
     let index = files
         .iter()
-        .position(|p| p.as_path() == file)
+        .position(|(p, _)| p.as_path() == file)
         .ok_or_else(|| OpenError {
             kind: OpenErrorKind::NotFound,
             message: "opened file missing from its directory listing".into(),
@@ -250,10 +267,11 @@ fn build(file: &Path, with_size: bool) -> Result<Album, OpenError> {
         dir: dir.to_string_lossy().into_owned(),
         files: files
             .iter()
-            .map(|p| p.to_string_lossy().into_owned())
+            .map(|(p, _)| p.to_string_lossy().into_owned())
             .collect(),
         index,
-        stamp,
+        stamp: folder_stamp,
+        file_stamps: files.into_iter().map(|(_, s)| s).collect(),
     })
 }
 
@@ -487,6 +505,20 @@ mod tests {
         std::fs::write(d.join("a.txt"), b"x").unwrap();
         assert!(open(&d.join("a.txt")).is_err());
         assert!(open(&d.join("missing.jpg")).is_err());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn file_stamps_run_parallel_to_files_and_follow_rewrites() {
+        let d = temp_dir("stamps");
+        std::fs::write(d.join("a.jpg"), b"x").unwrap();
+        std::fs::write(d.join("b.jpg"), b"yy").unwrap();
+        let before = open(&d.join("b.jpg")).unwrap();
+        assert_eq!(before.file_stamps.len(), before.files.len());
+        std::fs::write(d.join("b.jpg"), b"yyy").unwrap();
+        let after = open(&d.join("b.jpg")).unwrap();
+        assert_ne!(before.file_stamps[1], after.file_stamps[1]);
+        assert_eq!(before.file_stamps[0], after.file_stamps[0]);
         let _ = std::fs::remove_dir_all(&d);
     }
 

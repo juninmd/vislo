@@ -4,26 +4,39 @@ import type { Album } from "./api";
 import { createFocusCheck, neighbour, neighbourIfGone, sameList } from "./folder-sync";
 
 /** A folder the fake backend lists: `stamp` moves whenever its entries change. */
-function fakeFolder(files: string[], stamp: string | null) {
-  let current = { files, stamp };
+function fakeFolder(files: string[], stamp: string | null, fileStamps = files.map(() => "0-0")) {
+  let current = { files, stamp, fileStamps };
   let listings = 0;
   const check = async (path: string, known: string | null): Promise<Album | null> => {
     if (known !== null && known === current.stamp) return null; // unchanged: nothing to re-list
     listings++;
     const index = current.files.indexOf(path);
-    return { dir: "C:/pics", files: current.files, index, size: null, stamp: current.stamp };
+    return {
+      dir: "C:/pics",
+      files: current.files,
+      index,
+      size: null,
+      stamp: current.stamp,
+      file_stamps: current.fileStamps,
+    };
   };
   return {
     check,
     listings: () => listings,
-    change: (files: string[], stamp: string | null) => (current = { files, stamp }),
+    change: (files: string[], stamp: string | null, fileStamps = files.map(() => "0-0")) => {
+      current = { files, stamp, fileStamps };
+    },
   };
 }
 
-function fakeViewer(files: string[]) {
+function fakeViewer(files: string[], stamps: string[] = files.map(() => "0-0")) {
   let list = files;
-  const refresh = vi.fn((album: Album) => (list = album.files));
-  return { files: () => list, position: () => 0, refresh };
+  let current = stamps;
+  const refresh = vi.fn((album: Album) => {
+    list = album.files;
+    current = album.file_stamps ?? album.files.map(() => "0-0");
+  });
+  return { files: () => list, stamps: () => current, position: () => 0, refresh };
 }
 
 describe("sameList", () => {
@@ -96,6 +109,17 @@ describe("createFocusCheck", () => {
     expect(viewer.refresh).not.toHaveBeenCalled();
     await focus();
     expect(folder.listings()).toBe(2);
+  });
+
+  it("re-lists a file that was rewritten in place, so its cached pixels are dropped", async () => {
+    const folder = fakeFolder(pics, "1");
+    const viewer = fakeViewer(pics);
+    const focus = createFocusCheck(viewer, async () => {}, folder.check);
+    await focus();
+    // Same names and same folder stamp: only the pictured file's own stamp moved.
+    folder.change(pics, "2", ["0-0", "7-7"]);
+    await focus();
+    expect(viewer.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the picture on an I/O error and retries on the next focus", async () => {

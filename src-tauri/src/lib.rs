@@ -10,6 +10,7 @@ mod codecs;
 mod decode;
 mod exif_info;
 mod metadata;
+mod original;
 #[cfg(test)]
 mod fixtures;
 mod paths;
@@ -280,13 +281,14 @@ pub fn run() {
                 return;
             };
             let worker = Arc::clone(&svc);
+            let range = request.headers().get("range").and_then(|v| v.to_str().ok()).map(str::to_owned);
             svc.pool.spawn(move |shed| {
                 let reply = if shed {
                     scheme::shed()
                 } else {
                     // A decoder panic becomes a 500; a dropped responder would leave the request pending.
                     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        scheme::serve(&worker, route)
+                        scheme::serve(&worker, route, range.as_deref())
                     }))
                     .unwrap_or_else(|_| scheme::failed())
                 };

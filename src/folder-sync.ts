@@ -2,6 +2,7 @@ import { type Album, listChanged } from "./api";
 
 interface Synced {
   files(): readonly string[];
+  stamps(): readonly string[];
   position(): number;
   refresh(album: Album): void;
 }
@@ -40,6 +41,7 @@ export function createFocusCheck(
   let stamp: string | null = null;
   return async () => {
     const files = viewer.files();
+    const stamps = viewer.stamps();
     const index = viewer.position();
     const shown = files[index];
     if (!shown || busy) return;
@@ -48,7 +50,9 @@ export function createFocusCheck(
       const album = await check(shown, stamp);
       if (album) {
         stamp = album.stamp;
-        if (!sameList(album.files, files)) viewer.refresh(album);
+        // a rewritten file keeps its name: the per-file stamps catch it, so its cached pixels are dropped
+        const rewritten = album.file_stamps !== undefined && !sameList(album.file_stamps, stamps);
+        if (rewritten || !sameList(album.files, files)) viewer.refresh(album);
       }
     } catch (err) {
       const next = neighbourIfGone(err, files, index);

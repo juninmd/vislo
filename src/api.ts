@@ -9,6 +9,8 @@ export interface Album {
   size: [number, number] | null;
   /** Folder modification stamp (ns, as text) read before listing; null when unavailable. */
   stamp: string | null;
+  /** `mtime_ns-len` per entry of `files`; absent from backends older than the stamp. */
+  file_stamps?: string[];
 }
 
 /** Rejected by `open_path`: only `not_found` means the picture was deleted. */
@@ -121,11 +123,15 @@ export const query = (params: Record<string, string | number>): string =>
     .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
     .join("&");
 
-const route = (name: string, params: Record<string, string | number>) =>
+export const route = (name: string, params: Record<string, string | number>) =>
   `${convertFileSrc(name, "vislo")}?${query(params)}`;
 
-/** What the webview should load for the full picture: the file itself, or converted in Rust. */
-export const srcFor = (path: string): string => route(isNative(path) ? "o" : "c", { p: path });
+/**
+ * What the webview should load for the full picture: the file itself, or converted in Rust.
+ * The stamp only changes the URL, so the WebView cache never serves a superseded version.
+ */
+export const srcFor = (path: string, stamp?: string): string =>
+  route(isNative(path) ? "o" : "c", stamp ? { p: path, v: stamp } : { p: path });
 export const thumbSrc = (path: string, size: number) => route("t", { p: path, s: size });
 export const previewSrc = (path: string) => route("v", { p: path });
 export const fitSrc = (path: string, w: number, h: number) => route("f", { p: path, w, h });
