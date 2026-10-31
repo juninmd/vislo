@@ -1,47 +1,34 @@
 import type { Dir } from "./nav";
+import { APPEAR_MS, appearFrames, crossfadeFrames, SLIDE_MS, slideFrames } from "./slide-anim";
 
-const DURATION = 240;
 const EASE = "cubic-bezier(0.22, 0.8, 0.28, 1)";
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 
-/** Travel is a fraction of the stage so it reads as a flick at any window size. */
-const travel = (stageW: number) => Math.round(stageW * 0.09);
-
 /** Slides the incoming slide in and the outgoing one out, in the direction of travel. */
 export function slide(incoming: HTMLElement, outgoing: HTMLElement | null, dir: Dir, stageW: number): Animation[] {
-  const ms = reduced.matches ? 0 : DURATION;
-  const dx = dir * travel(stageW);
-  const opts: KeyframeAnimationOptions = { duration: ms, easing: EASE, fill: "both" };
-  const anims = [
-    incoming.animate(
-      [{ transform: `translateX(${dx}px)`, opacity: 0 }, { transform: "translateX(0)", opacity: 1 }],
-      opts,
-    ),
-  ];
+  const ms = reduced.matches ? 0 : SLIDE_MS;
+  const frames = slideFrames(dir, stageW);
+  // Travel and opacity are separate animations: the travel keeps its easing, while the opacity ramps
+  // stay piecewise linear exactly as `coverage` describes them.
+  const move: KeyframeAnimationOptions = { duration: ms, easing: EASE, fill: "both" };
+  const dim: KeyframeAnimationOptions = { duration: ms, easing: "linear", fill: "both" };
+  const anims = [incoming.animate(frames.incomingX, move), incoming.animate(frames.incomingO, dim)];
   if (outgoing) {
-    anims.push(
-      outgoing.animate(
-        [{ transform: "translateX(0)", opacity: 1 }, { transform: `translateX(${-dx}px)`, opacity: 0 }],
-        opts,
-      ),
-    );
+    anims.push(outgoing.animate(frames.outgoingX, move), outgoing.animate(frames.outgoingO, dim));
   }
   return anims;
 }
 
-const APPEAR_MS = 320;
-
 /**
- * A picture opening: it grows from slightly smaller while fading in.
- * Returned paused on its first frame so the caller can start it the moment the window is shown;
- * it starts fairly opaque so the first painted frame already shows the picture.
+ * A picture opening. Returned paused on its first frame so the caller can start it the moment the
+ * window is shown; it is fully opaque from the start, so the first painted frame already shows it.
  */
 export function appear(el: HTMLElement): Animation {
-  const a = el.animate(
-    [{ transform: "scale(0.94)", opacity: 0.4 }, { transform: "scale(1)", opacity: 1 }],
-    { duration: reduced.matches ? 0 : APPEAR_MS, easing: EASE, fill: "backwards" },
-  );
+  const a = el.animate(appearFrames(), { duration: reduced.matches ? 0 : APPEAR_MS, easing: EASE, fill: "backwards" });
   a.pause();
+  // Released when it lands: the picture is then rendered at its own size again instead of at the
+  // scale it was animated from, which would leave it slightly resampled.
+  void a.finished.then(() => a.cancel(), () => undefined);
   return a;
 }
 
@@ -54,12 +41,13 @@ export function bump(el: HTMLElement, dir: Dir): Animation {
   );
 }
 
-/** Crossfade used by the slideshow (1 s by default). */
-export function fade(incoming: HTMLElement, outgoing: HTMLElement | null, ms: number): Animation[] {
+/**
+ * Crossfade used by the slideshow (1 s by default). Only the incoming picture animates: the outgoing
+ * one stays whole underneath, which keeps the stage covered and halves the compositor work.
+ */
+export function fade(incoming: HTMLElement, ms: number): Animation[] {
   const opts: KeyframeAnimationOptions = { duration: reduced.matches ? 0 : ms, easing: "ease-in-out", fill: "both" };
-  const anims = [incoming.animate([{ opacity: 0 }, { opacity: 1 }], opts)];
-  if (outgoing) anims.push(outgoing.animate([{ opacity: 1 }, { opacity: 0 }], opts));
-  return anims;
+  return [incoming.animate(crossfadeFrames(), opts)];
 }
 
 /** Fades `el` out and removes it: a placeholder giving way to the real picture. */
