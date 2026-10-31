@@ -334,6 +334,8 @@ node scripts/release.mjs plan                       # a versão que o próximo p
 * As imagens carregam direto do disco pelo protocolo `vislo://` (rota `/o`, o arquivo original), sem base64 via IPC.
 * A decodificação ocorre fora da thread principal (`img.decode()`); as próximas 4 e as 2 anteriores ficam decodificadas,
   com viés para a direção do movimento.
+* A prévia embutida do próximo e do anterior é preparada junto com a foto atual: um passo mostra a prévia na hora, sem
+  esperar o decodificador, e a prévia que falta já é pedida enquanto a foto inteira ainda tem 70 ms de vantagem.
 * Miniaturas e prévias de JPEG grandes são decodificadas já reduzidas (1/2, 1/4 ou 1/8 no domínio da DCT) quando a
   redução é de 4× ou mais, e o redimensionamento reaproveita o buffer em vez de copiar a imagem inteira.
 * A navegação é "o último vence": segurar uma seta nunca enfileira trabalho obsoleto.
@@ -365,6 +367,8 @@ npm run tauri dev                               # frontend com hot reload, estad
 npm run tauri build                             # instalador NSIS com associações de arquivo de imagem
 npm run screenshots                             # regenera assets/screenshots (Chromium headless, backend simulado)
 npm run perf:ui                                 # mede layouts, recálculos de estilo e quadros lentos num cenário fixo de UI
+npm run perf:motion                             # mede o início do app, o atraso de cada passo e o ritmo dos quadros
+npm run perf:pixels                             # mede se a troca de fotos deixa o fundo aparecer (pixels, não opinião)
 npm run icons                                   # regenera icon.ico e os PNGs de src-tauri/icons a partir de app-icon*.svg
 npm run check:commits                           # valida os commits de origin/main..HEAD
 cargo build --profile devrel --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml  # build otimizado rápido (sem LTO) para trabalho de desempenho

@@ -61,7 +61,40 @@ execução. Máquina de desenvolvimento Windows 11; a variação entre rodadas �
    isso beneficia todas as rotas de redução, inclusive `/f` e GIF/PNG grandes convertidos.
 4. A meta da issue (≥ 2× em miniatura de JPEG grande) foi atingida só em fotos limpas; em fotos ruidosas o ganho é ~1,4×.
 
-## 4. Avaliado e adiado
+## 4. Passos e transições: quanto tempo o olho espera
+
+`npm run perf:motion` (frontend real contra o backend simulado de `vite.screens.config.ts`, Chromium headless,
+1360 × 900, mediana de 5 passagens). O cenário "lento" modela um backend em que a foto inteira leva 600 ms e a prévia
+embutida 150 ms — a proporção de um JPEG grande num disco frio.
+
+| Medida | Antes | Depois |
+|---|---|---|
+| Passo para uma foto que ainda está decodificando (backend lento) | 235 ms | **4 ms** |
+| Salto para uma foto sem prévia preparada (backend lento) | 233 ms | **158 ms** |
+| Passo com a foto já decodificada | 1,6 ms | 1,4 ms |
+| Estágio coberto durante a troca (mínimo por quadro) | 75 % | **100 %** |
+| Fundo visível através da troca, 60 ms / 120 ms depois do passo | 21,2 % / 6,5 % | **0,8 % / 0,14 %** |
+| Quadros lentos (> 20 ms) numa janela de 43 quadros | 0 | 0 |
+| Pior quadro da janela | 5,8 ms | 5,7 ms |
+
+**O que a medição ensinou:**
+
+1. O tempo até o passo *começar* era dominado pela espera fixa de 70 ms antes de pedir a prévia, mais o próprio
+   decodificador da prévia. Preparar a prévia do vizinho assim que a foto atual aparece e pedir a prévia em paralelo com
+   essa espera tirou quase todo o atraso do caminho crítico.
+2. O `stepMinCoverage` é lido do navegador durante a troca: com dois *fades* de mesma duração, a soma das opacidades
+   cai a 75 % no meio, e é o fundo aparecendo. Segurar a foto que sai opaca até a que entra estar inteira mantém 100 %.
+   `npm run perf:pixels` confirma nos pixels (fundo magenta atrás das fotos): 21 % → menos de 1 %.
+3. O ritmo dos quadros (pior quadro, quadros lentos) não mudou: as animações já eram só `transform` e `opacity`, que o
+   compositor roda fora da thread principal. O ganho aqui é de tempo e de constância, não de FPS.
+4. No harness o início do app não muda de forma medível: em modo de desenvolvimento ele é dominado pelo carregamento dos
+   módulos do Vite, não pelo código do Vislo.
+
+`npm run perf:ui` (cenário fixo com a tira aberta, painéis e menu) ficou em 102 layouts e ~735 recálculos de estilo,
+igual ao valor anterior: as mudanças na tira (`z-index` por alvo, sem laço de animação com a tira fechada) não aparecem
+nesse cenário, mas também não custam nada.
+
+## 5. Avaliado e adiado
 
 | Ideia | Motivo |
 |---|---|
