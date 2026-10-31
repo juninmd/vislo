@@ -52,7 +52,10 @@ fn initial_path(launch: State<Launch>) -> Option<String> {
 /// Lists the folder of `path` and remembers it as opened so the `vislo` protocol and `file_info`
 /// accept paths inside it.
 #[tauri::command]
-async fn open_path(svc: State<'_, Arc<Services>>, path: String) -> Result<album::Album, String> {
+async fn open_path(
+    svc: State<'_, Arc<Services>>,
+    path: String,
+) -> Result<album::Album, album::OpenError> {
     let album = album::open(Path::new(&path))?;
     svc.allowed.allow_dir(Path::new(&album.dir));
     Ok(album)
