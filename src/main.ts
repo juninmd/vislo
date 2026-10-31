@@ -1,7 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { type Album, getSettings, initialPath, openPath, registerAssociations } from "./api";
+import { type Album, errorMessage, getSettings, initialPath, openPath, registerAssociations } from "./api";
 import { boot as bootData, prefetchLaunchImage } from "./boot";
 import { showFitted } from "./chrome";
 import { bindFolderSync } from "./folder-sync";
@@ -17,7 +17,7 @@ async function open(viewer: Viewer, path: string, listing: Promise<Album> = open
   try {
     await viewer.load(await listing);
   } catch (err) {
-    viewer.notify(String(err));
+    viewer.notify(errorMessage(err));
     if (viewer.files().length === 0) viewer.showEmpty();
     await showFitted(null); // never leave the window hidden on a failed open
   }

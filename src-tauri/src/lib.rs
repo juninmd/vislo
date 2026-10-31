@@ -53,10 +53,22 @@ fn initial_path(launch: State<Launch>) -> Option<String> {
 /// Lists the folder of `path` and remembers it as opened so the `vislo` protocol and `file_info`
 /// accept paths inside it.
 #[tauri::command]
-async fn open_path(svc: State<'_, Arc<Services>>, path: String) -> Result<album::Album, String> {
+async fn open_path(
+    svc: State<'_, Arc<Services>>,
+    path: String,
+) -> Result<album::Album, album::OpenError> {
     let album = album::open(Path::new(&path))?;
     svc.allowed.allow_dir(Path::new(&album.dir));
     Ok(album)
+}
+
+/// Sync check for the folder on screen: `null` while nothing was added, removed or renamed in it.
+#[tauri::command]
+async fn list_changed(
+    path: String,
+    stamp: Option<String>,
+) -> Result<Option<album::Album>, album::OpenError> {
+    album::list_changed(Path::new(&path), stamp.as_deref())
 }
 
 #[tauri::command]
@@ -299,6 +311,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             initial_path,
             open_path,
+            list_changed,
             file_info,
             get_settings,
             set_settings,
