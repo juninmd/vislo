@@ -24,15 +24,14 @@ export class Transitioner {
       prev?.el.remove();
       return;
     }
-    this.anims = t.kind === "fade" ? fade(slide.el, prev.el, t.ms) : slideAnim(slide.el, prev.el, dir, stage.clientWidth);
-    const [incoming] = this.anims;
-    void Promise.all(this.anims.map((a) => a.finished)).then(
-      () => {
-        prev.el.remove();
-        incoming.cancel();
-      },
-      () => prev.el.remove(),
-    );
+    const anims = (this.anims = t.kind === "fade" ? fade(slide.el, t.ms) : slideAnim(slide.el, prev.el, dir, stage.clientWidth));
+    // Cancelled, not just finished: their end state is the element's own, and a newer step must not
+    // have to fight an animation still filling a property.
+    const retire = () => {
+      prev.el.remove();
+      for (const a of anims) a.cancel();
+    };
+    void Promise.all(anims.map((a) => a.finished)).then(retire, () => prev.el.remove());
   }
 }
 
