@@ -12,10 +12,22 @@ use std::time::{Duration, Instant};
 const INSTALLER: &[u8] = b"MZ synthetic installer bytes, not an executable";
 const NAME: &str = "Vislo_0.2.0_x64-setup.exe";
 const MAX: u64 = 1 << 20;
+
+/// Limits for the tests that say nothing about time. The download window also bounds how long the
+/// server may stay quiet between the response headers and the first body byte, so a 300 ms window
+/// here only makes the suite flaky on a busy runner: it is the timing tests that need it tight.
+const STEADY: Timeouts = Timeouts {
+    api: Duration::from_secs(30),
+    connect: Duration::from_secs(30),
+    inactivity: Duration::from_secs(30),
+};
+
+/// A window short enough to assert that a stall is reported quickly, and that a slow but steady
+/// trickle is not one.
 const FAST: Timeouts = Timeouts {
     api: Duration::from_secs(5),
     connect: Duration::from_secs(5),
-    inactivity: Duration::from_millis(300),
+    inactivity: Duration::from_millis(500),
 };
 
 fn hex(bytes: &[u8]) -> String {
@@ -61,11 +73,11 @@ fn fetch_from(src: &Source, dest: &Path) -> Result<crate::update::install::Insta
 }
 
 /// Runs against `origin` as the test stand-in for GitHub; plain http is allowed on that origin only.
-fn run(origin: &str, max_bytes: u64, dest: &Path) -> Result<PathBuf, String> {
+fn run(origin: &str, max_bytes: u64, dest: &Path, timeouts: Timeouts) -> Result<PathBuf, String> {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes, plain_http_origin: Some(&plain), timeouts: FAST };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes, plain_http_origin: Some(&plain), timeouts };
     fetch_from(&src, dest).map(|installer| installer.path().to_path_buf())
 }
 
@@ -95,7 +107,7 @@ fn files_named(dir: &Path, name: &str) -> usize {
 #[test]
 fn a_matching_checksum_keeps_the_installer() {
     let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
-    let path = run(&origin, MAX, &scratch("keep")).expect("verified installer");
+    let path = run(&origin, MAX, &scratch("keep"), STEADY).expect("verified installer");
     assert_eq!(path.file_name().unwrap(), NAME);
     assert_eq!(std::fs::read(&path).unwrap(), INSTALLER);
 }
@@ -104,7 +116,7 @@ fn a_matching_checksum_keeps_the_installer() {
 fn a_wrong_checksum_is_an_error_and_the_installer_is_discarded() {
     let origin = release_server(INSTALLER, |_| format!("{}  {NAME}\n", "0".repeat(64)));
     let dest = scratch("mismatch");
-    let err = run(&origin, MAX, &dest).unwrap_err();
+    let err = run(&origin, MAX, &dest, STEADY).unwrap_err();
     assert!(err.contains("failed its checksum"), "{err}");
     assert_eq!(files_named(&dest, NAME), 0, "a file that failed its checksum must not stay on disk");
 }
@@ -112,7 +124,7 @@ fn a_wrong_checksum_is_an_error_and_the_installer_is_discarded() {
 #[test]
 fn an_installer_over_the_size_limit_is_refused() {
     let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
-    let err = run(&origin, 16, &scratch("limit")).unwrap_err();
+    let err = run(&origin, 16, &scratch("limit"), STEADY).unwrap_err();
     assert!(err.contains("size limit"), "{err}");
 }
 
@@ -120,7 +132,7 @@ fn an_installer_over_the_size_limit_is_refused() {
 fn both_sha256sum_spellings_are_accepted() {
     for sep in ["  ", " *"] {
         let origin = release_server(INSTALLER, move |h| format!("{h}{sep}{NAME}\n"));
-        let path = run(&origin, MAX, &scratch("spelling")).unwrap_or_else(|e| panic!("{sep:?}: {e}"));
+        let path = run(&origin, MAX, &scratch("spelling"), STEADY).unwrap_or_else(|e| panic!("{sep:?}: {e}"));
         assert_eq!(path.file_name().unwrap(), NAME);
     }
 }
@@ -132,7 +144,7 @@ fn a_verified_installer_cannot_be_replaced_until_it_runs() {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain), timeouts: FAST };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain), timeouts: STEADY };
     let installer = fetch_from(&src, &scratch("locked")).expect("verified installer");
     let writer = std::fs::OpenOptions::new().write(true).open(installer.path());
     assert!(writer.is_err(), "a writer could swap the installer after its checksum was taken");
@@ -142,8 +154,8 @@ fn a_verified_installer_cannot_be_replaced_until_it_runs() {
 fn each_run_gets_its_own_folder_under_the_root() {
     let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
     let root = scratch("folders");
-    let first = run(&origin, MAX, &root).expect("first run");
-    let second = run(&origin, MAX, &root).expect("second run");
+    let first = run(&origin, MAX, &root, STEADY).expect("first run");
+    let second = run(&origin, MAX, &root, STEADY).expect("second run");
     assert_ne!(first.parent(), second.parent(), "two runs must not share a folder");
     assert_eq!(first.parent().unwrap().parent(), Some(root.as_path()));
 }
@@ -159,7 +171,7 @@ fn a_redirect_to_another_plain_http_origin_is_refused() {
             ("/dl/SHA256SUMS.txt".into(), Reply::Body(format!("{}  {NAME}\n", hex(INSTALLER)).into_bytes())),
         ]
     });
-    let err = run(&origin, MAX, &scratch("redirect")).unwrap_err();
+    let err = run(&origin, MAX, &scratch("redirect"), STEADY).unwrap_err();
     assert!(err.contains("redirect"), "{err}");
 }
 
@@ -174,7 +186,7 @@ fn a_redirect_that_stays_on_the_same_origin_is_followed() {
             ("/dl/SHA256SUMS.txt".into(), Reply::Body(format!("{}  {NAME}\n", hex(INSTALLER)).into_bytes())),
         ]
     });
-    let path = run(&origin, MAX, &scratch("moved")).expect("same-origin redirect");
+    let path = run(&origin, MAX, &scratch("moved"), STEADY).expect("same-origin redirect");
     assert_eq!(std::fs::read(&path).unwrap(), INSTALLER);
 }
 
@@ -183,7 +195,7 @@ fn production_refuses_plain_http_even_when_the_server_answers() {
     let origin = release_server(INSTALLER, |h| format!("{h}  {NAME}\n"));
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: None, timeouts: FAST };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: None, timeouts: STEADY };
     let err = fetch_from(&src, &scratch("https-only")).unwrap_err();
     assert!(err.contains("https"), "{err}");
 }
@@ -194,7 +206,7 @@ fn an_installer_url_outside_the_download_prefix_is_refused() {
         let release = release_json(&format!("{origin}/elsewhere/{NAME}"), &format!("{origin}/dl/SHA256SUMS.txt"));
         vec![("/api/releases/latest".into(), Reply::Body(release.into_bytes()))]
     });
-    let err = run(&origin, MAX, &scratch("prefix")).unwrap_err();
+    let err = run(&origin, MAX, &scratch("prefix"), STEADY).unwrap_err();
     assert!(err.contains("from this repository"), "{err}");
 }
 
@@ -212,12 +224,12 @@ fn server_serving(body: &'static [u8], reply: impl FnOnce(&[u8]) -> Reply) -> St
 
 #[test]
 fn a_slow_download_that_keeps_moving_completes_past_the_inactivity_window() {
-    // 16 pieces 50 ms apart: about 800 ms in all, well past the 300 ms window, yet never idle for long
+    // 16 pieces 50 ms apart: about 800 ms in all, longer than the whole window, yet never idle for it
     static BODY: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| INSTALLER.repeat(1500));
     let origin = server_serving(&BODY, |b| Reply::Trickle { body: b.to_vec(), chunk: b.len() / 16 + 1, every: Duration::from_millis(50) });
     let started = Instant::now();
-    let path = run(&origin, u64::MAX, &scratch("slow")).expect("a steady trickle is not a stall");
-    assert!(started.elapsed() > FAST.inactivity * 2, "the test must outlast the window");
+    let path = run(&origin, u64::MAX, &scratch("slow"), FAST).expect("a steady trickle is not a stall");
+    assert!(started.elapsed() > FAST.inactivity, "the transfer must outlast the window to prove anything");
     assert_eq!(std::fs::read(&path).unwrap(), *BODY);
 }
 
@@ -226,8 +238,9 @@ fn a_stalled_download_fails_after_the_inactivity_window_not_at_the_end_of_the_st
     static BODY: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| INSTALLER.repeat(1500));
     let origin = server_serving(&BODY, |b| Reply::Stall { body: b.to_vec(), head: 4096, hold: Duration::from_secs(3) });
     let started = Instant::now();
-    let err = run(&origin, u64::MAX, &scratch("stall")).unwrap_err();
-    assert!(started.elapsed() < Duration::from_secs(2), "gave up after {:?}", started.elapsed());
+    let err = run(&origin, u64::MAX, &scratch("stall"), FAST).unwrap_err();
+    // one window plus the tick the receive loop works on, not the three seconds the server holds for
+    assert!(started.elapsed() < FAST.inactivity + Duration::from_secs(1), "gave up after {:?}", started.elapsed());
     assert!(err.contains("stalled"), "{err}");
 }
 
@@ -237,7 +250,7 @@ fn progress_reports_the_bytes_so_far_and_ends_at_the_full_size() {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain), timeouts: FAST };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: MAX, plain_http_origin: Some(&plain), timeouts: STEADY };
     let cancel = AtomicBool::new(false);
     let mut seen = Vec::new();
     let mut progress = |p: Progress| seen.push(p);
@@ -255,7 +268,7 @@ fn a_cancel_pressed_as_the_download_ends_still_stops_the_install() {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: u64::MAX, plain_http_origin: Some(&plain), timeouts: FAST };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: u64::MAX, plain_http_origin: Some(&plain), timeouts: STEADY };
     let cancel = AtomicBool::new(false);
     // the cancel arrives with the last progress report, while the checksum is still to be taken
     let mut progress = |p: Progress| {
@@ -275,7 +288,7 @@ fn cancelling_stops_the_download_and_discards_the_partial_file() {
     let api = format!("{origin}/api");
     let dl = format!("{origin}/dl/");
     let plain = format!("{origin}/");
-    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: u64::MAX, plain_http_origin: Some(&plain), timeouts: FAST };
+    let src = Source { api_base: &api, download_prefix: &dl, max_bytes: u64::MAX, plain_http_origin: Some(&plain), timeouts: STEADY };
     let dest = scratch("cancel");
     let cancel = AtomicBool::new(false);
     let mut progress = |_: Progress| {};
