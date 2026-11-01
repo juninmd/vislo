@@ -31,6 +31,9 @@ mod jpegls_codec;
 #[cfg(test)]
 mod jpegls_tests;
 mod layered;
+mod pict;
+#[cfg(test)]
+mod pict_tests;
 mod pool;
 mod psb;
 mod raw;
