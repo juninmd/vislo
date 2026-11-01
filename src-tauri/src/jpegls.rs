@@ -12,7 +12,10 @@ struct Frame {
 }
 
 pub fn decode(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
-    let f = std::fs::read(path).map_err(|e| e.to_string())?;
+    decode_bytes(&std::fs::read(path).map_err(|e| e.to_string())?, max_pixels)
+}
+
+pub(crate) fn decode_bytes(f: &[u8], max_pixels: u64) -> Result<DynamicImage, String> {
     let bad = || "not a valid JPEG-LS file".to_string();
     let be16 = |at: usize| f.get(at..at + 2).map(|b| usize::from(u16::from_be_bytes([b[0], b[1]])));
     if f.get(..2) != Some(&[0xFF, 0xD8]) {
