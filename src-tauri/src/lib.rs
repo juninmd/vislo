@@ -9,11 +9,13 @@ mod cli;
 mod clipboard;
 mod codecs;
 mod decode;
+mod dicom;
 mod dpx;
 mod exif_info;
 #[cfg(test)]
 mod extra_formats;
 mod metadata;
+mod mng;
 mod original;
 #[cfg(test)]
 mod fixtures;
@@ -36,6 +38,7 @@ mod tray;
 mod update;
 mod wic;
 mod window;
+mod xwd;
 
 use paths::Allowed;
 use pool::Pool;
