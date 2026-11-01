@@ -60,7 +60,7 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 * **Girar a visualização** (`R` / `Shift+R`) e tamanho em pixels ao lado do nome e no título da janela.
 * **Muitos formatos:** JPEG (inclui JIF/JFI/PJPEG), PNG/APNG, GIF, WebP, BMP/DIB, AVIF/AVIFS, ICO/CUR, **SVG** (vetor, nítido em
   qualquer zoom), **JPEG XL** e **JPEG 2000** (JP2, J2K, J2C, JPC; decodificadores em Rust puro), TIFF, TGA (+ VDA, ICB, VST), PSD,
-  Netpbm (PBM/PGM/PPM/PNM/PAM), Radiance HDR e OpenEXR (com tone-mapping para sRGB), DDS (DXT), QOI, farbfeld, bitmaps clássicos (PCX, SGI/IRIS/BW, XBM/BM, XPM, WBMP, OTB), ICNS, OpenRaster/Krita (ORA, KRA: imagem mesclada), JPEG XR (JXR, WDP, HDP, WMP), Sun Raster (RAS, SUN), FITS (FITS, FIT, FTS: cinza esticado entre os percentis 0,5 e 99,5), DPX (8, 10 e 16 bits, sem curva de transferência), JBIG2 (JB2, JBIG2), CALS, WMF/EMF (vetor, desenhado pelo Windows sobre fundo branco, no mínimo 1024 px), e PSB (Photoshop grande: só a imagem mesclada, cinza ou RGB), MPO/JPS (estéreo, primeiro quadro), RGBE/XYZE e JPF/JPX e HEIC/HEIF (HEIC, HEIF, HIF; via codecs do Windows, o HEIC pede as extensões HEIF e HEVC da Microsoft Store) e o JPEG
+  Netpbm (PBM/PGM/PPM/PNM/PAM), Radiance HDR e OpenEXR (com tone-mapping para sRGB), DDS (DXT), QOI, farbfeld, bitmaps clássicos (PCX, SGI/IRIS/BW, XBM/BM, XPM, WBMP, OTB), ICNS, OpenRaster/Krita (ORA, KRA: imagem mesclada), JPEG XR (JXR, WDP, HDP, WMP), Sun Raster (RAS, SUN), FITS (FITS, FIT, FTS: cinza esticado entre os percentis 0,5 e 99,5), DPX (8, 10 e 16 bits, sem curva de transferência), JBIG2 (JB2, JBIG2), CALS, WMF/EMF (vetor, desenhado pelo Windows sobre fundo branco, no mínimo 1024 px), MNG (primeiro quadro), XWD, DICOM (sem compressão, primeiro quadro, com janela e inversão MONOCHROME1; fica fora do registro padrão como visualizador, só entra se você escolher o grupo `dicom`) e PSB (Photoshop grande: só a imagem mesclada, cinza ou RGB), MPO/JPS (estéreo, primeiro quadro), RGBE/XYZE e JPF/JPX e HEIC/HEIF (HEIC, HEIF, HIF; via codecs do Windows, o HEIC pede as extensões HEIF e HEVC da Microsoft Store) e o JPEG
   embutido de 30 tipos de RAW (DNG, CR2, CR3, CRW, NEF, NRW, ARW, SRF, SR2, ORF, RW2, RAF, PEF, SRW, X3F, 3FR, FFF,
   IIQ, MEF, MOS, MRW, DCR, KDC, ERF, RWL, RAW, ARQ, GPR, ORI, K25). A orientação EXIF é aplicada.
 * **Keep ready** (configuração, desligado por padrão): fechar a janela estaciona o Vislo na bandeja em vez de sair;
@@ -170,7 +170,7 @@ Usage:
   vislo --help, -h                        show this help
   vislo --version, -V                     show the version
 
-Groups (comma-separated, default all): jpeg, png, gif, bmp, tiff, tga, webp, avif, ico, svg, jxl, jp2, psd, layered, heic, jxr, sun, fits, dpx, fax, metafile, pnm, hdr, other, legacy, raw
+Groups (comma-separated, default all): jpeg, png, gif, bmp, tiff, tga, webp, avif, ico, svg, jxl, jp2, psd, layered, heic, jxr, sun, fits, dpx, fax, metafile, mng, xwd, dicom, pnm, hdr, other, legacy, raw
 
 Exit codes: 0 success, 1 failure, 2 bad usage.
 ```
