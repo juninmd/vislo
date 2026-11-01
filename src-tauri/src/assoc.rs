@@ -32,7 +32,7 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("dpx", &["dpx"]),
     ("fax", &["jb2", "jbig2", "cals"]),
     ("metafile", &["wmf", "emf"]),
-    ("mng", &["mng"]),
+    ("mng", &["mng", "jng"]),
     ("xwd", &["xwd"]),
     ("dicom", &["dcm", "dicom"]),
     ("xcf", &["xcf"]),

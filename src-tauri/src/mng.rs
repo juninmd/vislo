@@ -1,5 +1,5 @@
 //! MNG (`.mng`): the first embedded PNG image object (IHDR..IEND), shown like the first frame of an APNG.
-//! Positioning, delta and animation chunks are ignored, and a JNG-only first image is reported as unsupported.
+//! Positioning, delta and animation chunks are ignored. A first image that is a JNG is decoded by `jng`.
 
 use image::{DynamicImage, ImageDecoder};
 use std::path::Path;
@@ -20,7 +20,7 @@ pub fn decode(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
         let next = at.checked_add(12).and_then(|a| a.checked_add(len)).filter(|n| *n <= f.len()).ok_or_else(bad)?;
         match kind {
             b"IHDR" if start.is_none() => start = Some(at),
-            b"JHDR" if start.is_none() => return Err("this MNG starts with a JNG image, which is not supported".to_string()),
+            b"JHDR" if start.is_none() => return crate::jng::decode_from(&f, at, max_pixels),
             b"IEND" if start.is_some() => break [PNG, &f[start.unwrap()..next]].concat(),
             b"MEND" => return Err("no PNG image inside this MNG".to_string()),
             _ => {}
