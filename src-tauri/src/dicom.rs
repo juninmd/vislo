@@ -1,4 +1,4 @@
-//! DICOM (`.dcm`, `.dicom`): the first frame of uncompressed little-endian files, 8/16-bit greyscale (with the
+//! DICOM (`.dcm`, `.dicom`): the first frame of uncompressed little-endian files, 8/16/32-bit greyscale (with the
 //! file's window, rescale and MONOCHROME1 inversion) or 8-bit RGB. Compressed transfer syntaxes are reported as such.
 
 use image::{DynamicImage, GrayImage, RgbImage};
@@ -129,7 +129,7 @@ pub fn decode(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
     let (start, end) = m.pixels.ok_or("no pixel data in this DICOM file")?;
     let (n, depth) = ((w * h) as usize, (m.bits / 8) as usize);
     let rgb = m.samples == 3 && m.photometric == "RGB" && m.bits == 8;
-    let grey = m.samples == 1 && m.photometric.starts_with("MONOCHROME") && matches!(m.bits, 8 | 16);
+    let grey = m.samples == 1 && m.photometric.starts_with("MONOCHROME") && matches!(m.bits, 8 | 16 | 32);
     if !rgb && !grey {
         return Err(format!("unsupported DICOM layout ({} samples, {} bits, {})", m.samples, m.bits, m.photometric));
     }
@@ -144,7 +144,12 @@ pub fn decode(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
         return Ok(DynamicImage::ImageRgb8(img));
     }
     let value = |i: usize| -> f64 {
-        let v = if depth == 1 { f64::from(data[i]) } else if m.signed { f64::from(i16::from_le_bytes([data[i * 2], data[i * 2 + 1]])) } else { f64::from(u16::from_le_bytes([data[i * 2], data[i * 2 + 1]])) };
+        let v = if depth == 1 {
+            f64::from(data[i])
+        } else if depth == 4 {
+            let b = [data[i * 4], data[i * 4 + 1], data[i * 4 + 2], data[i * 4 + 3]];
+            if m.signed { f64::from(i32::from_le_bytes(b)) } else { f64::from(u32::from_le_bytes(b)) }
+        } else if m.signed { f64::from(i16::from_le_bytes([data[i * 2], data[i * 2 + 1]])) } else { f64::from(u16::from_le_bytes([data[i * 2], data[i * 2 + 1]])) };
         v * m.slope + m.intercept
     };
     let (lo, hi) = match (m.center, m.width) {
@@ -262,6 +267,14 @@ mod tests {
         let g = run(&file(EXPLICIT_LE, "MONOCHROME2", 1, 16, 2, 2, &extra, &px), 10).unwrap().to_luma8();
         assert_eq!((g.get_pixel(0, 0).0[0], g.get_pixel(1, 1).0[0]), (0, 255));
         assert!((125..131).contains(&g.get_pixel(1, 0).0[0]), "stored zero sits mid-range only if the sign was honoured");
+    }
+
+    #[test]
+    fn thirty_two_bit_data_such_as_rt_dose_is_windowed_like_the_rest() {
+        let px: Vec<u8> = [0u32, 1_000_000, 4_000_000_000, 2_000_000_000].iter().flat_map(|v| v.to_le_bytes()).collect();
+        let g = run(&file(EXPLICIT_LE, "MONOCHROME2", 1, 32, 2, 2, &[], &px), 10).unwrap().to_luma8();
+        assert_eq!((g.get_pixel(0, 0).0[0], g.get_pixel(0, 1).0[0]), (0, 255), "values above i32::MAX must not wrap negative");
+        assert!((125..131).contains(&g.get_pixel(1, 1).0[0]));
     }
 
     #[test]
