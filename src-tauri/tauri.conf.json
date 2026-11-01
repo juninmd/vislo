@@ -47,6 +47,7 @@
       { "ext": ["wmf", "emf"], "name": "Windows metafile", "description": "WMF / EMF vector picture (drawn by Windows)", "role": "Viewer" },
       { "ext": ["mng"], "name": "MNG image", "description": "MNG animation (first image)", "role": "Viewer" },
       { "ext": ["xwd"], "name": "X Window Dump", "description": "X Window Dump image", "role": "Viewer" },
+      { "ext": ["jls"], "name": "JPEG-LS", "description": "JPEG-LS image", "role": "Viewer" },
       { "ext": ["ora", "kra"], "name": "Layered document", "description": "OpenRaster / Krita document (merged preview)", "role": "Viewer" },
       { "ext": ["dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef", "srw", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "dcr", "kdc", "erf", "rwl", "raw", "arq", "gpr", "ori", "k25"], "name": "RAW photo", "description": "RAW photo (embedded preview)", "role": "Viewer" }
     ]

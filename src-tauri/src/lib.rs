@@ -23,6 +23,10 @@ mod paths;
 mod fits;
 mod gdip;
 mod jpeg_scaled;
+mod jpegls;
+mod jpegls_codec;
+#[cfg(test)]
+mod jpegls_tests;
 mod layered;
 mod pool;
 mod psb;
