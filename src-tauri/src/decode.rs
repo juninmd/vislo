@@ -1,6 +1,6 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, codecs, dpx, exif_info, fits, jpeg_scaled, layered, raw, sunras, wic};
+use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, bilevel, codecs, dpx, exif_info, fits, gdip, jpeg_scaled, layered, psb, raw, sunras, wic};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
@@ -126,6 +126,14 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
         sunras::decode(path, MAX_PIXELS)?
     } else if matches!(ext.as_str(), "fits" | "fit" | "fts") {
         fits::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "wmf" | "emf") {
+        gdip::decode(path, MAX_PIXELS)?
+    } else if ext == "psb" {
+        psb::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "jb2" | "jbig2") {
+        bilevel::decode_jbig2(path, MAX_PIXELS)?
+    } else if ext == "cals" {
+        bilevel::decode_cals(path, MAX_PIXELS)?
     } else if ext == "dpx" {
         dpx::decode(path, MAX_PIXELS)?
     } else if matches!(ext.as_str(), "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp") {
@@ -193,7 +201,7 @@ pub fn dimensions(path: &Path) -> Option<(u32, u32)> {
     if ext == "svg" {
         return codecs::svg_dimensions(path);
     }
-    if matches!(ext.as_str(), "psd" | "ora" | "kra" | "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp" | "ras" | "sun" | "fits" | "fit" | "fts" | "dpx" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc" | "jpf" | "jpx") || is_raw(&ext) {
+    if matches!(ext.as_str(), "psd" | "ora" | "kra" | "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp" | "ras" | "sun" | "fits" | "fit" | "fts" | "dpx" | "jb2" | "jbig2" | "cals" | "psb" | "wmf" | "emf" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc" | "jpf" | "jpx") || is_raw(&ext) {
         return None; // not readable from a header without a decoder
     }
     let (w, h) = open_reader(path, &ext).ok()?.into_dimensions().ok()?;
