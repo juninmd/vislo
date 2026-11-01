@@ -23,6 +23,9 @@ mod paths;
 mod fits;
 mod gdip;
 mod jpeg_scaled;
+mod jng;
+#[cfg(test)]
+mod jng_tests;
 mod jpegls;
 mod jpegls_codec;
 #[cfg(test)]
