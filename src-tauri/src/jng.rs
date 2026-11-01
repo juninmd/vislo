@@ -97,7 +97,7 @@ pub fn decode_from(f: &[u8], mut at: usize, max_pixels: u64) -> Result<DynamicIm
     }
     let color = DynamicImage::from_decoder(dec).map_err(|e| format!("JNG colour data: {e}"))?;
     if h.color < 12 {
-        return Ok(if h.color == 8 { DynamicImage::ImageLuma8(color.to_luma8()) } else { DynamicImage::ImageRgb8(color.to_rgb8()) });
+        return Ok(if h.color == 8 { DynamicImage::ImageLuma8(color.into_luma8()) } else { DynamicImage::ImageRgb8(color.into_rgb8()) });
     }
     let alpha = if h.alpha_jpeg {
         grey_jpeg(&jdaa, (h.w, h.h), "JNG alpha")?
@@ -107,7 +107,7 @@ pub fn decode_from(f: &[u8], mut at: usize, max_pixels: u64) -> Result<DynamicIm
         let dec = PngDecoder::new(Cursor::new(&png)).map_err(|e| format!("JNG alpha: {e}"))?;
         DynamicImage::from_decoder(dec).map_err(|e| format!("JNG alpha: {e}"))?.to_luma8()
     };
-    let rgb = color.to_rgb8();
+    let rgb = color.into_rgb8();
     let mut out = RgbaImage::new(h.w, h.h);
     for ((o, c), a) in out.pixels_mut().zip(rgb.pixels()).zip(alpha.pixels()) {
         *o = image::Rgba([c[0], c[1], c[2], a[0]]);
