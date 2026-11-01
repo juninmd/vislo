@@ -4,7 +4,7 @@
 //! path is to register the app (ProgID + Capabilities + RegisteredApplications) and send the
 //! user to Settings > Default apps for a single confirmation.
 
-use crate::album::{extensions, EXTRA_EXTENSIONS, RAW_EXTENSIONS};
+use crate::album::{extensions, EXTRA_EXTENSIONS, NOT_REGISTERED, RAW_EXTENSIONS};
 
 /// What the user can pick in the settings panel; together they cover `extensions()` exactly.
 pub const GROUPS: &[(&str, &[&str])] = &[
@@ -32,6 +32,9 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("dpx", &["dpx"]),
     ("fax", &["jb2", "jbig2", "cals"]),
     ("metafile", &["wmf", "emf"]),
+    ("mng", &["mng"]),
+    ("xwd", &["xwd"]),
+    ("dicom", &["dcm", "dicom"]),
     ("pnm", &["pbm", "pgm", "ppm", "pnm", "pam"]),
     ("hdr", &["hdr", "exr", "rgbe", "xyze"]),
     ("other", &["dds", "qoi", "ff"]),
@@ -39,10 +42,10 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("raw", RAW_EXTENSIONS),
 ];
 
-/// Extensions of the named groups; no names means every group.
+/// Extensions of the named groups; no names means every group except the opt-in ones (`NOT_REGISTERED`).
 pub fn extensions_for(groups: &[String]) -> Result<Vec<&'static str>, String> {
     if groups.is_empty() {
-        return Ok(extensions().collect());
+        return Ok(extensions().filter(|e| !NOT_REGISTERED.contains(e)).collect());
     }
     let mut out = Vec::new();
     for name in groups {
@@ -332,7 +335,8 @@ mod tests {
             extensions_for(&["tiff".into(), "png".into()]).unwrap(),
             ["tif", "tiff", "png", "apng"]
         );
-        assert_eq!(extensions_for(&[]).unwrap().len(), extensions().count());
+        assert_eq!(extensions_for(&[]).unwrap().len(), extensions().count() - NOT_REGISTERED.len());
+        assert_eq!(extensions_for(&["dicom".into()]).unwrap(), ["dcm", "dicom"], "an explicit choice still registers them");
         assert!(extensions_for(&["nope".into()]).is_err());
     }
 
