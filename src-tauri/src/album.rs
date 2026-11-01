@@ -12,7 +12,8 @@ pub const NATIVE_EXTENSIONS: &[&str] = &[
 pub const CONVERTED_EXTENSIONS: &[&str] = &[
     "tif", "tiff", "tga", "vda", "icb", "vst", "psd", "pbm", "pgm", "ppm", "pnm", "pam", "hdr",
     "exr", "dds", "qoi", "ff", "jxl", "jp2", "j2k", "j2c", "jpc", "ora", "kra",
-    "heic", "heif", "hif", "jxr", "wdp", "hdp",
+    "heic", "heif", "hif", "jxr", "wdp", "hdp", "wmp", "ras", "sun", "fits", "fit", "fts", "dpx", "mpo", "jps",
+    "rgbe", "xyze", "jpf", "jpx",
 ];
 
 /// Legacy and niche bitmaps decoded by `image-extras` (registered through `codecs::register_extras`).

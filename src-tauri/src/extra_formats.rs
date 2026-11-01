@@ -128,3 +128,26 @@ fn truncated_bodies_behind_valid_headers_are_errors() {
     }
     let _ = std::fs::remove_dir_all(d);
 }
+
+#[test]
+fn alias_extensions_reach_the_decoder_of_their_content() {
+    use crate::codecs::tests::{bytes, JP2};
+    let d = dir("alias");
+    let mut jpeg = std::io::Cursor::new(Vec::new());
+    DynamicImage::ImageRgb8(image::RgbImage::from_pixel(7, 5, image::Rgb([9, 9, 9]))).write_to(&mut jpeg, image::ImageFormat::Jpeg).unwrap();
+    let mut hdr = Vec::new();
+    image::codecs::hdr::HdrEncoder::new(&mut hdr).encode(&[image::Rgb([0.5f32, 0.5, 0.5]); 6], 3, 2).unwrap();
+    let cases: [(&str, Vec<u8>, (u32, u32)); 6] = [
+        ("a.mpo", jpeg.get_ref().clone(), (7, 5)),
+        ("a.jps", jpeg.into_inner(), (7, 5)),
+        ("a.rgbe", hdr.clone(), (3, 2)),
+        ("a.xyze", hdr, (3, 2)),
+        ("a.jpf", bytes(JP2), (16, 8)),
+        ("a.jpx", bytes(JP2), (16, 8)),
+    ];
+    for (name, data, size) in cases {
+        std::fs::write(d.join(name), data).unwrap();
+        assert_eq!(load(&d.join(name)).unwrap_or_else(|e| panic!("{name}: {e}")).dimensions(), size, "{name}");
+    }
+    let _ = std::fs::remove_dir_all(d);
+}

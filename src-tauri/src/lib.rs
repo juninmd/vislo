@@ -8,6 +8,7 @@ mod cli;
 mod clipboard;
 mod codecs;
 mod decode;
+mod dpx;
 mod exif_info;
 #[cfg(test)]
 mod extra_formats;
@@ -16,6 +17,7 @@ mod original;
 #[cfg(test)]
 mod fixtures;
 mod paths;
+mod fits;
 mod jpeg_scaled;
 mod layered;
 mod pool;
@@ -25,6 +27,7 @@ mod scheme;
 mod settings;
 mod shell;
 mod splash;
+mod sunras;
 mod thumbs;
 mod tray;
 mod update;

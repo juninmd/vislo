@@ -1,6 +1,6 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, codecs, exif_info, jpeg_scaled, layered, raw, wic};
+use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, codecs, dpx, exif_info, fits, jpeg_scaled, layered, raw, sunras, wic};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
@@ -122,13 +122,19 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
     let mut preview_orientation = None;
     let img = if ext == "psd" {
         decode_psd(path)?
-    } else if matches!(ext.as_str(), "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp") {
+    } else if matches!(ext.as_str(), "ras" | "sun") {
+        sunras::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "fits" | "fit" | "fts") {
+        fits::decode(path, MAX_PIXELS)?
+    } else if ext == "dpx" {
+        dpx::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp") {
         wic::decode(path, MAX_PIXELS)?
     } else if matches!(ext.as_str(), "ora" | "kra") {
         layered::decode(path, MAX_PIXELS)?
     } else if ext == "jxl" {
         to_display(codecs::decode_jxl(path, MAX_PIXELS)?)
-    } else if matches!(ext.as_str(), "jp2" | "j2k" | "j2c" | "jpc") {
+    } else if matches!(ext.as_str(), "jp2" | "j2k" | "j2c" | "jpc" | "jpf" | "jpx") {
         codecs::decode_jp2(path, MAX_PIXELS)?
     } else if is_raw(&ext) {
         let (img, own) = decode_raw_preview(path)?;
@@ -177,7 +183,7 @@ fn is_jpeg(ext: &str) -> bool {
 }
 
 fn is_photo(ext: &str) -> bool {
-    is_raw(ext) || matches!(ext, "jpg" | "jpeg" | "jpe" | "jfif" | "tif" | "tiff")
+    is_raw(ext) || matches!(ext, "jpg" | "jpeg" | "jpe" | "jfif" | "mpo" | "jps" | "tif" | "tiff")
 }
 
 /// Upright pixel size from the file header only (cheap); `None` when it cannot be known without
@@ -187,7 +193,7 @@ pub fn dimensions(path: &Path) -> Option<(u32, u32)> {
     if ext == "svg" {
         return codecs::svg_dimensions(path);
     }
-    if matches!(ext.as_str(), "psd" | "ora" | "kra" | "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc") || is_raw(&ext) {
+    if matches!(ext.as_str(), "psd" | "ora" | "kra" | "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp" | "ras" | "sun" | "fits" | "fit" | "fts" | "dpx" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc" | "jpf" | "jpx") || is_raw(&ext) {
         return None; // not readable from a header without a decoder
     }
     let (w, h) = open_reader(path, &ext).ok()?.into_dimensions().ok()?;
