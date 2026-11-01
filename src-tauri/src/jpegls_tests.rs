@@ -1,24 +1,10 @@
 //! JPEG-LS checks. The fixtures were produced by an independent encoder (CharLS); each `.raw` is that encoder's own
 //! decode scaled to 8 bits, so a match means the same pixels, not just the same size.
 
-use crate::jpegls::decode;
-use std::path::PathBuf;
-
-fn write(bytes: &[u8]) -> PathBuf {
-    use std::sync::atomic::{AtomicU32, Ordering};
-    static N: AtomicU32 = AtomicU32::new(0);
-    let d = std::env::temp_dir().join(format!("vislo-jls-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
-    std::fs::create_dir_all(&d).unwrap();
-    let p = d.join("x.jls");
-    std::fs::write(&p, bytes).unwrap();
-    p
-}
+use crate::jpegls::decode_bytes;
 
 fn run(bytes: &[u8], max: u64) -> Result<image::DynamicImage, String> {
-    let p = write(bytes);
-    let r = decode(&p, max);
-    let _ = std::fs::remove_dir_all(p.parent().unwrap());
-    r
+    decode_bytes(bytes, max)
 }
 
 fn pixels(img: &image::DynamicImage, channels: usize) -> Vec<u8> {
