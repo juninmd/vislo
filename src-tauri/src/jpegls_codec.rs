@@ -33,7 +33,7 @@ pub(crate) struct Params {
     range: i32,
     qbpp: u32,
     limit: u32,
-    t: [i32; 3],
+    pub t: [i32; 3],
     reset: i32,
 }
 
@@ -49,7 +49,7 @@ pub(crate) fn params(maxval: i32, near: i32, preset: [i32; 4]) -> Result<Params,
         t[i] = if maxval >= 128 {
             ((maxval.min(4095) + 128) / 256 * (b[i] - base) + base + add).clamp(lo, maxval)
         } else {
-            ((b[i] / (256 / (maxval + 1))).max(base) + add).clamp(lo, maxval)
+            (b[i] / (256 / (maxval + 1)) + add).max(base).clamp(lo, maxval)
         };
         if i > 0 {
             t[i] = t[i].max(t[i - 1]);
@@ -59,7 +59,7 @@ pub(crate) fn params(maxval: i32, near: i32, preset: [i32; 4]) -> Result<Params,
         }
     }
     let reset = if preset[3] != 0 { preset[3] } else { 64 };
-    if !(lo <= t[0] && t[0] <= t[1] && t[1] <= t[2] && t[2] <= maxval) || !(3..=255).contains(&reset) {
+    if !(lo <= t[0] && t[0] <= t[1] && t[1] <= t[2] && t[2] <= maxval) || !(3..=4095.min(maxval.max(255))).contains(&reset) {
         return Err("invalid JPEG-LS coding parameters".into());
     }
     let range = (maxval + 2 * near) / (2 * near + 1) + 1;
@@ -89,7 +89,7 @@ impl<'a> Dec<'a> {
         Dec { p, bits: Bits { d: data, pos: 0, val: 0, left: 0, prev_ff: false }, a: vec![a0; 367], b: vec![0; 367], c: vec![0; 367], n: vec![1; 367], nn: [0; 2] }
     }
 
-    fn golomb(&mut self, k: u32, limit: u32) -> Result<i32, String> {
+    pub fn golomb(&mut self, k: u32, limit: u32) -> Result<i32, String> {
         let max_z = limit.saturating_sub(self.p.qbpp + 1);
         let mut z = 0;
         while self.bits.bit()? == 0 {
@@ -98,7 +98,12 @@ impl<'a> Dec<'a> {
                 return Err("corrupt JPEG-LS data".into());
             }
         }
-        Ok(if z >= max_z { self.bits.bits(self.p.qbpp)? as i32 + 1 } else { ((z as i32) << k) + self.bits.bits(k)? as i32 })
+        let m = if z >= max_z { self.bits.bits(self.p.qbpp)? as i32 + 1 } else { ((z as i32) << k) + self.bits.bits(k)? as i32 };
+        // A mapped error never exceeds the sample range; larger values would let A, and so k, grow without bound.
+        if m > self.p.range {
+            return Err("corrupt JPEG-LS data".into());
+        }
+        Ok(m)
     }
 
     fn fix(&self, v: i32) -> i32 {

@@ -21,7 +21,7 @@ pub(crate) fn decode_bytes(f: &[u8], max_pixels: u64) -> Result<DynamicImage, St
     if f.get(..2) != Some(&[0xFF, 0xD8]) {
         return Err(bad());
     }
-    let (mut at, mut frame, mut preset, mut maxval) = (2usize, None::<Frame>, [0i32; 4], 0i32);
+    let (mut at, mut frame, mut preset, mut lse_maxval, mut maxval) = (2usize, None::<Frame>, [0i32; 4], 0i32, 0i32);
     let mut planes: Vec<Vec<u16>> = Vec::new();
     let mut done: Vec<bool> = Vec::new();
     while at < f.len() {
@@ -61,18 +61,20 @@ pub(crate) fn decode_bytes(f: &[u8], max_pixels: u64) -> Result<DynamicImage, St
                 done = vec![false; nf];
                 frame = Some(Frame { h, w, ids: seg[6..].chunks(3).map(|c| c[0]).collect() });
             }
+            0xDD if seg != [0, 0] => return Err("JPEG-LS restart intervals are not supported".into()),
             0xF8 => match seg {
                 [1, rest @ ..] if rest.len() >= 10 => {
                     let v = |i: usize| i32::from(u16::from_be_bytes([rest[2 * i], rest[2 * i + 1]]));
                     preset = [v(1), v(2), v(3), v(4)];
-                    if v(0) != 0 {
-                        maxval = v(0);
-                    }
+                    lse_maxval = v(0); // may come before the frame header, which must not overwrite it
                 }
                 _ => return Err("JPEG-LS mapping tables are not supported".into()),
             },
             0xDA => {
                 let fr = frame.as_ref().ok_or_else(bad)?;
+                if lse_maxval != 0 {
+                    maxval = lse_maxval;
+                }
                 let ns = usize::from(*seg.first().ok_or_else(bad)?);
                 if seg.len() != 4 + 2 * ns || ns == 0 || ns > fr.ids.len() {
                     return Err(bad());

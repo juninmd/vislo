@@ -26,6 +26,8 @@ fixture!(lossless_grey_with_runs_and_spikes, "jls-grey8-runs", 1, 33, 17, "run m
 fixture!(sample_interleaved_rgb, "jls-rgb8-sample", 3, 33, 17, "three components share one run decision");
 fixture!(separate_scans_per_component, "jls-rgb8-planes", 3, 33, 17, "non-interleaved scans, one per component");
 fixture!(near_lossless_12_bit, "jls-rgb12-near4", 3, 5, 7, "NEAR=4 at 12 bits: reconstruction must wrap and clamp exactly like the encoder");
+fixture!(near_lossless_4_bit_default_thresholds, "jls-grey4-near1", 1, 20, 12, "below 8 bits the default T1..T3 add NEAR before the floor is applied");
+fixture!(near_lossless_7_bit_default_thresholds, "jls-grey7-near2", 1, 20, 12, "same rule just under the 128 boundary");
 fixture!(run_that_reaches_the_line_end, "jls-grey8-flat", 1, 9, 1, "a run ending at the end of the line has no interruption sample");
 
 #[test]
@@ -82,4 +84,46 @@ fn mapping_tables_are_refused() {
     let sos = f.windows(2).position(|w| w == [0xFF, 0xDA]).unwrap();
     f[sos + 6] = 1; // Tm: use mapping table 1
     assert!(run(&f, 1 << 20).unwrap_err().contains("mapping"));
+}
+
+#[test]
+fn default_thresholds_follow_the_standard() {
+    use crate::jpegls_codec::params;
+    let t = |maxval, near| params(maxval, near, [0; 4]).unwrap().t;
+    assert_eq!(t(255, 0), [3, 7, 21]);
+    assert_eq!(t(15, 0), [2, 3, 4]);
+    assert_eq!(t(15, 1), [3, 5, 8], "BASIC/F + k*NEAR first, the floor after");
+    assert_eq!(t(127, 1), [4, 8, 17]);
+    assert_eq!(t(65535, 0), [18, 67, 276]);
+}
+
+#[test]
+fn a_golomb_code_beyond_the_sample_range_is_rejected() {
+    use crate::jpegls_codec::{params, Dec};
+    // 8-bit: RANGE is 256. 22 zeros, a one and eight ones decode (with k = 8) to (22 << 8) + 255, far outside it;
+    // accepting that would let A and then k grow with every sample until the shifts overflow or never terminate.
+    let data = [0x00, 0x00, 0x03, 0xFF, 0x80];
+    let mut dec = Dec::new(params(255, 0, [0; 4]).unwrap(), &data);
+    assert!(dec.golomb(8, 32).is_err());
+    let ok = [0b0000_0101, 0xFF]; // z = 5, one, then k = 2 bits: 5 << 2 | 0b01 = 21, inside the range
+    assert_eq!(Dec::new(params(255, 0, [0; 4]).unwrap(), &ok).golomb(2, 32), Ok(21));
+}
+
+#[test]
+fn restart_intervals_and_a_large_reset_are_named() {
+    let mut f = include_bytes!("test_data/jls-grey8-runs.jls").to_vec();
+    let sof = f.windows(2).position(|w| w == [0xFF, 0xF7]).unwrap();
+    f.splice(sof..sof, [0xFF, 0xDD, 0, 4, 0, 8]);
+    assert!(run(&f, 1 << 20).unwrap_err().contains("restart"));
+}
+
+#[test]
+fn an_lse_maxval_before_the_frame_header_is_kept() {
+    let mut f = include_bytes!("test_data/jls-grey8-runs.jls").to_vec();
+    let sof = f.windows(2).position(|w| w == [0xFF, 0xF7]).unwrap();
+    // MAXVAL 200, defaults for the rest: the scan was coded with 255, so it must differ from the plain decode.
+    f.splice(sof..sof, [0xFF, 0xF8, 0, 13, 1, 0, 200, 0, 0, 0, 0, 0, 0, 0, 0]);
+    let plain = run(include_bytes!("test_data/jls-grey8-runs.jls"), 1 << 20).unwrap();
+    let with = run(&f, 1 << 20);
+    assert!(with.is_err() || with.unwrap().to_luma8() != plain.to_luma8(), "the early MAXVAL must reach the scan");
 }
