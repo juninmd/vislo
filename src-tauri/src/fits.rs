@@ -41,7 +41,7 @@ fn header(f: &[u8], at: usize) -> Result<(Hdu, usize), String> {
     let (pcount, gcount) = (num("PCOUNT").unwrap_or(0.0) as usize, num("GCOUNT").unwrap_or(1.0) as usize);
     let bytes = bytes.checked_add(pcount.saturating_mul(bitpix.unsigned_abs() as usize / 8)).and_then(|b| b.checked_mul(gcount.max(1))).ok_or_else(bad)?;
     let data = (end + 80 - at).div_ceil(BLOCK).checked_mul(BLOCK).and_then(|n| n.checked_add(at)).ok_or_else(bad)?;
-    let image = card(cards, "XTENSION").map_or(true, |x| x.trim_matches('\'').trim() == "IMAGE");
+    let image = card(cards, "XTENSION").is_none_or(|x| x.trim_matches('\'').trim() == "IMAGE");
     Ok((Hdu { bitpix, axes, bzero: num("BZERO").unwrap_or(0.0), bscale: num("BSCALE").unwrap_or(1.0), data, image }, bytes))
 }
 
