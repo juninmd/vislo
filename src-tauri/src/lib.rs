@@ -17,6 +17,7 @@ mod original;
 mod fixtures;
 mod paths;
 mod jpeg_scaled;
+mod layered;
 mod pool;
 mod raw;
 mod resize;
@@ -27,6 +28,7 @@ mod splash;
 mod thumbs;
 mod tray;
 mod update;
+mod wic;
 mod window;
 
 use paths::Allowed;

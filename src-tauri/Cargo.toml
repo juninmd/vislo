@@ -22,6 +22,7 @@ percent-encoding = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "tiff", "ico", "tga", "pnm", "hdr", "exr", "qoi", "dds", "ff"] }
 fast_image_resize = { version = "6", features = ["image"] }
 image-extras = { version = "0.1", default-features = false, features = ["icns", "otb", "pcx", "sgi", "wbmp", "xbm", "xpm"] }
+flate2 = "1"
 kamadak-exif = "0.6"
 jpeg-decoder = { version = "0.3", default-features = false }
 psd = "0.3"
@@ -35,7 +36,7 @@ sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_System_Console", "Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Graphics_Imaging", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Console", "Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging"] }
 
 [profile.release]
 opt-level = 3

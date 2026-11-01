@@ -1,12 +1,12 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, codecs, exif_info, jpeg_scaled, raw};
+use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, codecs, exif_info, jpeg_scaled, layered, raw, wic};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
 /// Ceiling for decoded pixels (RGBA, so about 600 MB): bigger files are refused, not attempted.
 const MAX_PIXELS: u64 = 150_000_000;
-const MAX_ALLOC: u64 = 1 << 30;
+pub(crate) const MAX_ALLOC: u64 = 1 << 30;
 pub(crate) const TOO_LARGE: &str = "Image is too large";
 
 fn describe(e: ImageError) -> String {
@@ -122,6 +122,10 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
     let mut preview_orientation = None;
     let img = if ext == "psd" {
         decode_psd(path)?
+    } else if matches!(ext.as_str(), "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp") {
+        wic::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "ora" | "kra") {
+        layered::decode(path, MAX_PIXELS)?
     } else if ext == "jxl" {
         to_display(codecs::decode_jxl(path, MAX_PIXELS)?)
     } else if matches!(ext.as_str(), "jp2" | "j2k" | "j2c" | "jpc") {
@@ -183,7 +187,7 @@ pub fn dimensions(path: &Path) -> Option<(u32, u32)> {
     if ext == "svg" {
         return codecs::svg_dimensions(path);
     }
-    if matches!(ext.as_str(), "psd" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc") || is_raw(&ext) {
+    if matches!(ext.as_str(), "psd" | "ora" | "kra" | "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc") || is_raw(&ext) {
         return None; // not readable from a header without a decoder
     }
     let (w, h) = open_reader(path, &ext).ok()?.into_dimensions().ok()?;

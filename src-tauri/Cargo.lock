@@ -4803,6 +4803,7 @@ dependencies = [
  "arboard",
  "dunce",
  "fast_image_resize",
+ "flate2",
  "hayro-jpeg2000",
  "image",
  "image-extras",

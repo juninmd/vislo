@@ -38,6 +38,9 @@
       { "ext": ["hdr", "exr"], "name": "HDR image", "description": "HDR image", "role": "Viewer" },
       { "ext": ["dds", "qoi", "ff"], "name": "Texture image", "description": "DDS / QOI / farbfeld image", "role": "Viewer" },
       { "ext": ["pcx", "sgi", "iris", "bw", "xbm", "bm", "xpm", "wbmp", "otb", "icns"], "name": "Legacy bitmap", "description": "PCX / SGI / XBM / XPM / WBMP / OTB / ICNS image", "role": "Viewer" },
+      { "ext": ["heic", "heif", "hif"], "name": "HEIF image", "description": "HEIC / HEIF image (needs the Windows HEIF and HEVC extensions)", "role": "Viewer" },
+      { "ext": ["jxr", "wdp", "hdp"], "name": "JPEG XR image", "description": "JPEG XR image", "role": "Viewer" },
+      { "ext": ["ora", "kra"], "name": "Layered document", "description": "OpenRaster / Krita document (merged preview)", "role": "Viewer" },
       { "ext": ["dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef", "srw", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "dcr", "kdc", "erf", "rwl", "raw", "arq", "gpr", "ori", "k25"], "name": "RAW photo", "description": "RAW photo (embedded preview)", "role": "Viewer" }
     ]
   }
