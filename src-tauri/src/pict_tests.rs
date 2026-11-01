@@ -87,3 +87,25 @@ fn a_huge_frame_is_refused_before_allocating() {
     b[at + 6..at + 10].copy_from_slice(&[0x7F, 0xFF, 0x7F, 0xFF]); // bottom and right of the PixMap bounds
     assert_eq!(run(&b, 150_000_000).unwrap_err(), crate::decode::TOO_LARGE);
 }
+
+#[test]
+fn a_direct_32_bit_pixmap_with_one_component_is_refused_not_a_panic() {
+    let mut b = include_bytes!("test_data/pict-direct32.pct").to_vec();
+    let at = b.windows(2).position(|w| w == [0x00, 0x9A]).unwrap() + 2 + 4;
+    b[at + 2 + 8 + 2 + 2 + 14 + 2..][..2].copy_from_slice(&[0, 1]); // cmpCount = 1
+    assert!(run(&b, 1 << 20).is_err());
+}
+
+#[test]
+fn a_device_colour_table_is_indexed_by_position() {
+    let mut b = include_bytes!("test_data/pict-indexed4.pct").to_vec();
+    let at = b.windows(2).position(|w| w == [0x00, 0x98]).unwrap() + 2;
+    let ct = at + 2 + 8 + 2 + 2 + 14 + 2 + 2 + 14; // colour table: seed, flags, size, then entries
+    b[ct + 4] |= 0x80; // ctFlags: device table
+    for i in 0..16 {
+        b[ct + 8 + 8 * i..][..2].copy_from_slice(&[0, 0]); // every value field is 0
+    }
+    let img = run(&b, 1 << 20).unwrap();
+    let want = run(include_bytes!("test_data/pict-indexed4.pct"), 1 << 20).unwrap();
+    assert_eq!(img.to_rgb8(), want.to_rgb8(), "positions, not the value fields, pick the entries");
+}

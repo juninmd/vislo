@@ -131,7 +131,8 @@ fn bitmap(r: &mut Reader, op: u16, max_pixels: u64) -> Result<DynamicImage, Stri
     }
     let mut palette = vec![[255; 3], [0; 3]]; // a plain BitMap: 1 is black
     if is_pix && !direct {
-        r.skip(6)?; // seed and flags
+        r.skip(4)?; // seed
+        let device = r.u16()? & 0x8000 != 0; // a device table is indexed by position; the value fields mean nothing
         let n = usize::from(r.u16()?) + 1;
         if n > 256 {
             return Err("corrupt PICT colour table".into());
@@ -139,15 +140,18 @@ fn bitmap(r: &mut Reader, op: u16, max_pixels: u64) -> Result<DynamicImage, Stri
         palette = vec![[0; 3]; 256];
         for i in 0..n {
             let (v, red, green, blue) = (usize::from(r.u16()?), r.u16()?, r.u16()?, r.u16()?);
-            palette[if v < 256 { v } else { i }] = [(red >> 8) as u8, (green >> 8) as u8, (blue >> 8) as u8];
+            palette[if !device && v < 256 { v } else { i }] = [(red >> 8) as u8, (green >> 8) as u8, (blue >> 8) as u8];
         }
     }
     r.skip(18)?; // source and destination rectangles, transfer mode
     if region {
         r.sized()?;
     }
-    if w <= 0 || h <= 0 || !(if direct { matches!(bits, 16 | 32) } else { matches!(bits, 1 | 2 | 4 | 8) }) || !matches!(cmp, 1 | 3 | 4) {
+    if w <= 0 || h <= 0 || !(if direct { matches!(bits, 16 | 32) } else { matches!(bits, 1 | 2 | 4 | 8) }) || !matches!(cmp, 1 | 3 | 4) || (direct && bits == 32 && cmp == 1) {
         return Err("unsupported PICT pixel format".into());
+    }
+    if direct && bits == 32 && pack_type == 2 {
+        return Err("PICT 32-bit pixels without a pad byte are not supported".into());
     }
     let (w, h) = (w as usize, h as usize);
     let needed = if direct && bits == 32 { w * 4 } else { (w * bits).div_ceil(8) };
