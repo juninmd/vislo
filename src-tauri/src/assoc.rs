@@ -4,13 +4,13 @@
 //! path is to register the app (ProgID + Capabilities + RegisteredApplications) and send the
 //! user to Settings > Default apps for a single confirmation.
 
-use crate::album::{extensions, RAW_EXTENSIONS};
+use crate::album::{extensions, EXTRA_EXTENSIONS, RAW_EXTENSIONS};
 
 /// What the user can pick in the settings panel; together they cover `extensions()` exactly.
 pub const GROUPS: &[(&str, &[&str])] = &[
     (
         "jpeg",
-        &["jpg", "jpeg", "jpe", "jfif", "jif", "jfi", "pjpeg", "pjp"],
+        &["jpg", "jpeg", "jpe", "jfif", "jif", "jfi", "pjpeg", "pjp", "mpo", "jps"],
     ),
     ("png", &["png", "apng"]),
     ("gif", &["gif"]),
@@ -22,11 +22,20 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("ico", &["ico", "cur"]),
     ("svg", &["svg"]),
     ("jxl", &["jxl"]),
-    ("jp2", &["jp2", "j2k", "j2c", "jpc"]),
-    ("psd", &["psd"]),
+    ("jp2", &["jp2", "j2k", "j2c", "jpc", "jpf", "jpx"]),
+    ("psd", &["psd", "psb"]),
+    ("layered", &["ora", "kra"]),
+    ("heic", &["heic", "heif", "hif"]),
+    ("jxr", &["jxr", "wdp", "hdp", "wmp"]),
+    ("sun", &["ras", "sun"]),
+    ("fits", &["fits", "fit", "fts"]),
+    ("dpx", &["dpx"]),
+    ("fax", &["jb2", "jbig2", "cals"]),
+    ("metafile", &["wmf", "emf"]),
     ("pnm", &["pbm", "pgm", "ppm", "pnm", "pam"]),
-    ("hdr", &["hdr", "exr"]),
+    ("hdr", &["hdr", "exr", "rgbe", "xyze"]),
     ("other", &["dds", "qoi", "ff"]),
+    ("legacy", EXTRA_EXTENSIONS),
     ("raw", RAW_EXTENSIONS),
 ];
 

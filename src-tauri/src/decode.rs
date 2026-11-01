@@ -1,12 +1,12 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::RAW_EXTENSIONS, codecs, exif_info, jpeg_scaled, raw};
+use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, bilevel, codecs, dpx, exif_info, fits, gdip, jpeg_scaled, layered, psb, raw, sunras, wic};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
 /// Ceiling for decoded pixels (RGBA, so about 600 MB): bigger files are refused, not attempted.
 const MAX_PIXELS: u64 = 150_000_000;
-const MAX_ALLOC: u64 = 1 << 30;
+pub(crate) const MAX_ALLOC: u64 = 1 << 30;
 pub(crate) const TOO_LARGE: &str = "Image is too large";
 
 fn describe(e: ImageError) -> String {
@@ -23,11 +23,18 @@ fn ext(path: &Path) -> String {
         .to_ascii_lowercase()
 }
 
-/// Reader for `path`; the `image` crate only knows `.tga`, so Targa's other extensions name the format here.
+/// Reader for `path`; Targa has no magic number, so its extensions name the format whenever sniffing finds nothing
+/// built in (a Targa with a 10-byte image ID looks like PCX to the extra decoders).
 fn open_reader(path: &Path, ext: &str) -> std::io::Result<ImageReader<std::io::BufReader<std::fs::File>>> {
+    codecs::register_extras();
     let mut reader = ImageReader::open(path).and_then(ImageReader::with_guessed_format)?;
-    if reader.format().is_none() && matches!(ext, "vda" | "icb" | "vst") {
+    if reader.format().is_none() && matches!(ext, "tga" | "vda" | "icb" | "vst") {
         reader.set_format(image::ImageFormat::Tga);
+    }
+    if EXTRA_EXTENSIONS.contains(&ext) {
+        // Their decoders size buffers their own way (SGI assumes 8 bytes a pixel), so the 512 MiB default would
+        // refuse files `MAX_PIXELS` allows; `load` applies the real limits.
+        reader.no_limits();
     }
     Ok(reader)
 }
@@ -115,15 +122,40 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
     let mut preview_orientation = None;
     let img = if ext == "psd" {
         decode_psd(path)?
+    } else if matches!(ext.as_str(), "ras" | "sun") {
+        sunras::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "fits" | "fit" | "fts") {
+        fits::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "wmf" | "emf") {
+        gdip::decode(path, MAX_PIXELS)?
+    } else if ext == "psb" {
+        psb::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "jb2" | "jbig2") {
+        bilevel::decode_jbig2(path, MAX_PIXELS)?
+    } else if ext == "cals" {
+        bilevel::decode_cals(path, MAX_PIXELS)?
+    } else if ext == "dpx" {
+        dpx::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp") {
+        wic::decode(path, MAX_PIXELS)?
+    } else if matches!(ext.as_str(), "ora" | "kra") {
+        layered::decode(path, MAX_PIXELS)?
     } else if ext == "jxl" {
         to_display(codecs::decode_jxl(path, MAX_PIXELS)?)
-    } else if matches!(ext.as_str(), "jp2" | "j2k" | "j2c" | "jpc") {
+    } else if matches!(ext.as_str(), "jp2" | "j2k" | "j2c" | "jpc" | "jpf" | "jpx") {
         codecs::decode_jp2(path, MAX_PIXELS)?
     } else if is_raw(&ext) {
         let (img, own) = decode_raw_preview(path)?;
         preview_orientation = own;
         img
     } else {
+        // The extra decoders ignore the reader's limits (ORA even opens with none), so size is checked from the header.
+        if EXTRA_EXTENSIONS.contains(&ext.as_str()) {
+            let (w, h) = open_reader(path, &ext).map_err(|e| e.to_string())?.into_dimensions().map_err(describe)?;
+            if u64::from(w) * u64::from(h) > MAX_PIXELS {
+                return Err(TOO_LARGE.to_string());
+            }
+        }
         let mut reader = open_reader(path, &ext).map_err(|e| e.to_string())?;
         let mut limits = Limits::default();
         limits.max_alloc = Some(MAX_ALLOC);
@@ -159,7 +191,7 @@ fn is_jpeg(ext: &str) -> bool {
 }
 
 fn is_photo(ext: &str) -> bool {
-    is_raw(ext) || matches!(ext, "jpg" | "jpeg" | "jpe" | "jfif" | "tif" | "tiff")
+    is_raw(ext) || matches!(ext, "jpg" | "jpeg" | "jpe" | "jfif" | "mpo" | "jps" | "tif" | "tiff")
 }
 
 /// Upright pixel size from the file header only (cheap); `None` when it cannot be known without
@@ -169,7 +201,7 @@ pub fn dimensions(path: &Path) -> Option<(u32, u32)> {
     if ext == "svg" {
         return codecs::svg_dimensions(path);
     }
-    if matches!(ext.as_str(), "psd" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc") || is_raw(&ext) {
+    if matches!(ext.as_str(), "psd" | "ora" | "kra" | "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp" | "ras" | "sun" | "fits" | "fit" | "fts" | "dpx" | "jb2" | "jbig2" | "cals" | "psb" | "wmf" | "emf" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc" | "jpf" | "jpx") || is_raw(&ext) {
         return None; // not readable from a header without a decoder
     }
     let (w, h) = open_reader(path, &ext).ok()?.into_dimensions().ok()?;
