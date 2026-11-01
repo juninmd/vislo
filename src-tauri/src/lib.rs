@@ -38,6 +38,9 @@ mod tray;
 mod update;
 mod wic;
 mod window;
+mod xcf;
+#[cfg(test)]
+mod xcf_tests;
 mod xwd;
 
 use paths::Allowed;
