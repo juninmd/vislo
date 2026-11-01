@@ -13,6 +13,7 @@ struct Hdu {
     bscale: f64,
     data: usize,
     image: bool,
+    tile_compressed: bool,
 }
 
 fn card<'a>(cards: &'a [u8], key: &str) -> Option<&'a str> {
@@ -42,7 +43,8 @@ fn header(f: &[u8], at: usize) -> Result<(Hdu, usize), String> {
     let bytes = bytes.checked_add(pcount.saturating_mul(bitpix.unsigned_abs() as usize / 8)).and_then(|b| b.checked_mul(gcount.max(1))).ok_or_else(bad)?;
     let data = (end + 80 - at).div_ceil(BLOCK).checked_mul(BLOCK).and_then(|n| n.checked_add(at)).ok_or_else(bad)?;
     let image = card(cards, "XTENSION").is_none_or(|x| x.trim_matches('\'').trim() == "IMAGE");
-    Ok((Hdu { bitpix, axes, bzero: num("BZERO").unwrap_or(0.0), bscale: num("BSCALE").unwrap_or(1.0), data, image }, bytes))
+    let tile_compressed = card(cards, "ZIMAGE").is_some_and(|v| v == "T");
+    Ok((Hdu { tile_compressed, bitpix, axes, bzero: num("BZERO").unwrap_or(0.0), bscale: num("BSCALE").unwrap_or(1.0), data, image }, bytes))
 }
 
 pub fn decode(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
@@ -53,6 +55,9 @@ pub fn decode(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
     let mut at = 0;
     for _ in 0..16 {
         let (hdu, bytes) = header(&f, at)?;
+        if hdu.tile_compressed {
+            return Err("tile-compressed FITS images (a binary table holding Rice or gzip tiles) are not supported".to_string());
+        }
         if hdu.image && hdu.axes.len() >= 2 && hdu.axes[0] > 0 && hdu.axes[1] > 0 {
             return render(&f, &hdu, max_pixels);
         }
@@ -161,6 +166,14 @@ mod tests {
         only_table.truncate(BLOCK * 3);
         only_table[BLOCK * 2..].fill(0);
         assert!(run(&only_table, 100).is_err(), "a table alone is not a picture");
+    }
+
+    #[test]
+    fn tile_compressed_images_are_named_not_called_missing() {
+        let mut f = pad(&["SIMPLE  =                    T".into(), "BITPIX  =                    8".into(), "NAXIS   =                    0".into()]);
+        f.extend(pad(&["XTENSION= 'BINTABLE'".into(), "BITPIX  =                    8".into(), "NAXIS   =                    2".into(), "NAXIS1  =                    4".into(), "NAXIS2  =                    2".into(), "ZIMAGE  =                    T".into()]));
+        f.extend(vec![0u8; BLOCK]);
+        assert!(run(&f, 100).unwrap_err().contains("tile-compressed"));
     }
 
     #[test]
