@@ -4,7 +4,7 @@
 //! path is to register the app (ProgID + Capabilities + RegisteredApplications) and send the
 //! user to Settings > Default apps for a single confirmation.
 
-use crate::album::{extensions, RAW_EXTENSIONS};
+use crate::album::{extensions, EXTRA_EXTENSIONS, RAW_EXTENSIONS};
 
 /// What the user can pick in the settings panel; together they cover `extensions()` exactly.
 pub const GROUPS: &[(&str, &[&str])] = &[
@@ -27,6 +27,7 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("pnm", &["pbm", "pgm", "ppm", "pnm", "pam"]),
     ("hdr", &["hdr", "exr"]),
     ("other", &["dds", "qoi", "ff"]),
+    ("legacy", EXTRA_EXTENSIONS),
     ("raw", RAW_EXTENSIONS),
 ];
 

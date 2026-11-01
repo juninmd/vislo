@@ -1,6 +1,6 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::RAW_EXTENSIONS, codecs, exif_info, jpeg_scaled, raw};
+use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, codecs, exif_info, jpeg_scaled, raw};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
@@ -23,11 +23,18 @@ fn ext(path: &Path) -> String {
         .to_ascii_lowercase()
 }
 
-/// Reader for `path`; the `image` crate only knows `.tga`, so Targa's other extensions name the format here.
+/// Reader for `path`; Targa has no magic number, so its extensions name the format whenever sniffing finds nothing
+/// built in (a Targa with a 10-byte image ID looks like PCX to the extra decoders).
 fn open_reader(path: &Path, ext: &str) -> std::io::Result<ImageReader<std::io::BufReader<std::fs::File>>> {
+    codecs::register_extras();
     let mut reader = ImageReader::open(path).and_then(ImageReader::with_guessed_format)?;
-    if reader.format().is_none() && matches!(ext, "vda" | "icb" | "vst") {
+    if reader.format().is_none() && matches!(ext, "tga" | "vda" | "icb" | "vst") {
         reader.set_format(image::ImageFormat::Tga);
+    }
+    if EXTRA_EXTENSIONS.contains(&ext) {
+        // Their decoders size buffers their own way (SGI assumes 8 bytes a pixel), so the 512 MiB default would
+        // refuse files `MAX_PIXELS` allows; `load` applies the real limits.
+        reader.no_limits();
     }
     Ok(reader)
 }
@@ -124,6 +131,13 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
         preview_orientation = own;
         img
     } else {
+        // The extra decoders ignore the reader's limits (ORA even opens with none), so size is checked from the header.
+        if EXTRA_EXTENSIONS.contains(&ext.as_str()) {
+            let (w, h) = open_reader(path, &ext).map_err(|e| e.to_string())?.into_dimensions().map_err(describe)?;
+            if u64::from(w) * u64::from(h) > MAX_PIXELS {
+                return Err(TOO_LARGE.to_string());
+            }
+        }
         let mut reader = open_reader(path, &ext).map_err(|e| e.to_string())?;
         let mut limits = Limits::default();
         limits.max_alloc = Some(MAX_ALLOC);

@@ -113,6 +113,7 @@ fn color_label(c: image::ColorType) -> String {
 /// Size and colour layout from the header only; no pixels are decoded.
 fn header(path: &Path) -> Option<((u32, u32), image::ColorType)> {
     use image::ImageDecoder;
+    crate::codecs::register_extras();
     let reader = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?;
     let decoder = reader.into_decoder().ok()?;
     Some((decoder.dimensions(), decoder.color_type()))

@@ -9,6 +9,8 @@ mod clipboard;
 mod codecs;
 mod decode;
 mod exif_info;
+#[cfg(test)]
+mod extra_formats;
 mod metadata;
 mod original;
 #[cfg(test)]

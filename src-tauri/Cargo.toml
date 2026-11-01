@@ -21,6 +21,7 @@ dunce = "1"
 percent-encoding = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "tiff", "ico", "tga", "pnm", "hdr", "exr", "qoi", "dds", "ff"] }
 fast_image_resize = { version = "6", features = ["image"] }
+image-extras = { version = "0.1", default-features = false, features = ["icns", "otb", "pcx", "sgi", "wbmp", "xbm", "xpm"] }
 kamadak-exif = "0.6"
 jpeg-decoder = { version = "0.3", default-features = false }
 psd = "0.3"

@@ -37,6 +37,7 @@
       { "ext": ["pbm", "pgm", "ppm", "pnm", "pam"], "name": "Netpbm image", "description": "Netpbm image", "role": "Viewer" },
       { "ext": ["hdr", "exr"], "name": "HDR image", "description": "HDR image", "role": "Viewer" },
       { "ext": ["dds", "qoi", "ff"], "name": "Texture image", "description": "DDS / QOI / farbfeld image", "role": "Viewer" },
+      { "ext": ["pcx", "sgi", "iris", "bw", "xbm", "bm", "xpm", "wbmp", "otb", "icns"], "name": "Legacy bitmap", "description": "PCX / SGI / XBM / XPM / WBMP / OTB / ICNS image", "role": "Viewer" },
       { "ext": ["dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef", "srw", "x3f", "3fr", "fff", "iiq", "mef", "mos", "mrw", "dcr", "kdc", "erf", "rwl", "raw", "arq", "gpr", "ori", "k25"], "name": "RAW photo", "description": "RAW photo (embedded preview)", "role": "Viewer" }
     ]
   }

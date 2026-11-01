@@ -12,6 +12,12 @@ fn within(dims: (u32, u32), max_pixels: u64) -> Result<(), String> {
     Ok(())
 }
 
+/// Hooks the `image-extras` decoders (PCX, SGI, XBM, ICNS ...) into the `image` crate; idempotent.
+pub fn register_extras() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(image_extras::register);
+}
+
 pub fn decode_jxl(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
     let decoder = jxl_oxide::integration::JxlDecoder::new(BufReader::new(file)).map_err(|e| e.to_string())?;

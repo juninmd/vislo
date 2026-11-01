@@ -14,6 +14,12 @@ pub const CONVERTED_EXTENSIONS: &[&str] = &[
     "exr", "dds", "qoi", "ff", "jxl", "jp2", "j2k", "j2c", "jpc",
 ];
 
+/// Legacy and niche bitmaps decoded by `image-extras` (registered through `codecs::register_extras`).
+/// `.rgb`/`.rgba` stay out: the names are too generic to claim from other programs or to list as images.
+pub const EXTRA_EXTENSIONS: &[&str] = &[
+    "icns", "otb", "pcx", "sgi", "iris", "bw", "wbmp", "xbm", "bm", "xpm",
+];
+
 /// Camera RAW files: Vislo shows the embedded full-size JPEG preview, never a developed image.
 pub const RAW_EXTENSIONS: &[&str] = &[
     "dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef",
@@ -25,6 +31,7 @@ pub fn extensions() -> impl Iterator<Item = &'static str> {
     NATIVE_EXTENSIONS
         .iter()
         .chain(CONVERTED_EXTENSIONS)
+        .chain(EXTRA_EXTENSIONS)
         .chain(RAW_EXTENSIONS)
         .copied()
 }
@@ -64,7 +71,7 @@ pub fn stamp(meta: &std::fs::Metadata) -> String {
 }
 
 pub fn is_image(path: &Path) -> bool {
-    is_native(path) || has_ext(path, CONVERTED_EXTENSIONS) || has_ext(path, RAW_EXTENSIONS)
+    is_native(path) || has_ext(path, CONVERTED_EXTENSIONS) || has_ext(path, EXTRA_EXTENSIONS) || has_ext(path, RAW_EXTENSIONS)
 }
 
 /// File name only: error text must not leak full paths into the UI.
