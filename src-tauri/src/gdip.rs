@@ -62,7 +62,7 @@ pub fn decode(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
         result?;
     }
     // Premultiplied BGRA -> straight RGBA (the page is opaque white, so alpha is 255 and this is a channel swap).
-    for p in pixels.chunks_exact_mut(4) {
+    for p in pixels.as_chunks_mut::<4>().0 {
         let a = u32::from(p[3]);
         let un = |c: u8| if a == 0 || a == 255 { c } else { (u32::from(c) * 255 / a).min(255) as u8 };
         (p[0], p[2]) = (un(p[2]), un(p[0]));
