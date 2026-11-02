@@ -36,6 +36,7 @@ arboard = { version = "3", default-features = false, features = ["image-data"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 sha2 = "0.10"
 djvu-rs = { version = "0.44", default-features = false, features = ["std"] }
+texture2ddecoder = { version = "0.1.2", default-features = false, features = ["alloc"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
