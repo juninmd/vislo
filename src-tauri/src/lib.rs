@@ -23,6 +23,9 @@ mod paths;
 mod fits;
 mod gdip;
 mod jpeg_scaled;
+mod iff;
+#[cfg(test)]
+mod iff_tests;
 mod jng;
 #[cfg(test)]
 mod jng_tests;

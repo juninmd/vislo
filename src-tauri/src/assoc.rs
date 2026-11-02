@@ -38,6 +38,7 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("xcf", &["xcf"]),
     ("jls", &["jls"]),
     ("pict", &["pct", "pict"]),
+    ("iff", &["iff", "lbm", "ilbm"]),
     ("pnm", &["pbm", "pgm", "ppm", "pnm", "pam"]),
     ("hdr", &["hdr", "exr", "rgbe", "xyze"]),
     ("other", &["dds", "qoi", "ff"]),
