@@ -89,7 +89,7 @@ pub(crate) fn mime_of(path: &std::path::Path) -> &'static str {
         Some("bmp" | "dib") => "image/bmp",
         Some("avif" | "avifs") => "image/avif",
         Some("ico" | "cur") => "image/x-icon",
-        Some("svg") => "image/svg+xml",
+        Some("svg" | "svgz") => "image/svg+xml",
         _ => "application/octet-stream",
     }
 }

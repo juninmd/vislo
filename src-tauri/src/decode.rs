@@ -214,7 +214,7 @@ fn is_photo(ext: &str) -> bool {
 /// decoding (PSD, RAW previews).
 pub fn dimensions(path: &Path) -> Option<(u32, u32)> {
     let ext = ext(path);
-    if ext == "svg" {
+    if matches!(ext.as_str(), "svg" | "svgz") {
         return codecs::svg_dimensions(path);
     }
     if matches!(ext.as_str(), "psd" | "ora" | "kra" | "heic" | "heif" | "hif" | "jxr" | "wdp" | "hdp" | "wmp" | "ras" | "sun" | "fits" | "fit" | "fts" | "dpx" | "jb2" | "jbig2" | "cals" | "psb" | "wmf" | "emf" | "mng" | "jng" | "pct" | "pict" | "iff" | "lbm" | "ilbm" | "xwd" | "dcm" | "dicom" | "xcf" | "jls" | "jxl" | "jp2" | "j2k" | "j2c" | "jpc" | "jpf" | "jpx") || is_raw(&ext) {

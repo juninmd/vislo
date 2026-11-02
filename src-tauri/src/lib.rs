@@ -45,6 +45,7 @@ mod scheme;
 mod settings;
 mod shell;
 mod splash;
+mod svgz;
 mod sunras;
 mod thumbs;
 mod tray;
