@@ -32,9 +32,13 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("dpx", &["dpx"]),
     ("fax", &["jb2", "jbig2", "cals"]),
     ("metafile", &["wmf", "emf"]),
-    ("mng", &["mng"]),
+    ("mng", &["mng", "jng"]),
     ("xwd", &["xwd"]),
     ("dicom", &["dcm", "dicom"]),
+    ("xcf", &["xcf"]),
+    ("jls", &["jls"]),
+    ("pict", &["pct", "pict"]),
+    ("iff", &["iff", "lbm", "ilbm"]),
     ("pnm", &["pbm", "pgm", "ppm", "pnm", "pam"]),
     ("hdr", &["hdr", "exr", "rgbe", "xyze"]),
     ("other", &["dds", "qoi", "ff"]),
@@ -336,7 +340,7 @@ mod tests {
             ["tif", "tiff", "png", "apng"]
         );
         assert_eq!(extensions_for(&[]).unwrap().len(), extensions().count() - NOT_REGISTERED.len());
-        assert_eq!(extensions_for(&["dicom".into()]).unwrap(), ["dcm", "dicom"], "an explicit choice still registers them");
+        assert_eq!(extensions_for(&["dicom".into(), "xcf".into()]).unwrap(), ["dcm", "dicom", "xcf"], "an explicit choice still registers them");
         assert!(extensions_for(&["nope".into()]).is_err());
     }
 

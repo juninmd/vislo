@@ -23,7 +23,20 @@ mod paths;
 mod fits;
 mod gdip;
 mod jpeg_scaled;
+mod iff;
+#[cfg(test)]
+mod iff_tests;
+mod jng;
+#[cfg(test)]
+mod jng_tests;
+mod jpegls;
+mod jpegls_codec;
+#[cfg(test)]
+mod jpegls_tests;
 mod layered;
+mod pict;
+#[cfg(test)]
+mod pict_tests;
 mod pool;
 mod psb;
 mod raw;
@@ -38,6 +51,9 @@ mod tray;
 mod update;
 mod wic;
 mod window;
+mod xcf;
+#[cfg(test)]
+mod xcf_tests;
 mod xwd;
 
 use paths::Allowed;
