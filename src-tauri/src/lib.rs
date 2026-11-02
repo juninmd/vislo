@@ -9,7 +9,11 @@ mod cli;
 mod clipboard;
 mod codecs;
 mod decode;
+mod blp;
+mod dcx;
 mod dicom;
+mod fli;
+mod gbr;
 mod djvu;
 #[cfg(test)]
 mod djvu_tests;
@@ -47,6 +51,8 @@ mod pool;
 mod psb;
 mod raw;
 mod resize;
+#[cfg(test)]
+mod retro_tests;
 mod scheme;
 mod settings;
 mod shell;
