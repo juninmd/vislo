@@ -11,6 +11,9 @@ mod codecs;
 mod decode;
 mod blp;
 mod dcx;
+mod ddsbc;
+#[cfg(test)]
+mod ddsbc_tests;
 mod dicom;
 mod fli;
 mod gbr;

@@ -1,6 +1,6 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, ani, bilevel, blp, codecs, dcx, dicom, djvu, dpx, exif_info, fits, fli, gbr, gdip, iff, jng, jpeg_scaled, jpegls, layered, mng, pict, psb, raw, sunras, wic, xcf, xwd};
+use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, ani, bilevel, blp, codecs, dcx, ddsbc, dicom, djvu, dpx, exif_info, fits, fli, gbr, gdip, iff, jng, jpeg_scaled, jpegls, layered, mng, pict, psb, raw, sunras, wic, xcf, xwd};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
@@ -130,6 +130,8 @@ pub fn load(path: &Path) -> Result<DynamicImage, String> {
         xcf::decode(path, MAX_PIXELS)?
     } else if ext == "jls" {
         jpegls::decode(path, MAX_PIXELS)?
+    } else if ext == "dds" && ddsbc::applies(path) {
+        ddsbc::decode(path, MAX_PIXELS)?
     } else if ext == "ani" {
         ani::decode(path, MAX_PIXELS)?
     } else if matches!(ext.as_str(), "iff" | "lbm" | "ilbm") {
