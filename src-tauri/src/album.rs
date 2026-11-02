@@ -13,7 +13,7 @@ pub const CONVERTED_EXTENSIONS: &[&str] = &[
     "tif", "tiff", "tga", "vda", "icb", "vst", "psd", "pbm", "pgm", "ppm", "pnm", "pam", "hdr",
     "exr", "dds", "qoi", "ff", "jxl", "jp2", "j2k", "j2c", "jpc", "ora", "kra",
     "heic", "heif", "hif", "jxr", "wdp", "hdp", "wmp", "ras", "sun", "fits", "fit", "fts", "dpx", "mpo", "jps",
-    "rgbe", "xyze", "jpf", "jpx", "jb2", "jbig2", "cals", "psb", "wmf", "emf", "mng", "jng", "pct", "pict", "iff", "lbm", "ilbm", "xwd", "dcm", "dicom", "xcf", "jls",
+    "rgbe", "xyze", "jpf", "jpx", "jb2", "jbig2", "cals", "psb", "wmf", "emf", "mng", "jng", "pct", "pict", "iff", "lbm", "ilbm", "ani", "xwd", "dcm", "dicom", "xcf", "jls",
 ];
 
 /// Legacy and niche bitmaps decoded by `image-extras` (registered through `codecs::register_extras`).
@@ -24,7 +24,7 @@ pub const EXTRA_EXTENSIONS: &[&str] = &[
 
 /// Formats Vislo opens but the installer does not register itself for: their extensions belong to specialised viewers
 /// (DICOM) or to an editor (GIMP's XCF), so taking over the default would break users.
-pub const NOT_REGISTERED: &[&str] = &["dcm", "dicom", "xcf"];
+pub const NOT_REGISTERED: &[&str] = &["dcm", "dicom", "xcf", "ani"];
 
 /// Camera RAW files: Vislo shows the embedded full-size JPEG preview, never a developed image.
 pub const RAW_EXTENSIONS: &[&str] = &[
