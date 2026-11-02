@@ -42,6 +42,7 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("iff", &["iff", "lbm", "ilbm"]),
     ("ani", &["ani"]),
     ("blp", &["blp"]),
+    ("ktx", &["ktx", "ktx2"]),
     ("dcx", &["dcx"]),
     ("gbr", &["gbr"]),
     ("fli", &["fli", "flc"]),

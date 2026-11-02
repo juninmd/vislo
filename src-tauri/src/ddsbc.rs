@@ -7,8 +7,10 @@ use std::{io::Read, path::Path};
 use texture2ddecoder as t2d;
 
 #[derive(Clone, Copy)]
-enum Kind {
+pub(crate) enum Kind {
     Bc1,
+    /// BC1 whose colour code 3 is opaque black (the formats named RGB, not RGBA).
+    Bc1Opaque,
     Bc2,
     Bc3,
     Bc4,
@@ -128,8 +130,13 @@ pub(crate) fn decode_bytes(f: &[u8], max_pixels: u64) -> Result<DynamicImage, St
     }
     let (h, w) = (u32at(12).ok_or("truncated DDS file")?, u32at(16).ok_or("truncated DDS file")?);
     let (kind, at) = kind(f)?;
+    decode_pixels(kind, f.get(at..).ok_or("truncated DDS file")?, w, h, max_pixels)
+}
+
+/// Decodes the first image of a texture payload of the given format; the KTX reader shares it.
+pub(crate) fn decode_pixels(kind: Kind, payload: &[u8], w: usize, h: usize, max_pixels: u64) -> Result<DynamicImage, String> {
     if w == 0 || h == 0 {
-        return Err("not a valid DDS file".into());
+        return Err("the texture has no pixels".into());
     }
     let pixels = (w as u64).saturating_mul(h as u64);
     if pixels > max_pixels || pixels * 8 > crate::decode::MAX_ALLOC {
@@ -137,14 +144,15 @@ pub(crate) fn decode_bytes(f: &[u8], max_pixels: u64) -> Result<DynamicImage, St
     }
     let blocks = (w.div_ceil(4) as u64) * (h.div_ceil(4) as u64);
     let needed = match kind {
-        Kind::Bc1 | Kind::Bc4 => blocks * 8,
+        Kind::Bc1 | Kind::Bc1Opaque | Kind::Bc4 => blocks * 8,
         Kind::Rgba | Kind::Bgra => pixels * 4,
         Kind::Grey => pixels,
         _ => blocks * 16,
     };
-    let data = f.get(at..).filter(|d| d.len() as u64 >= needed).ok_or("truncated DDS file")?;
+    let data = Some(payload).filter(|d| d.len() as u64 >= needed).ok_or("truncated texture data")?;
     let raw = match kind {
         Kind::Bc1 => via_crate(t2d::decode_bc1a, data, w, h, false)?,
+        Kind::Bc1Opaque => via_crate(t2d::decode_bc1, data, w, h, false)?,
         Kind::Bc2 | Kind::Bc3 => bc2_bc3(data, w, h, matches!(kind, Kind::Bc3)),
         Kind::Bc4 => via_crate(t2d::decode_bc4, data, w, h, true)?,
         Kind::Bc5 => via_crate(t2d::decode_bc5, data, w, h, false)?,

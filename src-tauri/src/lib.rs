@@ -33,6 +33,9 @@ mod paths;
 mod fits;
 mod gdip;
 mod jpeg_scaled;
+mod ktx;
+#[cfg(test)]
+mod ktx_tests;
 mod ani;
 #[cfg(test)]
 mod ani_tests;
