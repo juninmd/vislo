@@ -10,6 +10,9 @@ mod clipboard;
 mod codecs;
 mod decode;
 mod dicom;
+mod djvu;
+#[cfg(test)]
+mod djvu_tests;
 mod dpx;
 mod exif_info;
 #[cfg(test)]
