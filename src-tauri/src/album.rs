@@ -5,7 +5,7 @@ use std::path::{Component, Path, PathBuf};
 /// Keep in sync with `src/formats.ts` (checked by `native_list_matches_frontend`).
 pub const NATIVE_EXTENSIONS: &[&str] = &[
     "jpg", "jpeg", "jpe", "jfif", "jif", "jfi", "pjpeg", "pjp", "png", "apng", "gif", "webp",
-    "bmp", "dib", "avif", "avifs", "ico", "cur", "svg",
+    "bmp", "dib", "avif", "avifs", "ico", "cur", "svg", "svgz",
 ];
 
 /// Formats decoded in Rust and served as JPEG/PNG through the `vislo` protocol.

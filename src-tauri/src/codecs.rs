@@ -36,8 +36,13 @@ pub fn decode_jp2(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> 
 /// `viewBox`. Only the first 4 KiB is read; relative units and missing sizes give `None`.
 pub fn svg_dimensions(path: &Path) -> Option<(u32, u32)> {
     use std::io::Read;
-    let mut head = Vec::with_capacity(4096);
-    std::fs::File::open(path).ok()?.take(4096).read_to_end(&mut head).ok()?;
+    let head = if crate::svgz::is_svgz(path) {
+        crate::svgz::head(path, 4096).ok()?
+    } else {
+        let mut head = Vec::with_capacity(4096);
+        std::fs::File::open(path).ok()?.take(4096).read_to_end(&mut head).ok()?;
+        head
+    };
     let text = String::from_utf8_lossy(&head);
     let start = text.find("<svg")?;
     let tag = &text[start..start + text[start..].find('>')?];

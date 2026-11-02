@@ -20,7 +20,7 @@ pub const GROUPS: &[(&str, &[&str])] = &[
     ("webp", &["webp"]),
     ("avif", &["avif", "avifs"]),
     ("ico", &["ico", "cur"]),
-    ("svg", &["svg"]),
+    ("svg", &["svg", "svgz"]),
     ("jxl", &["jxl"]),
     ("jp2", &["jp2", "j2k", "j2c", "jpc", "jpf", "jpx"]),
     ("psd", &["psd", "psb"]),

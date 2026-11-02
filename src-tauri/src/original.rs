@@ -71,6 +71,9 @@ fn read_span(file: &Path, start: u64, count: u64) -> std::io::Result<Vec<u8>> {
 /// asset protocol reads on the UI thread, which stalls IPC (window sizing, album listing) while a
 /// big photo loads. The size check comes first so an oversized file is never read at all.
 pub fn respond(file: &Path, range: Option<&str>, max: u64) -> Response<Cow<'static, [u8]>> {
+    if crate::svgz::is_svgz(file) {
+        return crate::svgz::respond(file);
+    }
     let len = match std::fs::metadata(file) {
         Ok(m) => m.len(),
         Err(e) => return error(StatusCode::NOT_FOUND, &e.to_string()),
