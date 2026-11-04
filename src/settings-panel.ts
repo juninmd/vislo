@@ -45,6 +45,7 @@ export function bindSettingsPanel(
   initial: Settings,
   apply: (s: Settings) => void,
   notify: (text: string) => void,
+  latest?: () => Settings,
 ): void {
   let current = initial;
   const el = <T extends HTMLElement>(sel: string) => panel.querySelector<T>(sel)!;
@@ -63,7 +64,7 @@ export function bindSettingsPanel(
   };
 
   const collect = (): Settings => {
-    const next: Settings = { ...current };
+    const next: Settings = { ...(latest?.() ?? current) }; // the gallery saves its own fields: start from the newest copy
     next.wheel = el<HTMLSelectElement>("#s-wheel").value as Settings["wheel"];
     next.background = el<HTMLSelectElement>("#s-bg").value as Settings["background"];
     next.language = el<HTMLSelectElement>("#s-lang").value;

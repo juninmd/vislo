@@ -4943,6 +4943,7 @@ dependencies = [
  "texture2ddecoder",
  "ureq",
  "windows",
+ "windows-collections",
  "winreg",
 ]
 

@@ -101,6 +101,8 @@ html.handoff-out #app { transition: background-color 250ms ease-out; }
 .ico-restore, #app.maximized .ico-max { display: none; }
 #app.maximized .ico-restore { display: block; }
 #app.frameless .hud button.frame, #app.frameless.empty .hud button.frame { display: block; }
+/* The frameless bar already has maximize/restore (which also leaves fullscreen): a second button for the same job is noise. F11 and the menu still toggle fullscreen. */
+#app.frameless .hud #btn-full { display: none; }
 
 #strip { position: absolute; left: 0; right: 0; bottom: 0; height: var(--strip-h); display: none; overflow: hidden;
   perspective: 900px; background: #08080a; border-top: 1px solid #ffffff14; z-index: 20;
@@ -197,3 +199,32 @@ kbd { margin-left: 6px; padding: 1px 6px; border: 1px solid #ffffff2e; border-ra
 
 #panel .about { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--dim); }
 #panel .about .assoc { margin: 0; padding: 5px 10px; }
+
+/* Gallery: every picture of the folder as a grid; cell size and shape come from the settings. */
+#gallery { position: absolute; inset: 0; z-index: 25; display: flex; flex-direction: column; padding-top: 74px; background: #0c0c0ef5; }
+#gallery[hidden] { display: none; }
+.g-bar { display: flex; align-items: center; gap: 18px; padding: 6px 18px 10px; color: var(--dim); }
+.g-bar label { display: flex; align-items: center; gap: 8px; }
+.g-bar input[type="range"] { width: 160px; accent-color: var(--accent); }
+.g-bar input[type="checkbox"] { accent-color: var(--accent); }
+.g-bar input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.g-grid { --g-size: 200px; flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--g-size), 1fr));
+  grid-auto-rows: min-content; gap: 8px; padding: 4px 18px 18px; align-content: start; }
+.g-cell { position: relative; aspect-ratio: 1; padding: 0; border: 2px solid transparent; border-radius: 8px; overflow: hidden; background: #ffffff0d;
+  cursor: pointer; content-visibility: auto; contain-intrinsic-size: var(--g-size) var(--g-size); }
+.g-cell img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; pointer-events: none; transition: opacity var(--t-base) var(--ease); }
+.g-grid.fit .g-cell img { object-fit: contain; }
+.g-cell img.loaded { opacity: 1; }
+.g-cell:hover { background: #ffffff1c; }
+.g-cell.active { border-color: var(--accent); }
+.g-cell:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
+
+/* Print: only the picture, scaled to the paper. */
+#print-sheet { display: none; }
+@media print {
+  @page { margin: 8mm; }
+  html, body { height: auto; overflow: visible; background: #fff !important; }
+  #app { display: none !important; }
+  #print-sheet { display: block; max-width: 100%; max-height: 95vh; margin: 0 auto; object-fit: contain; }
+}
+#app:has(#gallery:not([hidden])) .nav { visibility: hidden; }

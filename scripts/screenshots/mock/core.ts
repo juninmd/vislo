@@ -13,6 +13,8 @@ const settings = {
   embedded_preview: true,
   filmstrip_3d: true,
   hover_preview: true,
+  gallery_size: 200,
+  gallery_square: true,
   slideshow_display_ms: 4000,
   slideshow_fade_ms: 1000,
   keep_ready: false,

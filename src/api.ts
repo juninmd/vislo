@@ -62,6 +62,10 @@ export interface Settings {
   embedded_preview: boolean;
   filmstrip_3d: boolean;
   hover_preview: boolean;
+  /** Edge of a gallery thumbnail in CSS pixels. */
+  gallery_size: number;
+  /** Gallery thumbnails are cropped to squares. */
+  gallery_square: boolean;
   slideshow_display_ms: number;
   slideshow_fade_ms: number;
   keep_ready: boolean;
@@ -104,6 +108,9 @@ export const copyImage = async (path: string): Promise<{ w: number; h: number } 
 export const pickImage = () => invoke<string | null>("pick_image");
 export const revealInFolder = (path: string) => invoke<void>("reveal_in_folder", { path });
 export const openWith = (path: string) => invoke<void>("open_with", { path });
+export const setWallpaper = (path: string) => invoke<void>("set_wallpaper", { path });
+export const setLockScreen = (path: string) => invoke<void>("set_lock_screen", { path });
+export const sharePicture = (path: string) => invoke<void>("share_picture", { path });
 export const checkUpdate = () => invoke<Update | null>("check_update");
 /** Downloads, verifies and runs the installer; the app quits and comes back updated. */
 export const installUpdate = () => invoke<void>("install_update");

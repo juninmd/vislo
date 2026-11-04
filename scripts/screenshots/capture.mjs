@@ -68,6 +68,9 @@ await scene("zoom", async (page) => {
 await scene("menu", async (page) => {
   await page.mouse.click(700, 420, { button: "right" });
 });
+await scene("gallery", async (page) => {
+  await page.keyboard.press("g");
+});
 await scene("empty");
 await scene("formats", async (page) => {
   await page.click("#btn-gear");

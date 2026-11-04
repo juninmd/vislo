@@ -7,6 +7,7 @@ export interface MenuActions {
   toggleInfo(): void;
   toggleSlideshow(): void;
   toggleStrip(): void;
+  toggleGallery(): void;
   toggleFullscreen(): void;
   toggleSettings(): void;
 }
@@ -20,9 +21,15 @@ export function menuItems(a: MenuActions, hasPicture: boolean): MenuEntry[] {
     file(t("menu.reveal"), "reveal"),
     file(t("menu.openWith"), "openWith"),
     "separator",
+    file(t("menu.wallpaper"), "wallpaper"),
+    file(t("menu.lockScreen"), "lockScreen"),
+    file(t("menu.print"), "print", "Ctrl+P"),
+    file(t("menu.share"), "share"),
+    "separator",
     { label: t("hud.info"), hint: "I", disabled: !hasPicture, run: () => a.toggleInfo() },
     { label: t("hud.slideshow"), hint: "S", disabled: !hasPicture, run: () => a.toggleSlideshow() },
     { label: t("hud.filmstrip"), hint: "T", disabled: !hasPicture, run: () => a.toggleStrip() },
+    { label: t("hud.gallery"), hint: "G", disabled: !hasPicture, run: () => a.toggleGallery() },
     { label: t("hud.fullscreen"), hint: "F", run: () => a.toggleFullscreen() },
     { label: t("hud.settings"), run: () => a.toggleSettings() },
   ];

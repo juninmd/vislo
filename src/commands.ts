@@ -1,9 +1,10 @@
-import { copyImage, openWith, pickImage, revealInFolder } from "./api";
+import { copyImage, openWith, pickImage, revealInFolder, setLockScreen, setWallpaper, sharePicture, srcFor } from "./api";
 import { CopyError, copyFromPage } from "./copy-page";
 import { isPageCopy } from "./formats";
 import { t } from "./i18n";
+import { printPicture } from "./print";
 
-export type Command = "copy" | "open" | "reveal" | "openWith";
+export type Command = "copy" | "open" | "reveal" | "openWith" | "wallpaper" | "lockScreen" | "print" | "share";
 export type Shrunk = { w: number; h: number } | null;
 
 interface Host {
@@ -24,7 +25,7 @@ export function copyPicture(
   return pageOnly(path) ? page(path) : backend(path);
 }
 
-/** File-level actions that go through the backend: clipboard, open dialog, Explorer. */
+/** File-level actions: clipboard, open dialog, Explorer, desktop pictures, print and share. */
 export class Commands {
   private picking = false; // one open dialog at a time, whatever the input path
 
@@ -48,8 +49,18 @@ export class Commands {
         this.host.notify(shrunk ? t("msg.copiedDownscaled", { w: shrunk.w, h: shrunk.h }) : t("msg.copied"));
       } else if (command === "reveal") {
         await revealInFolder(path);
-      } else {
+      } else if (command === "openWith") {
         await openWith(path);
+      } else if (command === "wallpaper") {
+        await setWallpaper(path);
+        this.host.notify(t("msg.wallpaperSet"));
+      } else if (command === "lockScreen") {
+        await setLockScreen(path);
+        this.host.notify(t("msg.lockScreenSet"));
+      } else if (command === "print") {
+        await printPicture(srcFor(path));
+      } else {
+        await sharePicture(path);
       }
     } catch (err) {
       this.host.notify(err instanceof CopyError ? t(err.key) : String(err));
