@@ -101,6 +101,8 @@ html.handoff-out #app { transition: background-color 250ms ease-out; }
 .ico-restore, #app.maximized .ico-max { display: none; }
 #app.maximized .ico-restore { display: block; }
 #app.frameless .hud button.frame, #app.frameless.empty .hud button.frame { display: block; }
+/* The frameless bar already has maximize/restore (which also leaves fullscreen): a second button for the same job is noise. F11 and the menu still toggle fullscreen. */
+#app.frameless .hud #btn-full { display: none; }
 
 #strip { position: absolute; left: 0; right: 0; bottom: 0; height: var(--strip-h); display: none; overflow: hidden;
   perspective: 900px; background: #08080a; border-top: 1px solid #ffffff14; z-index: 20;

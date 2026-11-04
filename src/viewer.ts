@@ -283,7 +283,8 @@ export class Viewer implements Controller {
     if (!this.app.classList.contains("frameless")) return;
     clearTimeout(this.maximizedTimer);
     this.maximizedTimer = window.setTimeout(() => {
-      void chrome.isMaximized().then((on) => {
+      void Promise.all([chrome.isMaximized(), chrome.isFullscreen()]).then(([maximized, fullscreen]) => {
+        const on = maximized || fullscreen; // fullscreen reads as maximized: the button leaves it
         this.app.classList.toggle("maximized", on);
         const btn = this.q("#btn-max");
         const label = t(on ? "hud.restore" : "hud.maximize");
