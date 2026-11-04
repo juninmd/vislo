@@ -38,6 +38,10 @@ pub struct Settings {
     pub embedded_preview: bool,
     pub filmstrip_3d: bool,
     pub hover_preview: bool,
+    /// Edge of a gallery thumbnail in CSS pixels, within [`GALLERY_SIZE`].
+    pub gallery_size: u32,
+    /// Gallery thumbnails are cropped to squares; off keeps each picture's own proportions.
+    pub gallery_square: bool,
     pub slideshow_display_ms: u32,
     pub slideshow_fade_ms: u32,
     /// Closing the window parks it in the tray, so the next open skips the WebView start-up.
@@ -49,6 +53,9 @@ pub struct Settings {
     /// Interface language: `auto` or one of [`LANGUAGES`].
     pub language: String,
 }
+
+/// Smallest and largest gallery thumbnail edge; the page slider uses the same range.
+pub const GALLERY_SIZE: std::ops::RangeInclusive<u32> = 96..=480;
 
 impl Default for Settings {
     fn default() -> Self {
@@ -62,6 +69,8 @@ impl Default for Settings {
             embedded_preview: true,
             filmstrip_3d: true,
             hover_preview: true,
+            gallery_size: 200,
+            gallery_square: true,
             slideshow_display_ms: 4000, // 4 s per picture, 1 s fade
             slideshow_fade_ms: 1000,
             keep_ready: false,
@@ -80,6 +89,7 @@ impl Settings {
             .slideshow_fade_ms
             .min(5_000)
             .min(self.slideshow_display_ms);
+        self.gallery_size = self.gallery_size.clamp(*GALLERY_SIZE.start(), *GALLERY_SIZE.end());
         self.start_with_windows &= self.keep_ready;
         if !LANGUAGES.contains(&self.language.as_str()) {
             self.language = "auto".into();
@@ -229,6 +239,16 @@ mod tests {
         let mut want = vec!["auto"];
         want.extend(listed);
         assert_eq!(want, LANGUAGES);
+    }
+
+    #[test]
+    fn gallery_options_default_for_old_files_and_are_clamped() {
+        let old: Settings = serde_json::from_str(r#"{"wheel":"navigate"}"#).unwrap();
+        assert_eq!((old.gallery_size, old.gallery_square), (200, true));
+        for (asked, kept) in [(1, 96), (200, 200), (9999, 480)] {
+            let s = Settings { gallery_size: asked, ..Settings::default() }.normalised();
+            assert_eq!(s.gallery_size, kept);
+        }
     }
 
     #[test]

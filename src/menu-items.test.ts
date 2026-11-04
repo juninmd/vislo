@@ -3,13 +3,13 @@ import { titleFor } from "./hud";
 import { type MenuActions, menuItems } from "./menu-items";
 
 const noop = () => {};
-const actions: MenuActions = { command: noop, toggleInfo: noop, toggleSlideshow: noop, toggleStrip: noop, toggleFullscreen: noop, toggleSettings: noop };
+const actions: MenuActions = { command: noop, toggleInfo: noop, toggleSlideshow: noop, toggleStrip: noop, toggleGallery: noop, toggleFullscreen: noop, toggleSettings: noop };
 const labelled = (hasPicture: boolean) => menuItems(actions, hasPicture).flatMap((e) => (e === "separator" ? [] : [e]));
 
 describe("menuItems", () => {
   it("greys out file actions until a picture is open", () => {
     const off = labelled(false);
-    for (const label of ["Copy image", "Show in folder", "Open with…", "Information"]) {
+    for (const label of ["Copy image", "Show in folder", "Open with…", "Set as wallpaper", "Set as lock screen", "Print…", "Share…", "Gallery", "Information"]) {
       expect(off.find((i) => i.label === label)?.disabled).toBe(true);
     }
     expect(off.find((i) => i.label === "Open image…")?.disabled).toBeFalsy();
@@ -22,8 +22,8 @@ describe("menuItems", () => {
   it("runs the matching command", () => {
     const seen: string[] = [];
     const items = menuItems({ ...actions, command: (c) => void seen.push(c) }, true).flatMap((e) => (e === "separator" ? [] : [e]));
-    for (const i of items.filter((x) => ["Copy image", "Open image…", "Show in folder", "Open with…"].includes(x.label))) i.run();
-    expect(seen).toEqual(["copy", "open", "reveal", "openWith"]);
+    for (const i of items.filter((x) => ["Copy image", "Open image…", "Show in folder", "Open with…", "Set as wallpaper", "Set as lock screen", "Print…", "Share…"].includes(x.label))) i.run();
+    expect(seen).toEqual(["copy", "open", "reveal", "openWith", "wallpaper", "lockScreen", "print", "share"]);
   });
 });
 

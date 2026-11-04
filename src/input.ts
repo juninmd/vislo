@@ -22,6 +22,8 @@ export interface Controller {
   toggleActual(cx: number, cy: number): void;
   rotate(dir: 1 | -1): void;
   toggleStrip(): void;
+  toggleGallery(): void;
+  galleryOpen(): boolean;
   toggleInfo(): void;
   toggleSlideshow(): void;
   toggleSettings(): void;
@@ -49,6 +51,7 @@ export function bindButtons(root: HTMLElement, ctl: Controller): void {
   on("#prev", () => ctl.go(-1));
   on("#next", () => ctl.go(1));
   on("#btn-strip", () => ctl.toggleStrip());
+  on("#btn-grid", () => ctl.toggleGallery());
   on("#btn-full", () => ctl.toggleFullscreen());
   on("#btn-info", () => ctl.toggleInfo());
   on("#btn-show", () => ctl.toggleSlideshow());
@@ -119,6 +122,8 @@ export function bindInput(ctl: Controller): void {
   addEventListener("keydown", (e) => {
     if (e.altKey || e.metaKey || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
     const k = e.key;
+    // The gallery moves its own focus and keeps the arrows, letters and zoom keys for itself.
+    if (ctl.galleryOpen() && !(e.ctrlKey || k === "g" || k === "G" || k === "Escape" || k === "F11")) return;
     if (e.ctrlKey) {
       const lower = k.toLowerCase();
       let handled = true;
@@ -127,6 +132,8 @@ export function bindInput(ctl: Controller): void {
         if (!e.repeat) ctl.command("copy");
       } else if (lower === "o") {
         if (!e.repeat) ctl.command("open");
+      } else if (lower === "p") {
+        if (!e.repeat) ctl.command("print");
       } else if (k === "ArrowRight") ctl.go(10);
       else if (k === "ArrowLeft") ctl.go(-10);
       else handled = false; // other Ctrl combinations (Ctrl+R, Ctrl+0 ...) keep their plain-key meaning
@@ -149,6 +156,7 @@ export function bindInput(ctl: Controller): void {
     else if (k === "r") ctl.rotate(1);
     else if (k === "R") ctl.rotate(-1);
     else if (k === "t" || k === "T") ctl.toggleStrip();
+    else if (k === "g" || k === "G") ctl.toggleGallery();
     else if (k === "i" || k === "I") ctl.toggleInfo();
     else if (k === "s" || k === "S" || k === "F5") ctl.toggleSlideshow();
     else if (k === "f" || k === "F" || k === "F11") ctl.toggleFullscreen();

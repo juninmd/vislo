@@ -61,6 +61,7 @@ mod resize;
 mod retro_tests;
 mod scheme;
 mod settings;
+mod share;
 mod shell;
 mod splash;
 mod svgz;
@@ -68,6 +69,7 @@ mod sunras;
 mod thumbs;
 mod tray;
 mod update;
+mod wallpaper;
 mod wic;
 mod window;
 mod xcf;
@@ -178,6 +180,35 @@ async fn reveal_in_folder(svc: State<'_, Arc<Services>>, path: String) -> Result
 #[tauri::command]
 async fn open_with(svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
     shell::open_with(&svc.allowed.resolve(&path)?)
+}
+
+/// Where converted wallpaper and lock screen pictures are kept: Windows keeps referring to them.
+fn desk_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    app.path().app_data_dir().map(|d| d.join("desk")).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn set_wallpaper(app: AppHandle, svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+    let (src, dir) = (svc.allowed.resolve(&path)?, desk_dir(&app)?);
+    tauri::async_runtime::spawn_blocking(move || wallpaper::set_wallpaper(&src, &dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn set_lock_screen(app: AppHandle, svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+    let (src, dir) = (svc.allowed.resolve(&path)?, desk_dir(&app)?);
+    tauri::async_runtime::spawn_blocking(move || wallpaper::set_lock_screen(&src, &dir))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn share_picture(window: tauri::WebviewWindow, svc: State<'_, Arc<Services>>, path: String) -> Result<(), String> {
+    let src = svc.allowed.resolve(&path)?;
+    tauri::async_runtime::spawn_blocking(move || share::share_file(&window, &src))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Looks for a newer release on GitHub; `None` when this build is current.
@@ -368,6 +399,9 @@ pub fn run() {
             copy_image,
             reveal_in_folder,
             open_with,
+            set_wallpaper,
+            set_lock_screen,
+            share_picture,
             check_update,
             install_update,
             cancel_update,

@@ -65,6 +65,12 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
   IIQ, MEF, MOS, MRW, DCR, KDC, ERF, RWL, RAW, ARQ, GPR, ORI, K25). A orientação EXIF é aplicada.
 * **Keep ready** (configuração, desligado por padrão): fechar a janela estaciona o Vislo na bandeja em vez de sair;
   *Start ready when I sign in* cria uma entrada Run por usuário (`vislo.exe --background`).
+* **Galeria** (`G`): todas as imagens da pasta numa grade; o tamanho das miniaturas (controle deslizante, `Ctrl`+roda ou
+  `+` `-`) e o recorte quadrado ou proporção original são ajustáveis e lembrados. Setas, `Home`/`End`, `PgUp`/`PgDn` e
+  `Enter` navegam; as miniaturas carregam sob demanda, então pastas enormes continuam leves.
+* **Menu do botão direito:** copiar, abrir, mostrar na pasta, abrir com, **definir como papel de parede**, **definir como
+  tela de bloqueio**, **imprimir** (`Ctrl+P`, diálogo de impressão do sistema, qualquer formato) e **compartilhar**
+  (painel de compartilhamento do Windows). Formatos que o Windows não lê (WebP, HEIC, PSD…) são convertidos para PNG antes.
 * **Sempre sincronizado:** arquivos criados ou apagados no Explorer aparecem quando a janela recupera o foco;
   apagar a imagem exibida abre a vizinha.
 * **Decodificação robusta:** imagens enormes ou corrompidas são recusadas com mensagem, sem derrubar o app.
@@ -82,11 +88,14 @@ reabre arquivos em dezenas de milissegundos. O escopo é pequeno de propósito: 
 </tr>
 <tr>
 <td width="50%"><img src="assets/screenshots/info.png" alt="Painel de informações agrupado em arquivo, imagem, câmera, exposição, autoria e local" /><br/><b>Painel de informações</b> (<kbd>I</kbd>) &ndash; agrupado em arquivo (formato, criação, modificação), imagem (dimensões, proporção, cor, resolução, espaço de cor), câmera, exposição (programa, medição, balanço de branco, flash), autoria e local (GPS, altitude, direção). Traduzido para o idioma escolhido; um clique no valor o copia.</td>
-<td width="50%"><img src="assets/screenshots/menu.png" alt="Menu de contexto" /><br/><b>Menu do botão direito</b> &ndash; copiar, abrir, mostrar na pasta, abrir com, apresentação e mais.</td>
+<td width="50%"><img src="assets/screenshots/menu.png" alt="Menu de contexto" /><br/><b>Menu do botão direito</b> &ndash; copiar, abrir, mostrar na pasta, abrir com, papel de parede, tela de bloqueio, imprimir, compartilhar, apresentação e mais.</td>
 </tr>
 <tr>
 <td width="50%"><img src="assets/screenshots/update.png" alt="Painel de configurações e o banner de atualização" /><br/><b>Configurações e atualizações</b> &ndash; um banner oferece novas versões; um clique baixa, verifica e reinicia.</td>
 <td width="50%"><img src="assets/screenshots/empty.png" alt="Estado vazio com botão de abrir" /><br/><b>Solte um arquivo</b> em qualquer lugar, aperte <kbd>O</kbd> ou torne o Vislo o visualizador padrão.</td>
+</tr>
+<tr>
+<td colspan="2"><img src="assets/screenshots/gallery.png" alt="Galeria com todas as imagens da pasta em grade" /><br/><b>Galeria</b> (<kbd>G</kbd>) &ndash; a pasta inteira em grade, com tamanho e recorte das miniaturas ajustáveis.</td>
 </tr>
 <tr>
 <td colspan="2"><img src="assets/screenshots/formats.png" alt="Configurações: grupos de formato para o visualizador padrão, incluindo SVG, JPEG XL e JPEG 2000" /><br/><b>Visualizador padrão por grupo de formato</b> &ndash; marque só o que o Vislo deve abrir (JPEG, PNG, SVG, JPEG XL, JPEG 2000, RAW, ...).</td>
@@ -321,12 +330,14 @@ node scripts/release.mjs plan                       # a versão que o próximo p
 | Arrastar / duplo clique na barra superior | mover a janela / maximizar ↔ janela |
 | `Ctrl+C` | copia a imagem para a área de transferência (AVIF e SVG pela página; imagens acima de 8192 px de lado ou 256 MiB de RGBA são reduzidas antes) |
 | `O`, `Ctrl+O` | abrir uma imagem (diálogo de arquivo) |
-| Botão direito | menu: copiar, abrir, mostrar na pasta, abrir com, info, apresentação, … |
+| Botão direito | menu: copiar, abrir, mostrar na pasta, abrir com, papel de parede, tela de bloqueio, imprimir, compartilhar, info, apresentação, … |
 | `R` / `Shift+R` | gira a visualização no sentido horário / anti-horário |
 | `T` | filmstrip |
+| `G` | galeria (grade com todas as imagens da pasta) |
+| `Ctrl+P` | imprimir |
 | `I` | painel de informações |
 | `S` / `F5` | apresentação de slides |
-| `F` / `F11` | tela cheia |
+| `F` / `F11` | tela cheia (a barra sem moldura tem um único botão maximizar/restaurar, que também sai da tela cheia) |
 | `Esc` | fecha painéis, para a apresentação, sai da tela cheia e, por fim, fecha |
 
 ## Por que é rápido

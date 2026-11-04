@@ -42,6 +42,7 @@ async function boot(): Promise<void> {
       viewer.applySettings((current = s));
     },
     (t) => viewer.notify(t),
+    () => viewer.currentSettings(),
   );
   const updater = new Updater(document.getElementById("update")!, (t) => viewer.notify(t), () => current.check_updates);
   document.getElementById("btn-update-check")!.addEventListener("click", () => void updater.check(true));

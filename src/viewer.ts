@@ -1,11 +1,12 @@
 import { appear, bump, settle } from "./anim";
-import { previewSrc, type Album, type Settings, type WheelMode } from "./api";
+import { previewSrc, type Album, type Settings, setSettings, type WheelMode } from "./api";
 import { boot as bootData, prefetchPreview, takeReadyPreview } from "./boot";
 import { ImageCache, type Loaded } from "./cache";
 import { type Command, Commands } from "./commands";
 import { ContextMenu } from "./context-menu";
 import * as chrome from "./chrome";
 import { Filmstrip } from "./filmstrip";
+import { Gallery } from "./gallery";
 import { isJpeg, isNative, isStill, isVector } from "./formats";
 import { HoverPreview } from "./hover";
 import { onLanguageChange, t } from "./i18n";
@@ -43,6 +44,7 @@ export class Viewer implements Controller {
   private hud: Hud;
   private sharpener = new Sharpener();
   private strip: Filmstrip;
+  private gallery: Gallery;
   private hover: HoverPreview;
   private info: InfoPanel;
   private slideshow: Slideshow;
@@ -64,6 +66,15 @@ export class Viewer implements Controller {
       select: (i) => this.jumpTo(i),
       step: (d) => this.go(d),
       hover: (i, rect) => this.onHover(i, rect),
+    });
+    this.gallery = new Gallery(this.q("#gallery"), {
+      files: () => this.album?.files ?? [],
+      position: () => this.index,
+      pick: (i) => {
+        this.gallery.close();
+        this.jumpTo(i);
+      },
+      save: (size, square) => this.saveGallery(size, square),
     });
     this.hover = new HoverPreview(this.q("#hover"));
     this.info = new InfoPanel(this.q("#info"));
@@ -123,7 +134,18 @@ export class Viewer implements Controller {
     this.cache.clear();
     this.stage.replaceChildren();
     this.current = this.album = null;
+    this.gallery.close();
     this.firstShow = true;
+  }
+
+  /** The settings as the page last saved them: the settings panel starts from these, never from a stale copy. */
+  currentSettings = (): Settings => this.settings;
+
+  private saveGallery(size: number, square: boolean): void {
+    setSettings({ ...this.settings, gallery_size: size, gallery_square: square }).then(
+      (saved) => (this.settings = saved),
+      (err) => this.notify(String(err)),
+    );
   }
 
   files = (): readonly string[] => this.album?.files ?? [];
@@ -137,6 +159,7 @@ export class Viewer implements Controller {
     this.app.classList.remove("empty");
     this.app.classList.toggle("single", album.files.length < 2);
     this.strip.build(album.files, album.index);
+    this.gallery.invalidate();
   }
 
   showEmpty = (): void => this.app.classList.add("empty");
@@ -146,6 +169,7 @@ export class Viewer implements Controller {
     this.settings = s;
     for (const bg of ["dark", "black", "transparent"]) this.app.classList.toggle(`bg-${bg}`, s.background === bg);
     this.strip.set3d(s.filmstrip_3d);
+    this.gallery.configure(s.gallery_size, s.gallery_square);
     if (s.sharp_downscale) this.scheduleSharp();
     else this.current?.clearSharp();
     this.touch();
@@ -331,11 +355,17 @@ export class Viewer implements Controller {
     if (after) settle(slide.el, (h0 - this.stage.clientHeight) / 2, before.w / after.w);
   }
 
+  galleryOpen = (): boolean => this.gallery.visible;
+  toggleGallery(): void {
+    if (this.album) this.gallery.toggle();
+  }
+
   toggleInfo(): void {
     if (!this.info.visible && matchMedia("(max-width: 620px)").matches) this.q("#panel").classList.remove("show"); // both are full width there
     this.info.toggle(this.album?.files[this.index] ?? null);
   }
   toggleSlideshow(): void {
+    this.gallery.close();
     if (!this.slideshow.running && !canSlideshow(this.album?.files.length ?? 0)) return this.notify(t("msg.needTwo"));
     this.slideshow.toggle();
   }
@@ -351,6 +381,7 @@ export class Viewer implements Controller {
 
   escape(): void {
     if (this.menu.open) return this.menu.hide();
+    if (this.gallery.visible) return this.gallery.close();
     void (async () => {
       const panel = this.q("#panel");
       if (panel.classList.contains("show")) panel.classList.remove("show");
