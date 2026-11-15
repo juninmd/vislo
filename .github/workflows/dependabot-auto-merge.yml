@@ -13,4 +13,6 @@ permissions:
 
 jobs:
   auto-merge:
+    # pull_request_target runs with write access for any PR, so only Dependabot's own PRs may reach the merge
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
     uses: juninmd/base-actions/.github/workflows/reusable-dependabot-auto-merge.yml@main
