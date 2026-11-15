@@ -28,7 +28,7 @@ jpeg-decoder = { version = "0.3", default-features = false }
 psd = "0.3"
 jxl-oxide = { version = "0.12", features = ["image", "moxcms"] }
 hayro-jpeg2000 = "0.4"
-hayro-jbig2 = "0.3"
+hayro-jbig2 = "0.4"
 hayro-ccitt = "0.4"
 serde_json = "1"
 tauri-plugin-dialog = "2"
