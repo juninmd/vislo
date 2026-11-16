@@ -94,7 +94,38 @@ embutida 150 ms — a proporção de um JPEG grande num disco frio.
 igual ao valor anterior: as mudanças na tira (`z-index` por alvo, sem laço de animação com a tira fechada) não aparecem
 nesse cenário, mas também não custam nada.
 
-## 5. Avaliado e adiado
+## 5. Codificação JPEG e listagem da pasta (2026-11-16)
+
+`cargo test --profile devrel --manifest-path src-tauri/Cargo.toml bench_encode bench_album -- --ignored --nocapture`.
+Caminho antigo e novo intercalados na mesma execução, mediana de 7. Contêiner Linux de 4 núcleos (não a máquina Windows
+das seções anteriores); duas rodadas, variação de ±10%.
+
+| Caso | Antes (ms) | Depois (ms) | Ganho | Tamanho |
+|---|---|---|---|---|
+| 24 MP RGB → JPEG q92 (rota `/c`) | ≈ 660 | ≈ 345 | **1,9×** | 5,0 MB = 5,0 MB |
+| 24 MP RGBA → JPEG q92 (alfa achatado) | ≈ 1190 | ≈ 440 | **2,7×** | 3,5 MB → 3,6 MB |
+| 1620 × 1080 RGB → JPEG q90 (rota `/f`) | ≈ 46 | ≈ 24 | **1,9×** | 0,5 MB = 0,5 MB |
+| Pasta com 5000 imagens + 1000 sidecars | ≈ 36,5 | ≈ 32 | 1,15× | — |
+
+Com o novo codificador, a miniatura de 192 px de uma foto limpa de 24 MP caiu de ≈ 126 ms (seção 3) para ≈ 98–103 ms.
+
+**O que mudou e o que a medição ensinou:**
+
+1. O codificador JPEG do `image` era o maior custo depois da decodificação. O `jpeg-encoder` (Rust puro, SIMD AVX2
+   detectado em tempo de execução) faz o mesmo trabalho na metade do tempo. Com a subamostragem padrão dele (4:2:0 abaixo
+   de q90) o arquivo ficava 25% menor, mas perdia até 19 dB de PSNR; com cor em resolução cheia (4:4:4, como o anterior)
+   PSNR e tamanho ficam iguais (q92: 51,5 dB × 51,8 dB), então é essa a configuração usada.
+2. `to_jpeg` copiava a imagem inteira (`to_rgb8`) mesmo quando ela já era RGB 8 bits, o caso de toda miniatura e de toda
+   rota `/f`. Agora codifica direto do buffer.
+3. Achatar a transparência criava três buffers (fundo RGBA, sobreposição, cópia RGB); agora é uma passada que escreve
+   direto o RGB. Isso explica o ganho maior no caso RGBA.
+4. Na listagem, cada imagem fazia um `stat` pelo caminho completo depois de já ter a entrada do diretório. Agora usa os
+   metadados da própria entrada: no Linux é um `stat` relativo ao diretório aberto (1,15×); no Windows a enumeração já
+   traz tamanho e datas, então deixa de abrir um handle por arquivo. O ganho no Windows **não foi medido** aqui.
+5. PNG foi medido e **não mudou**: o `image` já usa compressão rápida por padrão (≈ 300 ms para 24 MP RGBA); a
+   compressão "Default" levaria 6–10 s.
+
+## 6. Avaliado e adiado
 
 | Ideia | Motivo |
 |---|---|
