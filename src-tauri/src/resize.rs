@@ -83,7 +83,7 @@ pub fn to_jpeg(img: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
 /// Straight-alpha "over" onto the opaque background, written once into the RGB buffer the encoder reads.
 fn flatten(rgba: &image::RgbaImage) -> image::RgbImage {
     let mut out = Vec::with_capacity(rgba.as_raw().len() / 4 * 3);
-    for p in rgba.as_raw().chunks_exact(4) {
+    for p in rgba.as_raw().as_chunks::<4>().0 {
         let a = u32::from(p[3]);
         for (c, bg) in p[..3].iter().zip(BACKGROUND) {
             out.push(((u32::from(*c) * a + u32::from(bg) * (255 - a) + 127) / 255) as u8);
