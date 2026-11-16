@@ -4,7 +4,7 @@
 
 use crate::{decode, resize, thumbs};
 use fast_image_resize::FilterType;
-use image::{codecs::jpeg::JpegEncoder, ExtendedColorType};
+use image::{codecs::jpeg::JpegEncoder, DynamicImage, ExtendedColorType};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -87,4 +87,96 @@ fn bench_jpeg_thumbnail_and_fit() {
         report(&format!("{name} fit 1920x1080: after"), &file, after);
         let _ = std::fs::remove_dir_all(dir);
     }
+}
+
+/// The JPEG path as it was before: a full RGB copy before every encode, three buffers to flatten alpha,
+/// all through the `image` crate's baseline encoder.
+mod legacy_encode {
+    use image::{codecs::jpeg::JpegEncoder, DynamicImage, ExtendedColorType, ImageEncoder};
+
+    pub fn to_jpeg(img: &DynamicImage, quality: u8) -> Vec<u8> {
+        let rgb = if img.color().has_alpha() {
+            let mut bg = image::RgbaImage::from_pixel(img.width(), img.height(), image::Rgba([14, 14, 16, 255]));
+            image::imageops::overlay(&mut bg, &img.to_rgba8(), 0, 0);
+            DynamicImage::ImageRgba8(bg).to_rgb8()
+        } else {
+            img.to_rgb8()
+        };
+        let mut out = Vec::new();
+        JpegEncoder::new_with_quality(&mut out, quality)
+            .write_image(rgb.as_raw(), rgb.width(), rgb.height(), ExtendedColorType::Rgb8)
+            .unwrap();
+        out
+    }
+
+}
+
+/// A 24 MP RGB picture and the same with a soft alpha ramp: what the `/c` route encodes for a large
+/// TIFF/PSD/EXR, and (RGB, smaller) what every thumbnail and `/f` reply encodes.
+fn decoded(w: u32, h: u32) -> (DynamicImage, DynamicImage) {
+    let rgb = image::load_from_memory(&photo(w, h, 4)).unwrap().into_rgb8();
+    let mut rgba = DynamicImage::ImageRgb8(rgb.clone()).into_rgba8();
+    for (x, _, p) in rgba.enumerate_pixels_mut() {
+        p[3] = (x * 255 / w) as u8;
+    }
+    (DynamicImage::ImageRgb8(rgb), DynamicImage::ImageRgba8(rgba))
+}
+
+#[test]
+#[ignore = "timing run"]
+fn bench_encode() {
+    let (rgb, rgba) = decoded(6000, 4000);
+    let row = |label: &str, before: f64, after: f64, bytes: (usize, usize)| {
+        println!(
+            "{label:<28} before {before:>7.1} ms   after {after:>7.1} ms   {:>4.2}x   ({:.1} MB -> {:.1} MB)",
+            before / after,
+            bytes.0 as f64 / 1e6,
+            bytes.1 as f64 / 1e6
+        );
+    };
+    let sizes = |a: Vec<u8>, b: Vec<u8>| (a.len(), b.len());
+    for (label, img) in [("24 MP RGB  -> JPEG q92", &rgb), ("24 MP RGBA -> JPEG q92", &rgba)] {
+        let b = median_ms(|| drop(legacy_encode::to_jpeg(img, 92)));
+        let a = median_ms(|| drop(resize::to_jpeg(img, 92).unwrap()));
+        row(label, b, a, sizes(legacy_encode::to_jpeg(img, 92), resize::to_jpeg(img, 92).unwrap()));
+    }
+    let small = resize::fit(&rgb, 1920, 1080, FilterType::Lanczos3).unwrap();
+    let b = median_ms(|| drop(legacy_encode::to_jpeg(&small, 90)));
+    let a = median_ms(|| drop(resize::to_jpeg(&small, 90).unwrap()));
+    row("1620x1080 RGB -> JPEG q90", b, a, sizes(legacy_encode::to_jpeg(&small, 90), resize::to_jpeg(&small, 90).unwrap()));
+}
+
+/// What `album::build` did before: a file-type check, then a second `stat` by full path for each image.
+fn legacy_listing(dir: &Path) -> Vec<(PathBuf, String)> {
+    let mut files: Vec<(PathBuf, String)> = std::fs::read_dir(dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|e| crate::album::is_image(Path::new(&e.file_name())) && e.file_type().is_ok_and(|t| t.is_file() || e.path().is_file()))
+        .map(|e| e.path())
+        .filter_map(|p| {
+            let meta = std::fs::metadata(&p).ok().filter(std::fs::Metadata::is_file)?;
+            Some((p, crate::album::stamp(&meta)))
+        })
+        .collect();
+    files.sort_by(|a, b| natord::compare_ignore_case(&a.0.file_name().unwrap().to_string_lossy(), &b.0.file_name().unwrap().to_string_lossy()));
+    files
+}
+
+#[test]
+#[ignore = "timing run"]
+fn bench_album_listing() {
+    let dir = std::env::temp_dir().join(format!("vislo-bench-album-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for i in 0..5000 {
+        std::fs::write(dir.join(format!("IMG_{i}.jpg")), b"x").unwrap();
+        if i % 5 == 0 {
+            std::fs::write(dir.join(format!("IMG_{i}.xmp")), b"x").unwrap(); // sidecars are skipped
+        }
+    }
+    let first = dir.join("IMG_0.jpg");
+    let before = median_ms(|| drop(legacy_listing(&dir)));
+    let after = median_ms(|| drop(crate::album::list_changed(&first, None).unwrap()));
+    println!("album 5000 images + 1000 sidecars: before {before:.2} ms   after {after:.2} ms   {:.2}x", before / after);
+    let _ = std::fs::remove_dir_all(dir);
 }

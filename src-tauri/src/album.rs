@@ -161,14 +161,15 @@ fn file_name(p: &Path) -> &str {
     p.file_name().and_then(|n| n.to_str()).unwrap_or_default()
 }
 
-/// `file_type` comes with the directory enumeration, so no stat per entry; symlinks still
-/// resolve to their target, as `Path::is_file` did.
-fn is_regular_file(e: &std::fs::DirEntry) -> bool {
-    match e.file_type() {
-        Ok(t) if t.is_symlink() => e.path().is_file(),
-        Ok(t) => t.is_file(),
-        Err(_) => e.path().is_file(),
-    }
+/// Metadata of a regular file found by `read_dir`, following symlinks as `Path::is_file` does.
+/// On Windows the entry already carries size and times from the enumeration, so this costs no
+/// extra open per file; elsewhere it is one `stat` relative to the open directory.
+fn file_meta(e: &std::fs::DirEntry) -> Option<std::fs::Metadata> {
+    let meta = match e.file_type() {
+        Ok(t) if !t.is_symlink() => e.metadata().ok(),
+        _ => std::fs::metadata(e.path()).ok(),
+    }?;
+    meta.is_file().then_some(meta)
 }
 
 /// The frontend's contract: only `NotFound` means the picture was deleted, so only it may move the view.
@@ -258,13 +259,11 @@ fn build(file: &Path, with_size: bool) -> Result<Album, OpenError> {
             message: format!("cannot list {}: {e}", dir.display()),
         })?
         .filter_map(Result::ok)
-        // Extension first: a folder full of non-images costs no file-type lookup at all.
-        .filter(|e| is_image(Path::new(&e.file_name())) && is_regular_file(e))
-        .map(|e| e.path())
-        .filter_map(|p| {
-            // follows symlinks, as `is_file` did before
-            let meta = std::fs::metadata(&p).ok().filter(std::fs::Metadata::is_file)?;
-            Some((p, stamp(&meta)))
+        // Extension first: a folder full of non-images costs no metadata lookup at all.
+        .filter(|e| is_image(Path::new(&e.file_name())))
+        .filter_map(|e| {
+            let meta = file_meta(&e)?;
+            Some((e.path(), stamp(&meta)))
         })
         .collect();
     files.sort_by(|a, b| natord::compare_ignore_case(file_name(&a.0), file_name(&b.0)));

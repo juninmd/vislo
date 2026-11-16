@@ -349,6 +349,8 @@ node scripts/release.mjs plan                       # a versão que o próximo p
   esperar o decodificador, e a prévia que falta já é pedida enquanto a foto inteira ainda tem 70 ms de vantagem.
 * Miniaturas e prévias de JPEG grandes são decodificadas já reduzidas (1/2, 1/4 ou 1/8 no domínio da DCT) quando a
   redução é de 4× ou mais, e o redimensionamento reaproveita o buffer em vez de copiar a imagem inteira.
+* Miniaturas, prévias e conversões saem por um codificador JPEG com SIMD (`jpeg-encoder`), cerca de 2× mais rápido que o
+  anterior com o mesmo tamanho e a mesma fidelidade, e sem cópia extra da imagem antes de codificar.
 * A navegação é "o último vence": segurar uma seta nunca enfileira trabalho obsoleto.
 * Miniaturas, prévias e conversões de formato rodam num pequeno pool de workers LIFO, então a imagem que você está
   vendo sempre é atendida antes do backlog.
@@ -436,3 +438,5 @@ CI e o planejador de release dependem disso. As regras, as regras de release e a
 ## Licença
 
 Distribuído sob a licença [MIT](LICENSE). Copyright (c) 2026 Antonio Carlos.
+
+O codificador JPEG (`jpeg-encoder`) é baseado em parte no trabalho do Independent JPEG Group.
