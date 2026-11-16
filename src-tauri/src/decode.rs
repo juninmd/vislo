@@ -43,37 +43,41 @@ fn is_raw(ext: &str) -> bool {
     RAW_EXTENSIONS.contains(&ext)
 }
 
+/// Linear-light steps in the sRGB table: fine enough that the steep start of the curve stays within
+/// one 8-bit level of the exact formula.
+const SRGB_STEPS: usize = 1 << 14;
+
+/// Exact linear-to-sRGB transfer for one channel already clamped to 0..=1.
+fn srgb_exact(c: f32) -> u8 {
+    let s = if c <= 0.003_130_8 { c * 12.92 } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 };
+    (s * 255.0 + 0.5) as u8
+}
+
+/// One table lookup per channel instead of a `powf`: a 24 MP HDR has 72 million of them.
+fn srgb(c: f32) -> u8 {
+    static TABLE: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    let table = TABLE.get_or_init(|| (0..=SRGB_STEPS).map(|i| srgb_exact(i as f32 / SRGB_STEPS as f32)).collect());
+    // NaN clamps to NaN and casts to 0: black, as the exact formula gives.
+    table[(c.clamp(0.0, 1.0) * SRGB_STEPS as f32 + 0.5) as usize]
+}
+
 /// HDR/EXR decode to linear floats; the webview needs 8-bit sRGB (highlights above 1.0 clip).
-fn to_display(img: DynamicImage) -> DynamicImage {
-    use image::ColorType::{Rgb32F, Rgba32F};
-    if !matches!(img.color(), Rgb32F | Rgba32F) {
-        return img;
-    }
-    let encode = |c: f32| {
-        let c = c.clamp(0.0, 1.0);
-        let s = if c <= 0.003_130_8 {
-            c * 12.92
-        } else {
-            1.055 * c.powf(1.0 / 2.4) - 0.055
-        };
-        (s * 255.0 + 0.5) as u8
-    };
-    let src = img.to_rgba32f();
-    let mut out = image::RgbaImage::new(src.width(), src.height());
-    for (o, p) in out.pixels_mut().zip(src.pixels()) {
-        *o = image::Rgba([
-            encode(p[0]),
-            encode(p[1]),
-            encode(p[2]),
-            (p[3].clamp(0.0, 1.0) * 255.0 + 0.5) as u8,
-        ]);
-    }
-    let alpha = img.color().has_alpha();
-    let rgba = DynamicImage::ImageRgba8(out);
-    if alpha {
-        rgba
-    } else {
-        DynamicImage::ImageRgb8(rgba.to_rgb8())
+/// Writes the 8-bit buffer in one pass straight from the float one, with no intermediate copies.
+pub(crate) fn to_display(img: DynamicImage) -> DynamicImage {
+    let (w, h) = (img.width(), img.height());
+    match img {
+        DynamicImage::ImageRgb32F(f) => {
+            let raw = f.as_raw().iter().map(|&c| srgb(c)).collect();
+            DynamicImage::ImageRgb8(image::RgbImage::from_raw(w, h, raw).expect("3 channels per pixel"))
+        }
+        DynamicImage::ImageRgba32F(f) => {
+            let mut raw = Vec::with_capacity(f.as_raw().len());
+            for p in f.as_raw().as_chunks::<4>().0 {
+                raw.extend([srgb(p[0]), srgb(p[1]), srgb(p[2]), (p[3].clamp(0.0, 1.0) * 255.0 + 0.5) as u8]);
+            }
+            DynamicImage::ImageRgba8(image::RgbaImage::from_raw(w, h, raw).expect("4 channels per pixel"))
+        }
+        other => other,
     }
 }
 
@@ -371,6 +375,16 @@ mod tests {
             assert_eq!(dimensions(&dir.join(name)), Some((5, 3)), "{name}");
         }
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn srgb_table_stays_within_one_level_of_the_exact_curve() {
+        for i in 0..=200_000 {
+            let c = i as f32 / 200_000.0;
+            let (fast, exact) = (srgb(c), srgb_exact(c));
+            assert!(fast.abs_diff(exact) <= 1, "{c}: {fast} vs {exact}");
+        }
+        assert_eq!((srgb(-1.0), srgb(0.0), srgb(1.0), srgb(7.5), srgb(f32::NAN)), (0, 0, 255, 255, 0));
     }
 
     #[test]
