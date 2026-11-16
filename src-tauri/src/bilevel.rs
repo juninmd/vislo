@@ -7,7 +7,8 @@ use std::path::Path;
 
 pub fn decode_jbig2(path: &Path, max_pixels: u64) -> Result<DynamicImage, String> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-    let image = hayro_jbig2::Image::new(&bytes).map_err(|e| e.to_string())?;
+    let file = hayro_jbig2::File::new(&bytes, &hayro_jbig2::DecodeSettings::default()).map_err(|e| e.to_string())?;
+    let image = file.page(0).ok_or("JBIG2 file has no page")?;
     let (w, h) = image.dimensions();
     if w == 0 || h == 0 || u64::from(w) * u64::from(h) > max_pixels {
         return Err(crate::decode::TOO_LARGE.to_string());
@@ -25,23 +26,21 @@ fn cals_size(header: &[u8]) -> Option<(u32, u32)> {
 
 struct Pixels {
     buf: Vec<u8>,
-    pos: usize,
+    width: usize,
     lines: u32,
 }
 
-impl Pixels {
-    fn put(&mut self, white: bool, n: usize) {
-        let end = (self.pos + n).min(self.buf.len());
-        self.buf[self.pos.min(end)..end].fill(if white { 255 } else { 0 });
-        self.pos = end;
-    }
-}
-
 impl hayro_ccitt::Decoder for Pixels {
-    fn push_pixels(&mut self, white: bool, count: u32) {
-        self.put(white, count as usize);
-    }
-    fn next_line(&mut self) {
+    /// `changes` lists where the colour flips; every row starts white.
+    fn push_row(&mut self, changes: &[u32]) {
+        let start = self.lines as usize * self.width;
+        let Some(row) = self.buf.get_mut(start..start + self.width) else { return };
+        row.fill(255);
+        for run in changes.chunks(2) {
+            let from = (run[0] as usize).min(self.width);
+            let to = run.get(1).map_or(self.width, |&e| (e as usize).min(self.width));
+            row[from..to.max(from)].fill(0);
+        }
         self.lines += 1;
     }
 }
@@ -54,8 +53,8 @@ pub fn decode_cals(path: &Path, max_pixels: u64) -> Result<DynamicImage, String>
     if w == 0 || h == 0 || u64::from(w) * u64::from(h) > max_pixels {
         return Err(crate::decode::TOO_LARGE.to_string());
     }
-    let settings = DecodeSettings { columns: w, rows: h, end_of_block: true, end_of_line: false, rows_are_byte_aligned: false, encoding: EncodingMode::Group4, invert_black: false };
-    let mut pixels = Pixels { buf: vec![0; w as usize * h as usize], pos: 0, lines: 0 };
+    let settings = DecodeSettings { columns: w, rows: h, end_of_block: true, end_of_line: false, rows_are_byte_aligned: false, encoding: EncodingMode::Group4, strict: false };
+    let mut pixels = Pixels { buf: vec![0; w as usize * h as usize], width: w as usize, lines: 0 };
     hayro_ccitt::decode(&bytes[2048..], &mut pixels, &mut DecoderContext::new(settings)).map_err(|e| e.to_string())?;
     if pixels.lines < h {
         return Err(format!("truncated CALS data: {} of {h} rows", pixels.lines));
