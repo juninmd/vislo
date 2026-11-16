@@ -180,3 +180,67 @@ fn bench_album_listing() {
     println!("album 5000 images + 1000 sidecars: before {before:.2} ms   after {after:.2} ms   {:.2}x", before / after);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// `to_display` as it was: a `powf` per channel, a full RGBA float copy first and an RGB copy last.
+fn legacy_to_display(img: &DynamicImage) -> DynamicImage {
+    let encode = |c: f32| {
+        let c = c.clamp(0.0, 1.0);
+        let s = if c <= 0.003_130_8 { c * 12.92 } else { 1.055 * c.powf(1.0 / 2.4) - 0.055 };
+        (s * 255.0 + 0.5) as u8
+    };
+    let src = img.to_rgba32f();
+    let mut out = image::RgbaImage::new(src.width(), src.height());
+    for (o, p) in out.pixels_mut().zip(src.pixels()) {
+        *o = image::Rgba([encode(p[0]), encode(p[1]), encode(p[2]), (p[3].clamp(0.0, 1.0) * 255.0 + 0.5) as u8]);
+    }
+    if img.color().has_alpha() { DynamicImage::ImageRgba8(out) } else { DynamicImage::ImageRgb8(DynamicImage::ImageRgba8(out).to_rgb8()) }
+}
+
+#[test]
+#[ignore = "timing run"]
+fn bench_hdr_to_display() {
+    let (w, h) = (6000u32, 4000u32);
+    let hdr = image::Rgb32FImage::from_fn(w, h, |x, y| image::Rgb([x as f32 / w as f32 * 1.5, y as f32 / h as f32, ((x ^ y) & 255) as f32 / 300.0]));
+    let rgb = DynamicImage::ImageRgb32F(hdr);
+    let rgba = DynamicImage::ImageRgba32F(rgb.to_rgba32f());
+    for (label, img) in [("24 MP RGB float  -> 8-bit", &rgb), ("24 MP RGBA float -> 8-bit", &rgba)] {
+        let before = median_ms(|| drop(legacy_to_display(img)));
+        let after = median_ms(|| drop(decode::to_display(img.clone())));
+        let clone = median_ms(|| drop(img.clone()));
+        // `to_display` takes its input by value, so the clone the timing needs is subtracted.
+        let after = after - clone;
+        let (a, b) = (legacy_to_display(img).into_bytes(), decode::to_display(img.clone()).into_bytes());
+        let worst = a.iter().zip(&b).map(|(x, y)| x.abs_diff(*y)).max().unwrap();
+        println!("{label:<28} before {before:>7.1} ms   after {after:>7.1} ms   {:>4.1}x   (max diff {worst} level)", before / after);
+    }
+}
+
+/// What the `/c` route sent before: PNG for any alpha channel, even a fully opaque one.
+fn legacy_convert(img: &DynamicImage) -> Vec<u8> {
+    if img.color().has_alpha() {
+        let mut out = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut out, image::ImageFormat::Png).unwrap();
+        out.into_inner()
+    } else {
+        resize::to_jpeg(&DynamicImage::ImageRgb8(img.to_rgb8()), 92).unwrap()
+    }
+}
+
+#[test]
+#[ignore = "timing run"]
+fn bench_convert_route() {
+    let (rgb, _) = decoded(6000, 4000);
+    let opaque = DynamicImage::ImageRgba8(rgb.to_rgba8());
+    let grey = DynamicImage::ImageLuma8(rgb.to_luma8());
+    for (label, img) in [("24 MP opaque RGBA (PSD-like)", &opaque), ("24 MP greyscale", &grey)] {
+        let before = median_ms(|| drop(legacy_convert(img)));
+        let after = median_ms(|| drop(resize::for_webview(img).unwrap()));
+        let (b, a) = (legacy_convert(img).len(), resize::for_webview(img).unwrap().1.len());
+        println!(
+            "{label:<30} before {before:>7.1} ms   after {after:>7.1} ms   {:>4.1}x   ({:.1} MB -> {:.1} MB)",
+            before / after,
+            b as f64 / 1e6,
+            a as f64 / 1e6
+        );
+    }
+}

@@ -125,11 +125,42 @@ Com o novo codificador, a miniatura de 192 px de uma foto limpa de 24 MP caiu de
 5. PNG foi medido e **não mudou**: o `image` já usa compressão rápida por padrão (≈ 300 ms para 24 MP RGBA); a
    compressão "Default" levaria 6–10 s.
 
-## 6. Avaliado e adiado
+## 6. HDR, rota `/c` e memória do cache (2026-11-16)
+
+`cargo test --profile devrel --manifest-path src-tauri/Cargo.toml bench_hdr bench_convert -- --ignored --nocapture`
+(mesmo contêiner Linux da seção 5, antigo × novo intercalados, mediana de 7). O decode no navegador foi medido com
+`createImageBitmap` + desenho num canvas, no Chromium headless.
+
+| Caso | Antes | Depois | Ganho |
+|---|---|---|---|
+| HDR/EXR 24 MP RGB float → 8 bits | ≈ 1230 ms | ≈ 230 ms | **5,3×** (diferença máx. de 1 nível) |
+| HDR/EXR 24 MP RGBA float → 8 bits | ≈ 1160 ms | ≈ 280 ms | **4,1×** |
+| `/c` cinza 24 MP (TIFF, DICOM, FITS…) | ≈ 650 ms | ≈ 160–200 ms | **3,5–4×** |
+| `/c` RGBA opaco 24 MP (PSD, TIFF de editor): codificar | ≈ 300 ms (PNG) | ≈ 430 ms (JPEG) | 0,7× |
+| idem, decodificar no navegador | ≈ 416 ms | ≈ 209 ms | 2× |
+| idem, total e tamanho | ≈ 716 ms · 35,9 MB | ≈ 636 ms · 5,0 MB | 1,1× · **7× menor** |
+
+**O que mudou e o que a medição ensinou:**
+
+1. `to_display` fazia um `powf` por canal (72 milhões numa foto de 24 MP), uma cópia RGBA float inteira antes e uma
+   cópia RGB no fim. Agora uma tabela de 16 385 entradas substitui o `powf` (teste: nunca mais de 1 nível de diferença
+   da fórmula exata) e o buffer de 8 bits é escrito numa passada só.
+2. Imagens em tons de cinza eram expandidas para RGB antes do JPEG. O codificador aceita um canal só: um terço dos dados.
+3. O PSD sempre chega com canal alfa, mesmo opaco, então ia como PNG de 36 MB. Agora o alfa é verificado: se todo
+   pixel é opaco, vai como JPEG q92. Codificar fica mais lento, mas o navegador decodifica na metade do tempo e a
+   resposta é 7× menor; no total ganha pouco em tempo e muito em memória e cópia pelo protocolo. Transparência real
+   continua em PNG.
+4. O cache do frontend guardava sempre 7 fotos decodificadas (a atual, 4 à frente e 2 atrás). Com fotos de 100 MP isso é
+   2,8 GB. Agora há um orçamento de 1,5 GiB (`src/cache-budget.ts`): pastas comuns não mudam (sete fotos de 50 MP
+   cabem), e com 100 MP ficam a atual e as 3 mais próximas (1,6 GB). `npm run perf:motion` não mudou (mesmos valores
+   com e sem a mudança neste contêiner).
+5. Novo workflow `bench` roda todos os `bench_` no `windows-latest` e publica os números no resumo do job. Ele roda
+   quando os benchmarks mudam ou por `workflow_dispatch`; é informativo e não bloqueia nada.
+
+## 7. Avaliado e adiado
 
 | Ideia | Motivo |
 |---|---|
-| Orçamento em bytes no cache do frontend | o ganho só aparece com fotos > 50 MP; precisa de medição própria |
 | Gestão de cor ICC → sRGB com `moxcms` (já no `image`) | exige fixture P3 e decisão sobre o WebView2 já gerenciar cor |
 | Controles de animação (pausa, passo de quadro) | recurso, não desempenho |
 | `turbojpeg` | C + cmake/nasm no build; ganho não medido |

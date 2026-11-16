@@ -1,0 +1,39 @@
+name: bench
+
+# Timings on the platform Vislo ships for. Informational: the numbers land in the job summary and never
+# fail the build. Runs when the benchmarks themselves change, or by hand.
+on:
+  pull_request:
+    paths:
+      - src-tauri/src/bench.rs
+      - .github/workflows/bench.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # a branch ref, so the SHA is pinned and the toolchain is passed explicitly
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+      - name: Benchmarks (median of 7, old and new paths interleaved)
+        shell: bash
+        run: |
+          cargo test --profile devrel --manifest-path src-tauri/Cargo.toml bench_ -- --ignored --nocapture --test-threads=1 2>&1 | tee bench.txt
+          {
+            echo '### Benchmarks on windows-latest'
+            echo '```'
+            grep -E ' ms' bench.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

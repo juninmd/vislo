@@ -351,6 +351,8 @@ node scripts/release.mjs plan                       # a versão que o próximo p
   redução é de 4× ou mais, e o redimensionamento reaproveita o buffer em vez de copiar a imagem inteira.
 * Miniaturas, prévias e conversões saem por um codificador JPEG com SIMD (`jpeg-encoder`), cerca de 2× mais rápido que o
   anterior com o mesmo tamanho e a mesma fidelidade, e sem cópia extra da imagem antes de codificar.
+* HDR/EXR viram 8 bits por tabela, sem `powf` por pixel; PSD e TIFF com alfa todo opaco vão como JPEG, não PNG.
+* As fotos decodificadas em memória têm um teto de 1,5 GiB: com fotos gigantes, os vizinhos mais distantes saem primeiro.
 * A navegação é "o último vence": segurar uma seta nunca enfileira trabalho obsoleto.
 * Miniaturas, prévias e conversões de formato rodam num pequeno pool de workers LIFO, então a imagem que você está
   vendo sempre é atendida antes do backlog.

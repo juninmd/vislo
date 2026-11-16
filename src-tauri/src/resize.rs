@@ -54,6 +54,10 @@ const BACKGROUND: [u8; 3] = [14, 14, 16];
 /// Encodes as JPEG, flattening transparency over the viewer's dark background.
 /// RGB8 input (every resized image) is encoded in place: a 24 MP copy costs tens of milliseconds.
 pub fn to_jpeg(img: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
+    if let DynamicImage::ImageLuma8(grey) = img {
+        // One channel instead of three: a third of the data to transform and no RGB copy.
+        return encode(grey.as_raw(), grey.width(), grey.height(), jpeg_encoder::ColorType::Luma, quality);
+    }
     let owned;
     let rgb: &image::RgbImage = match img {
         DynamicImage::ImageRgb8(rgb) => rgb,
@@ -70,14 +74,47 @@ pub fn to_jpeg(img: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
             &owned
         }
     };
-    let (w, h) = (u16::try_from(rgb.width()), u16::try_from(rgb.height()));
-    let (Ok(w), Ok(h)) = (w, h) else { return Err("image too large for JPEG".into()) };
-    let mut out = Vec::with_capacity(rgb.as_raw().len() / 8);
+    encode(rgb.as_raw(), rgb.width(), rgb.height(), jpeg_encoder::ColorType::Rgb, quality)
+}
+
+fn encode(raw: &[u8], w: u32, h: u32, color: jpeg_encoder::ColorType, quality: u8) -> Result<Vec<u8>, String> {
+    let (Ok(w), Ok(h)) = (u16::try_from(w), u16::try_from(h)) else { return Err("image too large for JPEG".into()) };
+    let mut out = Vec::with_capacity(raw.len() / 8);
     let mut enc = jpeg_encoder::Encoder::new(&mut out, quality);
     // Full-resolution colour at every quality, as before: same file size and fidelity, only faster.
     enc.set_sampling_factor(jpeg_encoder::SamplingFactor::F_1_1);
-    enc.encode(rgb.as_raw(), w, h, jpeg_encoder::ColorType::Rgb).map_err(|e| e.to_string())?;
+    enc.encode(raw, w, h, color).map_err(|e| e.to_string())?;
     Ok(out)
+}
+
+/// True when the picture has an alpha channel that is fully opaque everywhere. Layered formats
+/// (PSD, TIFF from editors) often carry one: encoding those as JPEG instead of PNG is several times
+/// faster and the reply several times smaller, with nothing to lose.
+pub fn alpha_is_opaque(img: &DynamicImage) -> bool {
+    match img {
+        DynamicImage::ImageRgba8(i) => i.as_raw().as_chunks::<4>().0.iter().all(|p| p[3] == u8::MAX),
+        DynamicImage::ImageLumaA8(i) => i.as_raw().as_chunks::<2>().0.iter().all(|p| p[1] == u8::MAX),
+        DynamicImage::ImageRgba16(i) => i.as_raw().as_chunks::<4>().0.iter().all(|p| p[3] == u16::MAX),
+        DynamicImage::ImageLumaA16(i) => i.as_raw().as_chunks::<2>().0.iter().all(|p| p[1] == u16::MAX),
+        _ => false,
+    }
+}
+
+/// What the `/c` route sends for a decoded picture: PNG only when transparency must survive, JPEG otherwise.
+pub fn for_webview(img: &DynamicImage) -> Result<(&'static str, Vec<u8>), String> {
+    if img.color().has_alpha() && !alpha_is_opaque(img) {
+        let mut out = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut out, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+        return Ok(("image/png", out.into_inner()));
+    }
+    if let DynamicImage::ImageRgba8(rgba) = img {
+        if img.color().has_alpha() {
+            // Known opaque here: dropping the alpha byte is all the flattening needs.
+            let rgb: Vec<u8> = rgba.as_raw().as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
+            return encode(&rgb, rgba.width(), rgba.height(), jpeg_encoder::ColorType::Rgb, 92).map(|b| ("image/jpeg", b));
+        }
+    }
+    to_jpeg(img, 92).map(|b| ("image/jpeg", b))
 }
 
 /// Straight-alpha "over" onto the opaque background, written once into the RGB buffer the encoder reads.
@@ -127,6 +164,30 @@ mod tests {
         let back = image::load_from_memory(&to_jpeg(&img, 90).unwrap()).unwrap().to_rgb8();
         let red = back.get_pixel(10, 10);
         assert!(red[0] > 150 && red[2] < 110, "{red:?}");
+    }
+
+    #[test]
+    fn grey_pictures_encode_as_one_channel() {
+        let grey = DynamicImage::ImageLuma8(image::GrayImage::from_fn(64, 48, |x, y| image::Luma([(x * 3 + y) as u8])));
+        let back = image::load_from_memory(&to_jpeg(&grey, 92).unwrap()).unwrap();
+        assert_eq!(back.color(), image::ColorType::L8);
+        assert_eq!(back.dimensions(), (64, 48));
+        assert!(back.to_luma8().get_pixel(40, 20)[0].abs_diff(140) <= 3);
+    }
+
+    #[test]
+    fn webview_reply_keeps_png_only_for_real_transparency() {
+        let mut rgba = image::RgbaImage::from_pixel(8, 8, image::Rgba([10, 200, 30, 255]));
+        let opaque = DynamicImage::ImageRgba8(rgba.clone());
+        assert!(alpha_is_opaque(&opaque));
+        assert_eq!(for_webview(&opaque).unwrap().0, "image/jpeg");
+        rgba.put_pixel(3, 3, image::Rgba([0, 0, 0, 254]));
+        let see_through = DynamicImage::ImageRgba8(rgba);
+        assert!(!alpha_is_opaque(&see_through));
+        assert_eq!(for_webview(&see_through).unwrap().0, "image/png");
+        let la16 = DynamicImage::ImageLumaA16(image::ImageBuffer::from_pixel(4, 4, image::LumaA([9u16, u16::MAX])));
+        assert_eq!(for_webview(&la16).unwrap().0, "image/jpeg");
+        assert_eq!(for_webview(&solid(4, 4)).unwrap().0, "image/jpeg");
     }
 
     #[test]

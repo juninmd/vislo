@@ -15,6 +15,7 @@ import { Hud, titleFor } from "./hud";
 import { bindButtons, bindInput, type Controller } from "./input";
 import { menuItems } from "./menu-items";
 import { type Dir, jumpIndex, preloadWindow, stepIndex } from "./nav";
+import { withinBudget } from "./cache-budget";
 import { Sharpener } from "./sharp";
 import { Slide } from "./slide";
 import { Slideshow } from "./slideshow";
@@ -262,7 +263,7 @@ export class Viewer implements Controller {
     this.updateHud(album, index);
     this.strip.setActive(index, t.kind !== "none");
     this.info.refresh(album.files[index]);
-    this.cache.retain(preloadWindow(index, album.files.length, this.dir));
+    this.cache.retain(this.preload(index));
     if (!this.firstShow) this.warm(index); // the very first window is shown before neighbours compete for decoders
     this.scheduleSharp();
   }
@@ -283,9 +284,14 @@ export class Viewer implements Controller {
     this.warm(this.index);
   }
 
+  /** The neighbours worth keeping decoded, trimmed so huge pictures cannot exhaust memory. */
+  private preload(index: number): number[] {
+    return withinBudget(preloadWindow(index, this.album?.files.length ?? 0, this.dir), (i) => this.cache.bytes(i));
+  }
+
   private warm(index: number): void {
     const files = this.album?.files ?? [];
-    for (const i of preloadWindow(index, files.length, this.dir)) this.cache.prefetch(i);
+    for (const i of this.preload(index)) this.cache.prefetch(i);
     if (!this.settings.embedded_preview) return;
     // The stand-ins of the next and previous pictures are cheap to prepare and save the wait a step
     // otherwise has while the full picture decodes.

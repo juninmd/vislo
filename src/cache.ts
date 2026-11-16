@@ -40,6 +40,12 @@ export class ImageCache {
     return entry;
   }
 
+  /** Decoded size in bytes (RGBA) of an entry already loaded, `undefined` while unknown. */
+  bytes(index: number): number | undefined {
+    const img = this.entries.get(index)?.img;
+    return img && img.naturalWidth ? img.naturalWidth * img.naturalHeight * 4 : undefined;
+  }
+
   /** Starts decoding in the background without waiting. */
   prefetch(index: number): void {
     void this.get(index).ready;

@@ -1,9 +1,7 @@
 use crate::{decode, original, paths::Allowed, pool::Pool, resize, thumbs};
 use fast_image_resize::FilterType;
-use image::{DynamicImage, ImageFormat};
 use percent_encoding::percent_decode_str;
 use std::borrow::Cow;
-use std::io::Cursor;
 use std::path::PathBuf;
 use tauri::http::{Response, StatusCode};
 
@@ -94,13 +92,6 @@ pub(crate) fn mime_of(path: &std::path::Path) -> &'static str {
     }
 }
 
-fn png(img: &DynamicImage) -> Result<Vec<u8>, String> {
-    let mut out = Cursor::new(Vec::new());
-    img.write_to(&mut out, ImageFormat::Png)
-        .map_err(|e| e.to_string())?;
-    Ok(out.into_inner())
-}
-
 /// `range` is the request's `Range` header, honoured by the `/o` route only.
 pub fn serve(svc: &Services, route: Route, range: Option<&str>) -> Response<Cow<'static, [u8]>> {
     let raw = match &route {
@@ -130,12 +121,8 @@ pub fn serve(svc: &Services, route: Route, range: Option<&str>) -> Response<Cow<
                 .and_then(|img| resize::fit_owned(img, w, h, FilterType::Lanczos3))
                 .and_then(|img| resize::to_jpeg(&img, 90)),
         ),
-        Route::Convert { .. } => match decode::load(&file) {
-            Ok(img) if img.color().has_alpha() => match png(&img) {
-                Ok(b) => reply(StatusCode::OK, "image/png", b),
-                Err(m) => error(StatusCode::UNPROCESSABLE_ENTITY, &m),
-            },
-            Ok(img) => jpeg(resize::to_jpeg(&img, 92)),
+        Route::Convert { .. } => match decode::load(&file).and_then(|img| resize::for_webview(&img)) {
+            Ok((mime, b)) => reply(StatusCode::OK, mime, b),
             Err(m) => error(StatusCode::UNPROCESSABLE_ENTITY, &m),
         },
     }
