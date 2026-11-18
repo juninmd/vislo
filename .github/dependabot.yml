@@ -10,6 +10,9 @@ updates:
 
   # Dependabot PRs auto-merge on green and every merge to main ships, so a new upstream version waits a week
   # before it is proposed: hijacked releases are usually caught and yanked within days.
+    groups:
+      github-actions:
+        patterns: ['*']
   - package-ecosystem: npm
     directory: /
     schedule:
