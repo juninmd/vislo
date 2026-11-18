@@ -3,79 +3,24 @@ mod assoc;
 mod autostart;
 #[cfg(test)]
 mod bench;
-mod bilevel;
 mod boot;
 mod cli;
 mod clipboard;
-mod codecs;
-mod decode;
-mod blp;
-mod dcx;
-mod ddsbc;
-#[cfg(test)]
-mod ddsbc_tests;
-mod dicom;
-mod fli;
-mod gbr;
-mod djvu;
-#[cfg(test)]
-mod djvu_tests;
-mod dpx;
-mod exif_info;
-#[cfg(test)]
-mod extra_formats;
-mod metadata;
-mod mng;
 mod original;
-#[cfg(test)]
-mod fixtures;
 mod paths;
-mod fits;
-mod gdip;
-mod jpeg_scaled;
-mod ktx;
-#[cfg(test)]
-mod ktx_tests;
-mod ani;
-#[cfg(test)]
-mod ani_tests;
-mod iff;
-#[cfg(test)]
-mod iff_tests;
-mod jng;
-#[cfg(test)]
-mod jng_tests;
-mod jpegls;
-mod jpegls_codec;
-#[cfg(test)]
-mod jpegls_tests;
-mod layered;
-mod pict;
-#[cfg(test)]
-mod pict_tests;
 mod pool;
-mod psb;
-mod raw;
-mod resize;
-#[cfg(test)]
-mod retro_tests;
 mod scheme;
 mod settings;
 mod share;
 mod shell;
 mod splash;
 mod svgz;
-mod sunras;
-mod thumbs;
 mod tray;
 mod update;
 mod wallpaper;
-mod wic;
 mod window;
-mod xcf;
-#[cfg(test)]
-mod xcf_tests;
-mod xwd;
+// Decoders live in the `vislo-core` crate; bound here so `crate::decode` and friends keep resolving.
+use vislo_core::{decode, exif_info, resize, thumbs};
 
 use paths::Allowed;
 use pool::Pool;

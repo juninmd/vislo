@@ -5,6 +5,6 @@ function Step($cmd) { Write-Host "> $cmd"; Invoke-Expression $cmd; if ($LASTEXIT
 Step "npm ci --silent"
 Step "npm test --silent"
 Step "npm run build --silent"
-Step "cargo test --quiet --manifest-path src-tauri/Cargo.toml"
-Step "cargo clippy --quiet --all-targets --manifest-path src-tauri/Cargo.toml -- -D warnings"
+Step "cargo test --quiet --manifest-path src-tauri/Cargo.toml --workspace"
+Step "cargo clippy --quiet --all-targets --manifest-path src-tauri/Cargo.toml --workspace -- -D warnings"
 Write-Host "local CI green"

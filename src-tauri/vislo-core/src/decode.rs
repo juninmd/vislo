@@ -1,13 +1,13 @@
 //! Decoding for everything the webview cannot show itself, and for thumbnails of everything.
 
-use crate::{album::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, ani, bilevel, blp, codecs, dcx, ddsbc, dicom, djvu, dpx, exif_info, fits, fli, gbr, gdip, iff, jng, jpeg_scaled, jpegls, ktx, layered, mng, pict, psb, raw, sunras, wic, xcf, xwd};
+use crate::{formats::{EXTRA_EXTENSIONS, RAW_EXTENSIONS}, ani, bilevel, blp, codecs, dcx, ddsbc, dicom, djvu, dpx, exif_info, fits, fli, gbr, gdip, iff, jng, jpeg_scaled, jpegls, ktx, layered, mng, pict, psb, raw, sunras, wic, xcf, xwd};
 use image::{DynamicImage, ImageError, ImageReader, Limits};
 use std::path::Path;
 
 /// Ceiling for decoded pixels (RGBA, so about 600 MB): bigger files are refused, not attempted.
 const MAX_PIXELS: u64 = 150_000_000;
-pub(crate) const MAX_ALLOC: u64 = 1 << 30;
-pub(crate) const TOO_LARGE: &str = "Image is too large";
+pub const MAX_ALLOC: u64 = 1 << 30;
+pub const TOO_LARGE: &str = "Image is too large";
 
 fn describe(e: ImageError) -> String {
     match e {
@@ -63,7 +63,7 @@ fn srgb(c: f32) -> u8 {
 
 /// HDR/EXR decode to linear floats; the webview needs 8-bit sRGB (highlights above 1.0 clip).
 /// Writes the 8-bit buffer in one pass straight from the float one, with no intermediate copies.
-pub(crate) fn to_display(img: DynamicImage) -> DynamicImage {
+pub fn to_display(img: DynamicImage) -> DynamicImage {
     let (w, h) = (img.width(), img.height());
     match img {
         DynamicImage::ImageRgb32F(f) => {

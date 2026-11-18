@@ -64,8 +64,8 @@ Running copies of Vislo find the release through the built-in updater (`src-taur
 
   ```sh
   npm ci && npm test && npm run build
-  cargo test --manifest-path src-tauri/Cargo.toml
-  cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings   # on Windows, as in CI
+  cargo test --manifest-path src-tauri/Cargo.toml --workspace
+  cargo clippy --manifest-path src-tauri/Cargo.toml --workspace -- -D warnings   # on Windows, as in CI
   cargo audit --file src-tauri/Cargo.lock                           # the `audit` job, with cargo-audit 0.22.2
   npm audit --omit=dev --audit-level=high                           # the `audit` job
   ```
