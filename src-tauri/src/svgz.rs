@@ -2,26 +2,14 @@
 //! has to honour a `Content-Encoding` on a custom scheme.
 
 use crate::scheme::error;
-use flate2::read::GzDecoder;
 use std::borrow::Cow;
-use std::io::Read;
 use std::path::Path;
 use tauri::http::{Response, StatusCode};
 
+pub use vislo_core::svgz::{head, is_svgz};
+
 /// Largest SVG text accepted after inflating; a gzip bomb stops here instead of filling memory.
 const MAX_INFLATED: u64 = 32 * 1024 * 1024;
-
-pub fn is_svgz(path: &Path) -> bool {
-    path.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case("svgz"))
-}
-
-/// The first `limit` bytes of the inflated file (all of it when shorter).
-pub fn head(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
-    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let mut out = Vec::new();
-    GzDecoder::new(file).take(limit).read_to_end(&mut out).map_err(|e| format!("not a valid gzip-compressed SVG: {e}"))?;
-    Ok(out)
-}
 
 pub fn respond(file: &Path) -> Response<Cow<'static, [u8]>> {
     match head(file, MAX_INFLATED + 1) {
@@ -63,7 +51,7 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
         assert_eq!(res.headers()["Content-Type"], "image/svg+xml");
         assert_eq!(res.body().as_ref(), svg);
-        assert_eq!(crate::codecs::svg_dimensions(&file("dim", &gz(svg))), Some((30, 20)));
+        assert_eq!(vislo_core::codecs::svg_dimensions(&file("dim", &gz(svg))), Some((30, 20)));
     }
 
     #[test]

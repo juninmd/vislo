@@ -5,6 +5,9 @@ description = "Fast image viewer: open a file, flip through its folder."
 edition = "2021"
 license = "MIT"
 
+[workspace]
+members = ["vislo-core"]
+
 [lib]
 name = "vislo_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -13,6 +16,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+vislo-core = { path = "vislo-core" }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
@@ -21,23 +25,12 @@ dunce = "1"
 percent-encoding = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp", "tiff", "ico", "tga", "pnm", "hdr", "exr", "qoi", "dds", "ff"] }
 fast_image_resize = { version = "6", features = ["image"] }
-image-extras = { version = "0.1", default-features = false, features = ["icns", "otb", "pcx", "sgi", "wbmp", "xbm", "xpm"] }
 flate2 = "1"
-kamadak-exif = "0.6"
-jpeg-decoder = { version = "0.3", default-features = false }
-psd = "0.3"
-jxl-oxide = { version = "0.12", features = ["image", "moxcms"] }
-hayro-jpeg2000 = "0.5"
-hayro-jbig2 = "0.4"
-hayro-ccitt = "0.5"
 serde_json = "1"
 tauri-plugin-dialog = "2"
 arboard = { version = "3", default-features = false, features = ["image-data"] }
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 sha2 = "0.11"
-djvu-rs = { version = "0.44", default-features = false, features = ["std"] }
-texture2ddecoder = { version = "0.1.2", default-features = false, features = ["alloc"] }
-jpeg-encoder = { version = "0.7.1", features = ["simd"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"

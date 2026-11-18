@@ -4989,8 +4989,31 @@ name = "vislo"
 version = "0.13.7"
 dependencies = [
  "arboard",
- "djvu-rs",
  "dunce",
+ "fast_image_resize",
+ "flate2",
+ "image",
+ "natord",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-single-instance",
+ "ureq",
+ "vislo-core",
+ "windows",
+ "windows-collections",
+ "winreg",
+]
+
+[[package]]
+name = "vislo-core"
+version = "0.1.0"
+dependencies = [
+ "djvu-rs",
  "fast_image_resize",
  "flate2",
  "hayro-ccitt",
@@ -5002,21 +5025,10 @@ dependencies = [
  "jpeg-encoder",
  "jxl-oxide",
  "kamadak-exif",
- "natord",
- "percent-encoding",
  "psd",
  "serde",
- "serde_json",
- "sha2 0.11.1",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-single-instance",
  "texture2ddecoder",
- "ureq",
  "windows",
- "windows-collections",
- "winreg",
 ]
 
 [[package]]

@@ -122,7 +122,7 @@ fn header(path: &Path) -> Option<((u32, u32), image::ColorType)> {
 pub fn info(path: &Path) -> Info {
     let meta = std::fs::metadata(path).ok();
     let mut info = Info {
-        name: crate::album::display_name(path),
+        name: crate::formats::display_name(path),
         folder: path
             .parent()
             .map(|p| p.to_string_lossy().into_owned())

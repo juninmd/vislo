@@ -54,8 +54,8 @@ jobs:
       - run: npm ci --ignore-scripts # no dependency install scripts run in CI
       - run: npm test
       - run: npm run build
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --workspace
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --workspace -- -D warnings
 
   audit:
     # Advisories in the shipped dependency tree fail the gate; maintenance warnings from cargo-audit do not.
