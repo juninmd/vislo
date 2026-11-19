@@ -57,10 +57,12 @@ pub fn parse(path: &str, q: &str) -> Option<Route> {
 
 // No CORS header: every consumer loads these as `<img src>`, which needs none (no canvas, fetch or copy from the page).
 fn reply(status: StatusCode, mime: &str, body: Vec<u8>) -> Response<Cow<'static, [u8]>> {
+    // A failure must not be cached: a shed request (503) is retried under the same URL and has to reach the backend.
+    let cache = if status.is_success() { "private, max-age=300" } else { "no-store" };
     Response::builder()
         .status(status)
         .header("Content-Type", mime)
-        .header("Cache-Control", "private, max-age=300")
+        .header("Cache-Control", cache)
         .body(Cow::Owned(body))
         .expect("static response parts are valid")
 }
@@ -230,6 +232,14 @@ mod tests {
             StatusCode::FORBIDDEN
         );
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn failures_are_never_cached() {
+        for r in [shed(), failed(), bad_request()] {
+            assert_eq!(r.headers()["Cache-Control"], "no-store");
+        }
+        assert_eq!(reply(StatusCode::OK, "image/jpeg", vec![]).headers()["Cache-Control"], "private, max-age=300");
     }
 
     #[test]
