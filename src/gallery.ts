@@ -1,5 +1,5 @@
-import { srcFor, thumbSrc } from "./api";
 import { clampSize, GALLERY_MAX, GALLERY_MIN, GALLERY_STEP, type GalleryKey, moveIndex, thumbPx } from "./gallery-layout";
+import { loadThumb, ThumbQueue } from "./thumb";
 
 export interface GalleryHost {
   files(): readonly string[];
@@ -10,12 +10,16 @@ export interface GalleryHost {
   save(size: number, square: boolean): void;
 }
 
+/** Thumbnail requests in flight: enough to keep every backend worker busy, few enough that none is ever shed. */
+const IN_FLIGHT = 8;
+
 const KEYS = new Set<string>(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"]);
 const basename = (p: string) => p.slice(Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/")) + 1);
 
 /**
  * Every picture of the folder as a grid of thumbnails. Cells are plain buttons whose images load lazily as they
  * scroll into view, so a folder of thousands costs one DOM node each and a request only for what is on screen.
+ * Requests go through a small queue, in the order cells appear, rather than all at once.
  */
 export class Gallery {
   private cells: HTMLButtonElement[] = [];
@@ -23,6 +27,10 @@ export class Gallery {
   private size = 200;
   private square = true;
   private bucket = 0;
+  /** Bucket each cell's image was last pointed at; a cell is loaded at most once per bucket. */
+  private loadedAt = new Map<number, number>();
+  private readonly queue = new ThumbQueue<number>(IN_FLIGHT);
+  private readonly seen = new IntersectionObserver((entries) => this.onSeen(entries), { rootMargin: "25% 0px" });
   private readonly grid: HTMLElement;
   private readonly slider: HTMLInputElement;
   private readonly crop: HTMLInputElement;
@@ -102,6 +110,9 @@ export class Gallery {
   private build(files: readonly string[]): void {
     this.built = files;
     this.bucket = thumbPx(this.size, devicePixelRatio);
+    this.seen.disconnect();
+    this.queue.clear();
+    this.loadedAt.clear();
     this.cells = files.map((path, i) => {
       const cell = document.createElement("button");
       cell.type = "button";
@@ -110,32 +121,49 @@ export class Gallery {
       cell.title = basename(path);
       cell.tabIndex = -1;
       const img = new Image();
-      img.loading = "lazy";
       img.decoding = "async";
       img.draggable = false;
       img.alt = "";
-      img.onload = () => img.classList.add("loaded");
-      img.onerror = () => {
-        img.onerror = null;
-        img.src = srcFor(path); // formats the thumbnailer cannot decode fall back to the picture itself
-      };
-      img.src = thumbSrc(path, this.bucket);
       cell.append(img);
       return cell;
     });
     this.grid.replaceChildren(...this.cells);
+    this.cells.forEach((c) => this.seen.observe(c));
   }
 
-  /** Another size bucket needs other thumbnails; the lazy images fetch them only once they are on screen. */
+  private onSeen(entries: IntersectionObserverEntry[]): void {
+    const files = this.built;
+    if (!files) return;
+    for (const e of entries) {
+      const i = Number((e.target as HTMLElement).dataset.i);
+      if (!e.isIntersecting) {
+        this.queue.drop(i);
+        continue;
+      }
+      if (this.loadedAt.get(i) === this.bucket) continue;
+      const img = e.target.firstElementChild as HTMLImageElement;
+      this.queue.want(i, () => {
+        const bucket = this.bucket;
+        this.loadedAt.set(i, bucket);
+        loadThumb(img, files[i], bucket, () => {
+          this.queue.done(i);
+          if (bucket !== this.bucket && this.built === files) {
+            this.seen.unobserve(e.target); // resized while loading: a fresh entry asks again if it is still on screen
+            this.seen.observe(e.target);
+          }
+        });
+      });
+    }
+  }
+
+  /** Another size bucket needs other thumbnails: the old ones stay up until the new ones replace them, and only
+   * cells on screen ask (observing again reports every cell's current visibility). */
   private retarget(): void {
     const bucket = thumbPx(this.size, devicePixelRatio);
     if (!this.built || bucket === this.bucket) return;
     this.bucket = bucket;
-    this.cells.forEach((cell, i) => {
-      const img = cell.firstElementChild as HTMLImageElement;
-      img.classList.remove("loaded");
-      img.src = thumbSrc(this.built![i], bucket);
-    });
+    this.seen.disconnect();
+    this.cells.forEach((c) => this.seen.observe(c));
   }
 
   private resize(px: number, persist: boolean): void {

@@ -1,4 +1,4 @@
-import { thumbSrc } from "./api";
+import { firstSrc } from "./thumb";
 
 const DELAY_MS = 260;
 const PREVIEW_PX = 640;
@@ -17,7 +17,7 @@ export class HoverPreview {
   show(path: string, anchor: DOMRect): void {
     this.hide();
     this.timer = window.setTimeout(() => {
-      this.img.src = thumbSrc(path, PREVIEW_PX);
+      this.img.src = firstSrc(path, PREVIEW_PX);
       this.img.onload = () => {
         const w = this.el.offsetWidth;
         const left = Math.min(window.innerWidth - w - 8, Math.max(8, anchor.left + anchor.width / 2 - w / 2));

@@ -215,6 +215,8 @@ kbd { margin-left: 6px; padding: 1px 6px; border: 1px solid #ffffff2e; border-ra
 .g-cell img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; pointer-events: none; transition: opacity var(--t-base) var(--ease); }
 .g-grid.fit .g-cell img { object-fit: contain; }
 .g-cell img.loaded { opacity: 1; }
+/* A file no decoder can draw (a damaged file, HEIC without the Windows codec): hatched, not an empty slot. */
+.g-cell:has(img.broken), .cell:has(img.broken) { background: repeating-linear-gradient(135deg, #ffffff14 0 6px, #ffffff05 6px 12px); }
 .g-cell:hover { background: #ffffff1c; }
 .g-cell.active { border-color: var(--accent); }
 .g-cell:focus-visible { outline: 2px solid var(--fg); outline-offset: 1px; }
