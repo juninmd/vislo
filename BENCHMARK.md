@@ -157,7 +157,51 @@ Com o novo codificador, a miniatura de 192 px de uma foto limpa de 24 MP caiu de
 5. Novo workflow `bench` roda todos os `bench_` no `windows-latest` e publica os números no resumo do job. Ele roda
    quando os benchmarks mudam ou por `workflow_dispatch`; é informativo e não bloqueia nada.
 
-## 7. Avaliado e adiado
+## 7. Galeria sem miniaturas e miniaturas de RAW (2026-11-19)
+
+**Por que algumas imagens ficavam sem prévia.** Parte é esperada: um arquivo danificado, um RAW sem JPEG embutido ou um
+HEIC num Windows sem as extensões HEIF/HEVC não têm decodificador que funcione. A maior parte era bug: a galeria usava
+`loading="lazy"`, e o WebView pede de uma vez toda célula perto da tela. O pool do backend atende o pedido mais novo
+primeiro e, com mais de 256 na fila, descarta o mais antigo com 503. As células na tela, pedidas primeiro, eram as
+descartadas; o `onerror` então pedia a foto inteira (`/o` ou, para RAW/PSD/TIFF, `/c`, que roda o mesmo decodificador e
+também podia ser descartado), e a célula ficava vazia. Agora:
+
+1. a galeria só pede as células visíveis (`IntersectionObserver`), por uma fila com no máximo 8 pedidos em voo
+   (`src/thumb.ts`); a célula que sai da tela antes da vez é esquecida sem custar decodificação;
+2. AVIF e SVG, que o backend não decodifica, vão direto ao arquivo, sem a ida e volta que sempre falhava;
+3. depois de uma falha, só formatos nativos tentam o arquivo; os outros mostram um padrão hachurado em vez de vazio;
+4. respostas de erro saem com `Cache-Control: no-store` (antes herdavam `max-age=300`).
+
+`npm run perf:gallery` (novo): frontend real no Chromium headless, pasta de 3000 fotos (1/5 RAW), e um modelo do pool
+servido por interceptação de requisições (4 workers, mais novo primeiro, fila de 256, custo fixo: miniatura 60 ms,
+conversão 400 ms), para que o limite de 6 conexões por host do navegador não esconda a fila, como no `vislo:`. Mediana
+de 3 passagens; limite de 20 s por medida.
+
+| Cenário | Medida | Antes | Depois |
+|---|---|---|---|
+| célula 200 px, 1360 × 900 | abrir: tela completa | ≈ 900 ms | **≈ 380 ms** |
+| | salto de 1/3 da pasta | ≈ 1050 ms | **≈ 530 ms** |
+| célula 96 px, 1360 × 900 | abrir | ≈ 3400 ms | **≈ 1460 ms** |
+| | salto · descartados · pedidos de foto inteira | ≈ 7000 ms · 431 · 352 | **≈ 1520 ms · 0 · 0** |
+| | rolagem rápida (5 telas em 1 s) | ≈ 5000 ms · 488 descartados | **≈ 1460 ms · 0** |
+| célula 96 px, 2560 × 1440 | abrir: células vazias após 20 s | **293 de 312** | 0 (completa em ≈ 4,8 s) |
+| | salto: células vazias após 20 s | **312 de 336** | 0 (≈ 5,2 s) |
+| | miniaturas pedidas ao abrir | 600 (+583 fotos inteiras) | 312 |
+
+**RAW.** A miniatura de um RAW decodificava inteira a prévia JPEG embutida, que câmeras atuais gravam em resolução
+cheia. Agora ela passa pela mesma decodificação reduzida dos JPEGs (IDCT a 1/8, a ideia de redimensionar no domínio
+DCT: Dugad e Ahuja, IEEE TCSVT 2001), com a mesma regra de orientação de `load`.
+`cargo test --profile devrel --manifest-path src-tauri/Cargo.toml bench_raw -- --ignored --nocapture` (contêiner Linux
+de 4 núcleos, prévia de 24 MP após um cabeçalho tipo RAF e 8 MB de dados de sensor, mediana de 7, duas rodadas):
+
+| Caso | Antes (ms) | Depois (ms) | Ganho |
+|---|---|---|---|
+| RAW ruidoso · miniatura 192 | ≈ 264 | ≈ 130–139 | **1,9×** |
+| RAW ruidoso · miniatura 512 | ≈ 227–260 | ≈ 126–143 | **1,8×** |
+| RAW limpo · miniatura 192 | ≈ 185 | ≈ 70–82 | **2,4×** |
+| RAW limpo · miniatura 512 | ≈ 158–182 | ≈ 75–86 | **2,1×** |
+
+## 8. Avaliado e adiado
 
 | Ideia | Motivo |
 |---|---|
