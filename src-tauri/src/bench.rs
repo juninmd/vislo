@@ -244,3 +244,30 @@ fn bench_convert_route() {
         );
     }
 }
+
+/// A RAW file as cameras write it: a raw-sensor container whose largest embedded JPEG is a full 24 MP preview (here
+/// after a RAF-like header and 8 MB standing in for the sensor data, so the scan for the preview is paid too).
+#[test]
+#[ignore = "timing run"]
+fn bench_raw_thumbnail() {
+    for (name, grain) in [("noisy.raf", 8), ("clean.raf", 1)] {
+        let dir = std::env::temp_dir().join(format!("vislo-bench-raw-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join(name);
+        let mut blob = b"FUJIFILMCCD-RAW ".to_vec();
+        blob.extend(photo(6000, 4000, grain));
+        blob.extend(std::iter::repeat_n(0x5Au8, 8 << 20));
+        std::fs::write(&file, blob).unwrap();
+        for size in [192, 512] {
+            let before = median_ms(|| drop(legacy(&file, size, size, FilterType::CatmullRom, 80)));
+            let after = median_ms(|| {
+                let cache = dir.join(format!("cache-{size}"));
+                let _ = std::fs::remove_dir_all(&cache);
+                thumbs::thumbnail(&cache, &file, size).unwrap();
+            });
+            report(&format!("{name} thumbnail {size}: before"), &file, before);
+            report(&format!("{name} thumbnail {size}: after"), &file, after);
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}

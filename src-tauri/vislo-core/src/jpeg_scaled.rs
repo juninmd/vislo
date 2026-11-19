@@ -14,7 +14,12 @@ const MAX_SHRINK_RATIO: f64 = 0.25;
 /// The returned image is at least `box_w` x `box_h` scaled to the picture's aspect, never smaller.
 pub fn decode(path: &Path, box_w: u32, box_h: u32, max_pixels: u64) -> Result<Option<DynamicImage>, String> {
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let mut dec = jpeg_decoder::Decoder::new(BufReader::new(file));
+    decode_from(BufReader::new(file), box_w, box_h, max_pixels)
+}
+
+/// [`decode`] for a JPEG already in memory or behind any reader, such as the preview embedded in a RAW file.
+pub fn decode_from(reader: impl std::io::Read, box_w: u32, box_h: u32, max_pixels: u64) -> Result<Option<DynamicImage>, String> {
+    let mut dec = jpeg_decoder::Decoder::new(reader);
     if dec.read_info().is_err() {
         return Ok(None);
     }
