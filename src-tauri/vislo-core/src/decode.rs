@@ -218,8 +218,24 @@ pub fn load_fit(path: &Path, max_w: u32, max_h: u32) -> Result<DynamicImage, Str
         if let Some(img) = jpeg_scaled::decode(path, bw, bh, MAX_PIXELS)? {
             return Ok(upright(img, orientation));
         }
+    } else if is_raw(&ext(path)) {
+        if let Some(img) = raw_preview_fit(path, max_w, max_h)? {
+            return Ok(img);
+        }
     }
     load(path)
+}
+
+/// A RAW file is shown through its largest embedded JPEG, which modern cameras store at full resolution: a thumbnail
+/// of it gets the same reduced decode as a plain JPEG. `None` (preview missing or too small) leaves it to `load`.
+fn raw_preview_fit(path: &Path, max_w: u32, max_h: u32) -> Result<Option<DynamicImage>, String> {
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let Some(jpeg) = raw::largest_embedded_jpeg(&bytes) else { return Ok(None) };
+    // Same precedence as `load`: the RAW's own orientation, then the one stored beside the preview.
+    let own = exif_info::read_bytes(jpeg).map(|e| exif_info::orientation(&e));
+    let orientation = exif_info::read(path).map(|e| exif_info::orientation(&e)).or(own).unwrap_or(1);
+    let (bw, bh) = if (5..=8).contains(&orientation) { (max_h, max_w) } else { (max_w, max_h) };
+    Ok(jpeg_scaled::decode_from(jpeg, bw, bh, MAX_PIXELS)?.map(|img| upright(img, orientation)))
 }
 
 fn is_jpeg(ext: &str) -> bool {
@@ -347,6 +363,22 @@ mod tests {
         blob.extend(jpeg_with_exif(&jpeg(64, 48), &tiff));
         std::fs::write(dir.join("shot.raf"), blob).unwrap();
         assert_eq!(load(&dir.join("shot.raf")).unwrap().dimensions(), (48, 64));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn raw_thumbnails_decode_the_preview_reduced_and_upright() {
+        let dir = temp("rawfit");
+        let tiff = tiff_block(&[field(Tag::Orientation, In::PRIMARY, Value::Short(vec![6]))], None);
+        let mut blob = b"FUJIFILMCCD-RAW ".to_vec();
+        blob.extend(jpeg_with_exif(&jpeg(1600, 1200), &tiff));
+        let file = dir.join("shot.raf");
+        std::fs::write(&file, blob).unwrap();
+        // 1/8 of the turned 1200 x 1600 preview, instead of all of it.
+        assert_eq!(load_fit(&file, 150, 200).unwrap().dimensions(), (150, 200));
+        assert_eq!(load(&file).unwrap().dimensions(), (1200, 1600));
+        // A box the preview barely exceeds takes the full decode, as a plain JPEG would.
+        assert_eq!(load_fit(&file, 1000, 1000).unwrap().dimensions(), (1200, 1600));
         let _ = std::fs::remove_dir_all(dir);
     }
 

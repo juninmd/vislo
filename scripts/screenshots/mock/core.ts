@@ -13,7 +13,7 @@ const settings = {
   embedded_preview: true,
   filmstrip_3d: true,
   hover_preview: true,
-  gallery_size: 200,
+  gallery_size: Number(new URLSearchParams(location.search).get("gsize") ?? 200),
   gallery_square: true,
   slideshow_display_ms: 4000,
   slideshow_fade_ms: 1000,
@@ -52,7 +52,9 @@ const info = {
 
 /** A folder longer than the viewer's preload window, so `perf:motion` can step to a picture that is cold. */
 const PERF_FILES = Array.from({ length: 30 }, (_, i) => `${FOLDER}\\Photo ${String(i + 1).padStart(2, "0")}.jpg`);
-const album = () => ({ dir: FOLDER, files: scene === "perf" ? PERF_FILES : files(), index: 0, size });
+/** A big folder with some RAW files for `perf:gallery`: far more cells near the viewport than the backend's backlog. */
+const GALLERY_FILES = Array.from({ length: 3000 }, (_, i) => `${FOLDER}\\Photo ${String(i + 1).padStart(4, "0")}.${i % 5 === 4 ? "cr2" : "jpg"}`);
+const album = () => ({ dir: FOLDER, files: scene === "perf" ? PERF_FILES : scene === "gperf" ? GALLERY_FILES : files(), index: 0, size });
 
 const handlers: Record<string, (args: any) => unknown> = {
   get_settings: () => settings,

@@ -13,6 +13,7 @@
     "perf:ui": "node scripts/perf/ui-metrics.mjs",
     "perf:motion": "node scripts/perf/motion.mjs",
     "perf:pixels": "node scripts/perf/transition-pixels.mjs",
+    "perf:gallery": "node scripts/perf/gallery.mjs",
     "icons": "node scripts/icons/build.mjs",
     "prepare": "node scripts/setup-hooks.mjs",
     "check:commits": "node scripts/check-commits.mjs --range origin/main..HEAD"

@@ -1,6 +1,6 @@
-import { srcFor, thumbSrc } from "./api";
 import { type Lane, lane2d, lane3d, PITCH, visibleRadius } from "./filmstrip-geometry";
 import { WheelAccumulator } from "./nav";
+import { loadThumb } from "./thumb";
 
 const TAU_MS = 110; // smoothing time constant of the continuous position
 const THUMB_PX = 192;
@@ -122,12 +122,7 @@ export class Filmstrip {
       img.decoding = "async";
       img.draggable = false;
       img.alt = "";
-      img.onload = () => img.classList.add("loaded");
-      img.src = thumbSrc(path, THUMB_PX);
-      img.onerror = () => {
-        img.onerror = null;
-        img.src = srcFor(path); // formats the thumbnailer cannot decode fall back to the picture itself
-      };
+      loadThumb(img, path, THUMB_PX);
       cell.append(img);
       this.root.append(cell);
       this.cells.set(i, cell);
