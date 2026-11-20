@@ -9,6 +9,8 @@ export type MenuEntry = MenuItem | "separator";
 
 /** Keyboard-reachable popup menu; closes on any outside click, scroll, resize or blur. */
 export class ContextMenu {
+  private opener: HTMLElement | null = null;
+
   constructor(private readonly el: HTMLElement) {
     el.addEventListener("keydown", (e) => this.onKey(e));
     document.addEventListener("pointerdown", (e) => {
@@ -22,6 +24,7 @@ export class ContextMenu {
   }
 
   show(x: number, y: number, entries: readonly MenuEntry[]): void {
+    if (this.el.hidden) this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.el.replaceChildren(...entries.map((entry) => this.row(entry)));
     this.el.hidden = false;
     const { offsetWidth: width, offsetHeight: height } = this.el; // not the transformed rect: the entry animation scales it
@@ -32,7 +35,10 @@ export class ContextMenu {
 
   hide(): void {
     if (this.el.hidden) return;
+    const hadFocus = this.el.contains(document.activeElement);
     this.el.hidden = true; // the rows stay until the next show(), so the exit transition has something to fade
+    if (hadFocus && this.opener?.isConnected) this.opener.focus(); // keyboard users resume where they opened the menu
+    this.opener = null;
   }
 
   private row(entry: MenuEntry): HTMLElement {
