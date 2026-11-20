@@ -1,3 +1,5 @@
+import { FocusReturn } from "./focus-return";
+
 export interface MenuItem {
   label: string;
   hint?: string;
@@ -9,7 +11,7 @@ export type MenuEntry = MenuItem | "separator";
 
 /** Keyboard-reachable popup menu; closes on any outside click, scroll, resize or blur. */
 export class ContextMenu {
-  private opener: HTMLElement | null = null;
+  private readonly focusReturn = new FocusReturn();
 
   constructor(private readonly el: HTMLElement) {
     el.addEventListener("keydown", (e) => this.onKey(e));
@@ -24,7 +26,7 @@ export class ContextMenu {
   }
 
   show(x: number, y: number, entries: readonly MenuEntry[]): void {
-    if (this.el.hidden) this.opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (this.el.hidden) this.focusReturn.save();
     this.el.replaceChildren(...entries.map((entry) => this.row(entry)));
     this.el.hidden = false;
     const { offsetWidth: width, offsetHeight: height } = this.el; // not the transformed rect: the entry animation scales it
@@ -37,8 +39,7 @@ export class ContextMenu {
     if (this.el.hidden) return;
     const hadFocus = this.el.contains(document.activeElement);
     this.el.hidden = true; // the rows stay until the next show(), so the exit transition has something to fade
-    if (hadFocus && this.opener?.isConnected) this.opener.focus(); // keyboard users resume where they opened the menu
-    this.opener = null;
+    this.focusReturn.restore(hadFocus);
   }
 
   private row(entry: MenuEntry): HTMLElement {

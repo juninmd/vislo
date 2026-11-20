@@ -1,4 +1,5 @@
 import { clampSize, GALLERY_MAX, GALLERY_MIN, GALLERY_STEP, type GalleryKey, moveIndex, thumbPx } from "./gallery-layout";
+import { FocusReturn } from "./focus-return";
 import { loadThumb, ThumbQueue } from "./thumb";
 
 export interface GalleryHost {
@@ -34,6 +35,7 @@ export class Gallery {
   private readonly grid: HTMLElement;
   private readonly slider: HTMLInputElement;
   private readonly crop: HTMLInputElement;
+  private readonly focusReturn = new FocusReturn();
 
   constructor(
     private readonly root: HTMLElement,
@@ -97,6 +99,7 @@ export class Gallery {
     const files = this.host.files();
     if (!files.length) return;
     if (this.built !== files) this.build(files);
+    if (!this.visible) this.focusReturn.save();
     this.root.hidden = false;
     const at = this.host.position();
     this.cells.forEach((c, i) => c.classList.toggle("active", i === at));
@@ -104,7 +107,10 @@ export class Gallery {
   }
 
   close(): void {
+    if (!this.visible) return;
+    const hadFocus = this.root.contains(document.activeElement);
     this.root.hidden = true;
+    this.focusReturn.restore(hadFocus);
   }
 
   private build(files: readonly string[]): void {
