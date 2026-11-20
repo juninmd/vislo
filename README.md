@@ -291,7 +291,7 @@ início / a cada 6 h ──► GET releases/latest ──► tag mais nova? ─�
 
 O `.github/workflows/release.yml` transforma cada push em `main` numa release, sem passos manuais:
 
-1. O CI roda (testes, build, clippy).
+1. O CI roda (testes, build, clippy) em paralelo com os passos 2 e 3; nada é publicado se ele falhar.
 2. A próxima versão é calculada pelos [commits semânticos](AGENTS.md) desde a **maior** tag `vX.Y.Z` já incluída em
    `main` (não a mais próxima no histórico, que pode ser menor)
    (`feat` &rarr; minor, `fix` e demais &rarr; patch, `!` / `BREAKING CHANGE` &rarr; major).

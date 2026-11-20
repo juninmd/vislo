@@ -42,7 +42,7 @@ Bad: `Update stuff`, `Fixed bug.`, `feat: Add Zoom.`
 
 `.github/workflows/release.yml` runs on each push to `main`:
 
-1. runs the full CI (frontend tests, build, `cargo test`, clippy);
+1. runs the full CI (frontend tests, build, `cargo test`, clippy) beside steps 2-4; step 5 (job `publish`) waits for it;
 2. plans the next version from the commits since the last `v*` tag (`scripts/release.mjs plan`);
 3. stamps it into `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `Cargo.lock` and `tauri.conf.json`;
 4. builds the NSIS installer and the portable exe, and writes `SHA256SUMS.txt`;
