@@ -17,12 +17,16 @@ pub fn read(path: &Path) -> Option<Exif> {
 
 fn read_in(path: &Path, prefix: u64) -> Option<Exif> {
     let mut file = File::open(path).ok()?;
-    let mut head = Vec::new();
-    (&mut file).take(prefix).read_to_end(&mut head).ok()?;
-    // A tag or IFD past the prefix makes the parse fail ("truncated"), never return partial data.
-    if (head.starts_with(b"II*\0") || head.starts_with(b"MM\0*")) && head.len() as u64 == prefix {
-        if let Ok(exif) = Reader::new().read_raw(head) {
-            return Some(exif);
+    let mut magic = [0u8; 4];
+    // Only TIFF gets the prefix: the reader already stops early in JPEG, PNG, HEIF and WebP.
+    if file.read_exact(&mut magic).is_ok() && matches!(&magic, b"II*\0" | b"MM\0*") {
+        let mut head = magic.to_vec();
+        (&mut file).take(prefix.saturating_sub(4)).read_to_end(&mut head).ok()?;
+        // A tag or IFD past the prefix makes the parse fail ("truncated"), never return partial data.
+        if head.len() as u64 == prefix {
+            if let Ok(exif) = Reader::new().read_raw(head) {
+                return Some(exif);
+            }
         }
     }
     read_whole(file)
