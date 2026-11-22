@@ -13,8 +13,27 @@ const MAX_SHRINK_RATIO: f64 = 0.25;
 /// the caller then takes the normal full decode, which also reports the real error.
 /// The returned image is at least `box_w` x `box_h` scaled to the picture's aspect, never smaller.
 pub fn decode(path: &Path, box_w: u32, box_h: u32, max_pixels: u64) -> Result<Option<DynamicImage>, String> {
+    // Header first: a shrink under 4x goes to the full decoder, which reads the file itself.
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    decode_from(BufReader::new(file), box_w, box_h, max_pixels)
+    let mut head = jpeg_decoder::Decoder::new(BufReader::new(file));
+    let Some(info) = head.read_info().ok().and(head.info()) else { return Ok(None) };
+    if u64::from(info.width) * u64::from(info.height) > max_pixels {
+        return Err(crate::decode::TOO_LARGE.to_string());
+    }
+    if shrink(u32::from(info.width), u32::from(info.height), box_w, box_h).is_none() {
+        return Ok(None);
+    }
+    // The decoder pulls the entropy-coded data a few bytes at a time: from memory that is ~19% fewer
+    // instructions for a 24 MP thumbnail than through a `BufReader`.
+    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    decode_from(bytes.as_slice(), box_w, box_h, max_pixels)
+}
+
+/// The scale factor to the box, when it shrinks enough to be worth a scaled decode.
+fn shrink(w: u32, h: u32, box_w: u32, box_h: u32) -> Option<f64> {
+    let k = (f64::from(box_w) / f64::from(w)).min(f64::from(box_h) / f64::from(h));
+    // Measured: at 1/2 this decoder is no faster than the full SIMD decode; from 1/4 on it wins.
+    (k <= MAX_SHRINK_RATIO && box_w != 0 && box_h != 0).then_some(k)
 }
 
 /// [`decode`] for a JPEG already in memory or behind any reader, such as the preview embedded in a RAW file.
@@ -28,11 +47,7 @@ pub fn decode_from(reader: impl std::io::Read, box_w: u32, box_h: u32, max_pixel
     if u64::from(w) * u64::from(h) > max_pixels {
         return Err(crate::decode::TOO_LARGE.to_string());
     }
-    let k = (f64::from(box_w) / f64::from(w)).min(f64::from(box_h) / f64::from(h));
-    // Measured: at 1/2 this decoder is no faster than the full SIMD decode; from 1/4 on it wins.
-    if k > MAX_SHRINK_RATIO || box_w == 0 || box_h == 0 {
-        return Ok(None);
-    }
+    let Some(k) = shrink(w, h, box_w, box_h) else { return Ok(None) };
     let (want_w, want_h) = (((f64::from(w) * k).round() as u32).max(1), ((f64::from(h) * k).round() as u32).max(1));
     let Ok((sw, sh)) = dec.scale(want_w.min(u32::from(u16::MAX)) as u16, want_h.min(u32::from(u16::MAX)) as u16) else {
         return Ok(None);
