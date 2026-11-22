@@ -148,11 +148,11 @@ export class Gallery {
       }
       if (this.loadedAt.get(i) === this.bucket) continue;
       const img = e.target.firstElementChild as HTMLImageElement;
-      this.queue.want(i, () => {
+      this.queue.want(i, (release) => {
         const bucket = this.bucket;
         this.loadedAt.set(i, bucket);
         loadThumb(img, files[i], bucket, () => {
-          this.queue.done(i);
+          release();
           if (bucket !== this.bucket && this.built === files) {
             this.seen.unobserve(e.target); // resized while loading: a fresh entry asks again if it is still on screen
             this.seen.observe(e.target);
