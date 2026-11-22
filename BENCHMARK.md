@@ -237,3 +237,22 @@ Arquivo de 72 MB com as tags no começo (o layout das câmeras), Linux 4 vCPU, m
 `bench_tiff_exif` reproduz o primeiro caso (o "antes" dele lê o arquivo e depois o copia, por isso fica em ~80 ms).
 O teste `a_tiff_cut_anywhere_reads_the_same_tags_and_thumbnail_as_the_whole_file` corta o arquivo em cada byte possível
 e exige as mesmas tags e a mesma miniatura do arquivo inteiro.
+
+## 11. Miniatura de JPEG da memória e PNG com alfa opaco (2026-11-22)
+
+Callgrind (contagem de instruções, imune ao ruído do relógio) numa miniatura 256 de um JPEG de 24 MP: 7% das instruções
+estavam em `BufReader::read_exact`, porque o decodificador lê os dados comprimidos poucos bytes por vez. Ler o arquivo
+inteiro na memória quando o cabeçalho confirma a decodificação reduzida: **976 M → 794 M instruções (−18,6%)**, mediana
+75 → 65 ms. Reduções menores que 4× continuam lendo só o cabeçalho antes de ir ao decodificador completo.
+
+PNG (Linux, mediana de 7):
+
+| PNG | Decodificar | Miniatura 256 | Nítida 1920 (`/f`) |
+|---|---|---|---|
+| Foto RGB 24 MP (25 MB) | 147 ms | 189 ms | 197 ms |
+| Captura 4K RGBA com transparência | 11 ms | 52 ms | 105 ms |
+| Captura 4K RGBA toda opaca | 12 ms | 54 → **28 ms** | 125 → **89 ms** |
+
+Um canal alfa todo 255 era redimensionado com pré-multiplicação e depois achatado para JPEG sem efeito; agora é
+descartado antes (`an_opaque_alpha_channel_is_dropped_with_the_same_colours`). Na foto de 24 MP o custo é a
+descompressão do próprio PNG, dentro da biblioteca: sem ganho barato.
