@@ -15,7 +15,9 @@ pub fn fit(img: &DynamicImage, max_w: u32, max_h: u32, filter: FilterType) -> Re
 /// copied (a 24 MP photo is 72 MB, about 35 ms of memcpy).
 pub fn fit_owned(img: DynamicImage, max_w: u32, max_h: u32, filter: FilterType) -> Result<DynamicImage, String> {
     let Some((dw, dh)) = target(&img, max_w, max_h)? else { return Ok(img) };
-    let (dims, alpha) = (img.dimensions(), img.color().has_alpha());
+    // An alpha channel that is opaque everywhere (common in screenshots) is dropped: a quarter less
+    // to resize, no premultiplying, and no flattening when the result is encoded as JPEG.
+    let (dims, alpha) = (img.dimensions(), img.color().has_alpha() && !alpha_is_opaque(&img));
     let buf = if alpha { img.into_rgba8().into_raw() } else { img.into_rgb8().into_raw() };
     shrink(dims, (dw, dh), alpha, buf, filter)
 }
@@ -141,6 +143,17 @@ mod tests {
     fn fits_inside_the_box_keeping_aspect() {
         let out = fit(&solid(4000, 3000), 800, 800, FilterType::Lanczos3).unwrap();
         assert_eq!(out.dimensions(), (800, 600));
+    }
+
+    #[test]
+    fn an_opaque_alpha_channel_is_dropped_with_the_same_colours() {
+        let px = |x: u32, y: u32| image::Rgba([x as u8, y as u8, (x ^ y) as u8, 255]);
+        let opaque = DynamicImage::ImageRgba8(image::RgbaImage::from_fn(400, 300, px));
+        let with_alpha = fit(&opaque, 100, 100, FilterType::Lanczos3).unwrap().to_rgb8();
+        let dropped = fit_owned(opaque, 100, 100, FilterType::Lanczos3).unwrap();
+        assert!(matches!(dropped, DynamicImage::ImageRgb8(_)));
+        let off = with_alpha.as_raw().iter().zip(dropped.as_bytes()).map(|(a, b)| a.abs_diff(*b)).max();
+        assert!(off <= Some(1), "colours moved by {off:?}");
     }
 
     #[test]
