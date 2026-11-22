@@ -55,4 +55,17 @@ describe("ThumbQueue", () => {
     q.want(9, () => started.push(9));
     expect(started).toEqual([7, 9]);
   });
+
+  it("a request from before clear() settling late does not free a new request's slot", () => {
+    const q = new ThumbQueue<number>(2);
+    const old: Array<() => void> = [];
+    q.want(0, (release) => old.push(release)); // folder A
+    q.want(1, (release) => old.push(release));
+    q.clear(); // folder B opens; A's requests are still in flight in the webview
+    const started: number[] = [];
+    for (let i = 0; i < 3; i++) q.want(i, () => started.push(i));
+    expect([q.inFlight, started]).toEqual([2, [0, 1]]);
+    old[0]!(); // A's index 0 finishes
+    expect([q.inFlight, started]).toEqual([2, [0, 1]]); // B's 0 is still loading: no third request
+  });
 });

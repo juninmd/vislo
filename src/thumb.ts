@@ -39,13 +39,14 @@ export function loadThumb(img: HTMLImageElement, path: string, size: number, set
  * the order they became visible, and a cell scrolled away before its turn is dropped without costing a decode.
  */
 export class ThumbQueue<K> {
-  private readonly waiting = new Map<K, () => void>(); // insertion order is arrival order
-  private readonly running = new Set<K>();
+  private readonly waiting = new Map<K, (release: () => void) => void>(); // insertion order is arrival order
+  private readonly running = new Map<K, number>(); // key -> generation it started in
+  private generation = 0;
 
   constructor(private readonly limit: number) {}
 
-  /** `start` runs now or once a slot frees up; it must lead to exactly one `done(key)`. */
-  want(key: K, start: () => void): void {
+  /** `start` runs now or once a slot frees up; it must lead to exactly one `release()` (or `done(key)`). */
+  want(key: K, start: (release: () => void) => void): void {
     if (this.running.has(key) || this.waiting.has(key)) return;
     this.waiting.set(key, start);
     this.pump();
@@ -57,13 +58,15 @@ export class ThumbQueue<K> {
   }
 
   done(key: K): void {
-    if (this.running.delete(key)) this.pump();
+    const gen = this.running.get(key);
+    if (gen !== undefined) this.release(key, gen);
   }
 
-  /** Forget everything, including the requests in flight (their `done` becomes a no-op). */
+  /** Forget everything, including the requests in flight (their `release` becomes a no-op). */
   clear(): void {
     this.waiting.clear();
     this.running.clear();
+    this.generation++;
   }
 
   get inFlight(): number {
@@ -74,12 +77,20 @@ export class ThumbQueue<K> {
     return this.waiting.size;
   }
 
+  // A request from before clear() settling late must not free the slot of a new request with the same key.
+  private release(key: K, gen: number): void {
+    if (this.running.get(key) !== gen) return;
+    this.running.delete(key);
+    this.pump();
+  }
+
   private pump(): void {
     for (const [key, start] of this.waiting) {
       if (this.running.size >= this.limit) break;
       this.waiting.delete(key);
-      this.running.add(key);
-      start();
+      const gen = this.generation;
+      this.running.set(key, gen);
+      start(() => this.release(key, gen));
     }
   }
 }
