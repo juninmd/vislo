@@ -264,8 +264,7 @@ pub fn dimensions(path: &Path) -> Option<(u32, u32)> {
 
 /// The EXIF preview of a photo, rotated upright, as JPEG; `None` when the file has none.
 pub fn embedded_preview(path: &Path) -> Option<Vec<u8>> {
-    let exif = exif_info::read(path)?;
-    let thumb = exif_info::thumbnail(&exif)?;
+    let (exif, thumb) = exif_info::read_with_thumbnail(path)?;
     let img = image::load_from_memory_with_format(&thumb, image::ImageFormat::Jpeg).ok()?;
     crate::resize::to_jpeg(&upright(img, exif_info::orientation(&exif)), 85).ok()
 }

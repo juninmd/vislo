@@ -3,12 +3,33 @@
 use exif::{Exif, In, Reader, Tag, Value};
 use serde::Serialize;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
+/// How much of a TIFF-based file (TIFF, DNG, NEF, CR2, ARW ...) is tried before reading it whole.
+/// The EXIF reader otherwise loads the entire file, often 25-80 MB of pixels, to parse a few KB of tags.
+const TIFF_PREFIX: u64 = 1024 * 1024;
+
 pub fn read(path: &Path) -> Option<Exif> {
-    let file = File::open(path).ok()?;
+    read_in(path, TIFF_PREFIX)
+}
+
+fn read_in(path: &Path, prefix: u64) -> Option<Exif> {
+    let mut file = File::open(path).ok()?;
+    let mut head = Vec::new();
+    (&mut file).take(prefix).read_to_end(&mut head).ok()?;
+    // A tag or IFD past the prefix makes the parse fail ("truncated"), never return partial data.
+    if (head.starts_with(b"II*\0") || head.starts_with(b"MM\0*")) && head.len() as u64 == prefix {
+        if let Ok(exif) = Reader::new().read_raw(head) {
+            return Some(exif);
+        }
+    }
+    read_whole(file)
+}
+
+fn read_whole(mut file: File) -> Option<Exif> {
+    file.seek(SeekFrom::Start(0)).ok()?;
     Reader::new()
         .read_from_container(&mut BufReader::new(file))
         .ok()
@@ -29,21 +50,40 @@ pub fn orientation(exif: &Exif) -> u8 {
         .map_or(1, |v| v as u8)
 }
 
-/// The JPEG thumbnail stored in the EXIF block, if it is fully inside the block.
-pub fn thumbnail(exif: &Exif) -> Option<Vec<u8>> {
+/// Where the EXIF block says its JPEG thumbnail is, as a byte range of the block.
+fn thumbnail_span(exif: &Exif) -> Option<std::ops::Range<usize>> {
     let uint = |tag| {
         exif.get_field(tag, In::THUMBNAIL)?
             .value
             .get_uint(0)
             .map(|v| v as usize)
     };
-    let (off, len) = (
-        uint(Tag::JPEGInterchangeFormat)?,
-        uint(Tag::JPEGInterchangeFormatLength)?,
-    );
-    exif.buf()
-        .get(off..off.checked_add(len)?)
-        .map(<[u8]>::to_vec)
+    let off = uint(Tag::JPEGInterchangeFormat)?;
+    Some(off..off.checked_add(uint(Tag::JPEGInterchangeFormatLength)?)?)
+}
+
+/// The JPEG thumbnail stored in the EXIF block, if it is fully inside the block.
+pub fn thumbnail(exif: &Exif) -> Option<Vec<u8>> {
+    exif.buf().get(thumbnail_span(exif)?).map(<[u8]>::to_vec)
+}
+
+/// EXIF of the file and its thumbnail. The whole file is read only when the thumbnail lies past
+/// the prefix [`read`] parsed.
+pub fn read_with_thumbnail(path: &Path) -> Option<(Exif, Vec<u8>)> {
+    read_with_thumbnail_in(path, TIFF_PREFIX)
+}
+
+fn read_with_thumbnail_in(path: &Path, prefix: u64) -> Option<(Exif, Vec<u8>)> {
+    let exif = read_in(path, prefix)?;
+    if let Some(thumb) = thumbnail(&exif) {
+        return Some((exif, thumb));
+    }
+    if !thumbnail_span(&exif).is_some_and(|r| r.end > exif.buf().len()) {
+        return None;
+    }
+    let whole = read_whole(File::open(path).ok()?)?;
+    let thumb = thumbnail(&whole)?;
+    Some((whole, thumb))
 }
 
 fn coordinate(exif: &Exif, value: Tag, reference: Tag) -> Option<f64> {
@@ -209,6 +249,29 @@ pub mod tests {
             None,
         ));
         assert_eq!(orientation(&none), 1);
+    }
+
+    #[test]
+    fn a_tiff_cut_anywhere_reads_the_same_tags_and_thumbnail_as_the_whole_file() {
+        let thumb = [0xFF, 0xD8, 0xFF, 0xD9, 1, 2, 3, 4];
+        let mut tiff = tiff_block(
+            &[
+                field(Tag::Orientation, In::PRIMARY, Value::Short(vec![6])),
+                field(Tag::Make, In::PRIMARY, Value::Ascii(vec![b"Vislo".to_vec()])),
+            ],
+            Some(&thumb),
+        );
+        tiff.extend(std::iter::repeat_n(0x55, 4096)); // pixel data after the metadata
+        let path = std::env::temp_dir().join(format!("vislo-exif-prefix-{}.tif", std::process::id()));
+        std::fs::write(&path, &tiff).unwrap();
+        for prefix in 1..=tiff.len() as u64 + 1 {
+            let exif = read_in(&path, prefix).unwrap_or_else(|| panic!("prefix {prefix}"));
+            assert_eq!(orientation(&exif), 6, "prefix {prefix}");
+            assert!(exif.get_field(Tag::Make, In::PRIMARY).is_some(), "prefix {prefix}");
+            let (_, got) = read_with_thumbnail_in(&path, prefix).unwrap_or_else(|| panic!("prefix {prefix}"));
+            assert_eq!(got, thumb, "prefix {prefix}");
+        }
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

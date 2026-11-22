@@ -219,3 +219,21 @@ embaralhados (`IMG_…`, `DSC…`, `Photo N (copy M)`), só a ordenação foi de
 **O que a medição ensinou:** a comparação natural sem diferenciar maiúsculas convertia cada caractere para minúsculo em
 toda comparação (≈ 800 mil numa pasta de 50 000). Agora cada nome é convertido uma vez, com a mesma regra por caractere, e
 a ordem resultante é idêntica (teste `sort_natural_matches_case_insensitive_natord`, com acentos, `İ`, `Σ` e espaços).
+
+## 10. EXIF de TIFF e RAW sem ler o arquivo inteiro (2026-11-22)
+
+O leitor de EXIF carregava o arquivo inteiro sempre que ele era um TIFF (TIFF, DNG, NEF, CR2, ARW, PEF ...), só para
+ler alguns KB de tags. Isso acontece no painel de informações, na rota da prévia embutida e na orientação de cada
+decodificação. Agora ele tenta primeiro 1 MB do começo; se alguma tag ou IFD fica além disso, a leitura falha
+("truncated") e cai para o arquivo inteiro, então o resultado é sempre o mesmo.
+
+Arquivo de 72 MB com as tags no começo (o layout das câmeras), Linux 4 vCPU, mediana de 15:
+
+| Caso | Antes | Depois |
+|---|---|---|
+| RAW, tags no começo | 37,4 ms | **0,08 ms** |
+| TIFF do libtiff, IFD no fim | 36,7 ms | 37,6 ms (sem ganho, dentro do ruído) |
+
+`bench_tiff_exif` reproduz o primeiro caso (o "antes" dele lê o arquivo e depois o copia, por isso fica em ~80 ms).
+O teste `a_tiff_cut_anywhere_reads_the_same_tags_and_thumbnail_as_the_whole_file` corta o arquivo em cada byte possível
+e exige as mesmas tags e a mesma miniatura do arquivo inteiro.
