@@ -209,3 +209,13 @@ de 4 núcleos, prévia de 24 MP após um cabeçalho tipo RAF e 8 MB de dados de 
 | Controles de animação (pausa, passo de quadro) | recurso, não desempenho |
 | `turbojpeg` | C + cmake/nasm no build; ganho não medido |
 | HEIC/HEIF | licença e custo de build (seção 2) |
+
+## 9. Ordem natural da pasta (2026-11-21)
+
+`cargo test --release --lib album_bench -- --ignored --nocapture` (Linux, 4 vCPU, alternando antes/depois): `open()` de uma
+pasta com 50 000 arquivos caiu de **194–231 ms** para **106–115 ms**. Num microbenchmark à parte, com nomes de câmera
+embaralhados (`IMG_…`, `DSC…`, `Photo N (copy M)`), só a ordenação foi de ≈ 250 ms para ≈ 50 ms (mediana de 7).
+
+**O que a medição ensinou:** a comparação natural sem diferenciar maiúsculas convertia cada caractere para minúsculo em
+toda comparação (≈ 800 mil numa pasta de 50 000). Agora cada nome é convertido uma vez, com a mesma regra por caractere, e
+a ordem resultante é idêntica (teste `sort_natural_matches_case_insensitive_natord`, com acentos, `İ`, `Σ` e espaços).
