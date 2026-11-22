@@ -1,6 +1,6 @@
 [package]
 name = "vislo"
-version = "0.13.14"
+version = "0.13.15"
 description = "Fast image viewer: open a file, flip through its folder."
 edition = "2021"
 license = "MIT"
