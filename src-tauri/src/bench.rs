@@ -271,3 +271,22 @@ fn bench_raw_thumbnail() {
         let _ = std::fs::remove_dir_all(dir);
     }
 }
+
+/// EXIF of a TIFF-based RAW (tags first, 72 MB of sensor data after): the info panel, the preview route and
+/// orientation all read it. Before, the reader loaded the whole file to parse a few KB of tags.
+#[test]
+#[ignore = "timing run"]
+fn bench_tiff_exif() {
+    use vislo_core::exif_info;
+    let dir = std::env::temp_dir().join(format!("vislo-bench-exif-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("tags-first.nef");
+    let mut blob = b"II*\0\x08\0\0\0\x01\0\x12\x01\x03\0\x01\0\0\0\x06\0\0\0\0\0\0\0".to_vec(); // IFD0: Orientation = 6
+    blob.resize(72_000_000, 0x55);
+    std::fs::write(&file, blob).unwrap();
+    let before = median_ms(|| assert!(exif_info::read_bytes(&std::fs::read(&file).unwrap()).is_some()));
+    let after = median_ms(|| assert_eq!(exif_info::read(&file).map(|e| exif_info::orientation(&e)), Some(6)));
+    report("TIFF-based RAW EXIF: before", &file, before);
+    report("TIFF-based RAW EXIF: after", &file, after);
+    let _ = std::fs::remove_dir_all(dir);
+}
