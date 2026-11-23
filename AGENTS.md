@@ -1,101 +1,52 @@
 # AGENTS.md
 
-Instructions for AI agents and human contributors working on Vislo. Read this before changing anything.
+Vislo is a desktop image viewer: a Tauri 2 app with a TypeScript frontend (no framework) and a Rust backend. Read this before changing anything.
 
-## Semantic commits are mandatory
+## Stack
+- Frontend: TypeScript, Vite, no UI framework; tests with vitest.
+- Backend: Rust in `src-tauri/` (Tauri 2), workspace with `vislo-core`; Windows-first, OS calls behind `#[cfg(windows)]` with a stub elsewhere.
+- Packaging: NSIS installer and portable exe (Windows).
 
-Every commit message **and every pull request title** follows [Conventional Commits](https://www.conventionalcommits.org):
+## Commands
+- Frontend: `npm ci`, `npm test` (vitest), `npm run build` (`tsc --noEmit && vite build`).
+- Rust: `cargo test --manifest-path src-tauri/Cargo.toml --workspace`
+- Lint: `cargo clippy --manifest-path src-tauri/Cargo.toml --workspace -- -D warnings` (on Windows, as in CI)
+- Audit: `cargo audit --file src-tauri/Cargo.lock` and `npm audit --omit=dev --audit-level=high` (the `audit` job; cargo-audit 0.22.2)
+- All checks locally: `pwsh scripts/ci-local.ps1` (runs the `check` steps)
+- Screenshots: `npm run screenshots`
 
-```
-<type>(<optional scope>)<!>: <subject>
+## Structure
+- `src/`: frontend; `src/i18n/` holds all user-visible text (one file per language)
+- `src-tauri/src/`: backend; `update/` (self-updater), `settings.rs`, `splash/`, `scheme.rs`, and more
+- `src-tauri/vislo-core/`: image decoding core, with test data in `src/test_data/`
+- `scripts/`: release planner, commit checker, screenshots, perf
+- `.githooks/`: `commit-msg` hook (installed by `npm install`)
+- `.github/workflows/`: `ci`, `release`, `bench`, `sast`, `security`, `validate`
+- `assets/screenshots/`: README screenshots
 
-<optional body: what and why, wrapped at ~100 columns>
+## Conventions
+- **Semantic commits are mandatory** for every commit message and every PR title (Conventional Commits):
+  - Types: `feat` (minor), `fix`, `perf`, `refactor`, `style`, `docs`, `test`, `build`, `ci`, `chore`, `revert` (patch). A `!` or a `BREAKING CHANGE:` footer means major (minor while `0.x`).
+  - Type and scope are lower case (`feat(zoom): ...`); the subject is lower case, imperative, no trailing period, first line under 100 characters.
+  - One logical change per commit.
+  - Enforced by `scripts/check-commits.mjs` in the `commit-msg` hook, the `commits` CI job, and the release planner. Never bypass with `--no-verify`.
+  - Good: `feat(update): offer a one-click update from the release feed`. Bad: `Update stuff`, `Fixed bug.`, `feat: Add Zoom.`
+- **Every commit on `main` is released.** `release.yml` plans the version from commits since the last `v*` tag, stamps it into the manifests, builds, and publishes. Never edit the version by hand, never create tags by hand, and never push to `main` a commit you would not want shipped. Choose the type honestly; it sets the bump.
+- Updater contract: running copies read `releases/latest` of `juninmd/vislo`, download `Vislo_<version>_x64-setup.exe`, verify it against `SHA256SUMS.txt`, and run it silently. Keep those asset names stable, or update the updater (`src-tauri/src/update/`) and its tests with them.
+- Workflow: work on a branch, open a PR, keep it green. Do not rewrite shared history.
+- Do not mention or copy third-party products' internals in code, comments, docs or commits. Describe what Vislo does and why, in its own words.
+- Code: match the surrounding style. Comments explain *why*, not *what*. Pure logic goes in its own module with unit tests (`*.test.ts`, `*.rs` helpers).
+- i18n: add each user-visible string to `en.ts` and to **every** language file; `i18n.test.ts` fails on a missing key or a lost `{placeholder}`. Static markup uses `data-i18n*`. Rust error text and the tray menu stay in English.
+- Settings are a contract: a new field in `src-tauri/src/settings.rs` needs `#[serde(default)]`, a matching field in `src/api.ts`, and a test that old settings files still load.
+- Security posture is documented in the README; keep it intact (asset scope, `vislo://` canonicalisation, strict CSP, HTTPS-only downloads from this repo's releases, checksum before running anything).
+- UI changes: when the look changes, regenerate with `npm run screenshots` and commit the PNGs in `assets/screenshots/`.
 
-<optional footer, e.g. BREAKING CHANGE: ...>
-```
-
-| Type | Use for | Release effect |
-|---|---|---|
-| `feat` | a user-visible capability | **minor** |
-| `fix` | a bug fix | patch |
-| `perf` | a speed or memory improvement | patch |
-| `refactor`, `style` | code changes with no behaviour change | patch |
-| `docs`, `test`, `build`, `ci`, `chore` | everything else | patch |
-| any type + `!`, or a `BREAKING CHANGE:` footer | an incompatible change | **major** (minor while the version is `0.x`) |
-| `revert` | undoing an earlier commit | patch |
-
-Rules, enforced by `scripts/check-commits.mjs`:
-
-* the type is lower case and one of the types above; the scope (optional) is lower case: `feat(zoom): …`;
-* the subject starts in lower case, is imperative (`add`, not `added`), has no trailing period, and the whole
-  first line stays under 100 characters;
-* one logical change per commit.
-
-Enforcement happens in three places: the `commit-msg` hook in `.githooks/` (installed by `npm install`, which
-sets `core.hooksPath`), the `commits` job of the CI workflow (PR title and each commit), and the release
-planner, which reads the same messages. Never bypass the hook with `--no-verify`.
-
-Good: `feat(update): offer a one-click update from the release feed` · `fix(ui): keep the toast above the filmstrip`
-Bad: `Update stuff`, `Fixed bug.`, `feat: Add Zoom.`
-
-## Every commit on `main` is released
-
-`.github/workflows/release.yml` runs on each push to `main`:
-
-1. runs the full CI (frontend tests, build, `cargo test`, clippy) beside steps 2-4; step 5 (job `publish`) waits for it;
-2. plans the next version from the commits since the last `v*` tag (`scripts/release.mjs plan`);
-3. stamps it into `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `Cargo.lock` and `tauri.conf.json`;
-4. builds the NSIS installer and the portable exe, and writes `SHA256SUMS.txt`;
-5. commits `chore(release): vX.Y.Z [skip ci]`, tags `vX.Y.Z` and publishes a GitHub release with grouped notes.
-
-So: **never edit the version by hand**, never create tags by hand, and never push to `main` a commit you would not
-want shipped. The commit type decides the bump, so choose it honestly.
-
-Running copies of Vislo find the release through the built-in updater (`src-tauri/src/update.rs`): it reads
-`releases/latest` of `juninmd/vislo`, downloads `Vislo_<version>_x64-setup.exe`, verifies it against
-`SHA256SUMS.txt` and runs it silently. Keep these asset names stable, or update the updater and its tests with them.
-
-## Workflow
-
-* Work on a branch, open a pull request, keep it green. Do not rewrite shared history.
-* Do not mention or copy third-party products' internals in code, comments, docs or commit messages. Describe
-  what Vislo does and why, in its own words.
-* Before pushing, run what CI runs:
-
-  ```sh
-  npm ci && npm test && npm run build
-  cargo test --manifest-path src-tauri/Cargo.toml --workspace
-  cargo clippy --manifest-path src-tauri/Cargo.toml --workspace -- -D warnings   # on Windows, as in CI
-  cargo audit --file src-tauri/Cargo.lock                           # the `audit` job, with cargo-audit 0.22.2
-  npm audit --omit=dev --audit-level=high                           # the `audit` job
-  ```
-
-* CI gates: `ci` (`commits`, `check`, `audit`, `actionlint`) and `Validate` run on PRs; `Security Scan` runs on `main`
-  and weekly (`Validate` and `Security Scan` are reusable workflows from `juninmd/base-actions`).
-  `pwsh scripts/ci-local.ps1` runs the `check` steps locally.
-* The `ci` workflow is also called by `release.yml`, so the `audit` gate blocks a release too. A new advisory in a
-  dependency stops the next release until the dependency is upgraded, or until a reviewed ignore is added to
-  `.cargo/audit.toml` (repo root, read by `cargo audit` from there) with the reason and an expiry; never delete the gate to ship.
-* Third-party actions are pinned by commit SHA with a `# vX.Y.Z` comment; Dependabot (`.github/dependabot.yml`)
-  bumps them. `dtolnay/rust-toolchain` is pinned to a branch-head SHA, which Dependabot does not track: refresh it by
-  hand. Workflow files are checked with `actionlint` (pinned 1.7.12) in the `actionlint` job.
-* Every job sets `timeout-minutes`. Jobs that call a reusable workflow cannot set it (GitHub rejects the key), so the
-  limit lives in the called workflow.
-* UI changes: regenerate the README screenshots with `npm run screenshots` and commit the PNGs in
-  `assets/screenshots/` when the look changes.
-
-## Code conventions
-
-* Match the surrounding code: comment density, naming, idiom. Comments explain *why*, not *what*.
-* Frontend: TypeScript, no framework, one small module per concern, pure logic split out and unit-tested
-  (`*.test.ts`, vitest). Backend: Rust, `#[cfg(windows)]` for OS calls with a stub elsewhere, pure helpers tested.
-* User-visible text goes through `src/i18n`: add the string to `en.ts` and to **every** language file (the test in
-  `i18n.test.ts` fails on a missing key or a lost `{placeholder}`); static markup uses `data-i18n*` attributes. Backend
-  (Rust) error text and the tray menu stay in English.
-* Settings are a contract: a new field in `src-tauri/src/settings.rs` needs a default (`#[serde(default)]`), a
-  matching field in `src/api.ts`, and a test that old settings files still load.
-* Security posture is in the README; keep it intact (asset scope, `vislo://` canonicalisation, strict CSP,
-  HTTPS-only downloads from this repository's releases, checksum before running anything).
+## Gotchas
+- CI gates on PRs: `ci` (`commits`, `check`, `audit`, `actionlint`) and `Validate`. `Security Scan` runs on `main` and weekly. `Validate` and `Security Scan` are reusable workflows from `juninmd/base-actions`.
+- `release.yml` calls `ci`, so the `audit` gate blocks releases too. A new advisory stops the next release until the dependency is upgraded, or until a reviewed ignore with a reason and expiry is added to `.cargo/audit.toml`. Never delete the gate to ship.
+- Third-party actions are pinned by commit SHA with a `# vX.Y.Z` comment. `dtolnay/rust-toolchain` is pinned to a branch-head SHA that automation does not track: refresh it by hand. `actionlint` is pinned to 1.7.12.
+- The README says Dependabot (`.github/dependabot.yml`) bumps the action SHAs, but that file is absent from this tree. Until it is restored, bump SHAs by hand.
+- Every job sets `timeout-minutes`. Jobs that call a reusable workflow cannot set it (GitHub rejects the key); the limit lives in the called workflow.
 
 <!-- base-actions-main-policy -->
 ## GitHub Actions — padrão obrigatório (@main)
